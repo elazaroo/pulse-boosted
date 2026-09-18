@@ -101,7 +101,7 @@ it('can configure threshold per job', function () {
     $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->where('type', 'slow_job')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->key)->toBe('MySlowJob');
-    expect($entries[0]->value)->toBe(1_000);
+    expect($entries[0]->value)->toEqual(1_000);
 
     DB::table('pulse_entries')->delete();
 
@@ -112,9 +112,9 @@ it('can configure threshold per job', function () {
     $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->where('type', 'slow_job')->get());
     expect($entries)->toHaveCount(2);
     expect($entries[0]->key)->toBe('MySlowJob');
-    expect($entries[0]->value)->toBe(2_000);
+    expect($entries[0]->value)->toEqual(2_000);
     expect($entries[1]->key)->toBe('AnotherSlowJob');
-    expect($entries[1]->value)->toBe(2_000);
+    expect($entries[1]->value)->toEqual(2_000);
 });
 
 it('can ignore jobs', function () {

@@ -318,6 +318,90 @@ jobs:
           DB_USERNAME: pulse
           DB_PASSWORD: password
 
+  mssql:
+    runs-on: ubuntu-22.04
+
+    services:
+      sqlsrv:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: Password123!
+        ports:
+          - 1433:1433
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+        options: --entrypoint redis-server
+
+    strategy:
+      fail-fast: true
+      matrix:
+        php: [8.3]
+        laravel: [12]
+        livewire: [3, 4]
+        stability: [prefer-stable]
+
+    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - Livewire ${{ matrix.livewire }} - Stability ${{ matrix.stability }} - SQL Server 2022
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, curl, libxml, mbstring, redis, pcntl, zip, relay, sqlsrv, pdo_sqlsrv
+          ini-values: error_reporting=E_ALL
+          tools: composer:v2
+          coverage: none
+
+      - name: Install redis-cli
+        run: sudo apt-get install -qq redis-tools
+
+      - name: Create database
+        run: |
+          php -r '
+            $dsn = "sqlsrv:Server=127.0.0.1,1433;TrustServerCertificate=true";
+            for ($attempt = 1; $attempt <= 30; $attempt++) {
+                try {
+                    (new PDO($dsn, "sa", "Password123!"))->exec("CREATE DATABASE pulse");
+                    exit(0);
+                } catch (PDOException $e) {
+                    echo "Waiting for SQL Server... ({$attempt})\n";
+                    sleep(2);
+                }
+            }
+            fwrite(STDERR, "SQL Server did not become available.\n");
+            exit(1);
+          '
+
+      - name: Require cachewerk/relay
+        run: |
+          composer require cachewerk/relay --no-interaction --no-update
+
+      - name: Require Livewire ${{ matrix.livewire }}
+        run: |
+          composer require "livewire/livewire:${{ matrix.livewire == 3 && '^3.6.4' || '^4.0' }}" --no-interaction --no-update
+
+      - name: Install dependencies
+        run: |
+          composer update --prefer-dist --no-interaction --no-progress --${{ matrix.stability }}
+
+      - name: Execute tests
+        run: vendor/bin/pest -vvv
+        env:
+          DB_CONNECTION: sqlsrv
+          DB_HOST: 127.0.0.1
+          DB_PORT: 1433
+          DB_DATABASE: pulse
+          DB_USERNAME: sa
+          DB_PASSWORD: Password123!
+
   sqlite:
     runs-on: ubuntu-22.04
 

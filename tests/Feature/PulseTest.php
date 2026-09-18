@@ -103,8 +103,8 @@ it('resolves the authenticated user ID', function () {
 
 it('resolves users', function () {
     Pulse::stopRecording();
-    User::factory()->create(['id' => 123, 'name' => 'Jess Archer', 'email' => 'jess@example.com']);
-    User::factory()->create(['id' => 456, 'name' => 'Tim MacDonald', 'email' => 'tim@example.com']);
+    createUserWithId(['id' => 123, 'name' => 'Jess Archer', 'email' => 'jess@example.com']);
+    createUserWithId(['id' => 456, 'name' => 'Tim MacDonald', 'email' => 'tim@example.com']);
 
     $resolved = Pulse::resolveUsers(collect([123, 456]));
 
@@ -122,7 +122,7 @@ it('resolves users', function () {
 
 it('can customize the user fields', function () {
     Pulse::stopRecording();
-    User::factory()->create(['id' => 123, 'name' => 'Jess Archer', 'email' => 'jess@jessarcher.com']);
+    createUserWithId(['id' => 123, 'name' => 'Jess Archer', 'email' => 'jess@jessarcher.com']);
 
     Pulse::user(fn ($user) => [
         'name' => strtoupper($user->name),
@@ -141,7 +141,7 @@ it('can customize the user fields', function () {
 
 it('maintains the users method for backwards compatibility', function () {
     Pulse::stopRecording();
-    User::factory()->create(['id' => 123, 'name' => 'Jess Archer', 'email' => 'jess@jessarcher.com']);
+    createUserWithId(['id' => 123, 'name' => 'Jess Archer', 'email' => 'jess@jessarcher.com']);
 
     Pulse::users(function ($ids) {
         return User::findMany($ids)->map(fn ($user) => [

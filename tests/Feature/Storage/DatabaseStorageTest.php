@@ -124,7 +124,7 @@ test('aggregation', function () {
 it('combines duplicate count aggregates before upserting', function () {
     $queries = collect();
     DB::listen(function (QueryExecuted $event) use (&$queries) {
-        if (str_starts_with($event->sql, 'insert')) {
+        if (str_starts_with($event->sql, 'insert') || str_starts_with($event->sql, 'merge')) {
             $queries[] = $event;
         }
     });
@@ -138,7 +138,7 @@ it('combines duplicate count aggregates before upserting', function () {
     expect($queries)->toHaveCount(2);
     expect($queries[0]->sql)->toContain('pulse_entries');
     expect($queries[1]->sql)->toContain('pulse_aggregates');
-    if (DB::connection()->getDriverName() === 'sqlite') {
+    if (in_array(DB::connection()->getDriverName(), ['sqlite', 'sqlsrv'])) {
         expect($queries[0]->bindings)->toHaveCount(4 * 5); // 4 entries, 5 columns each
         expect($queries[1]->bindings)->toHaveCount(2 * 7 * 4); // 2 entries, 7 columns each, 4 periods
     } else {
@@ -154,7 +154,7 @@ it('combines duplicate count aggregates before upserting', function () {
 it('combines duplicate min aggregates before upserting', function () {
     $queries = collect();
     DB::listen(function (QueryExecuted $event) use (&$queries) {
-        if (str_starts_with($event->sql, 'insert')) {
+        if (str_starts_with($event->sql, 'insert') || str_starts_with($event->sql, 'merge')) {
             $queries[] = $event;
         }
     });
@@ -168,7 +168,7 @@ it('combines duplicate min aggregates before upserting', function () {
     expect($queries)->toHaveCount(2);
     expect($queries[0]->sql)->toContain('pulse_entries');
     expect($queries[1]->sql)->toContain('pulse_aggregates');
-    if (DB::connection()->getDriverName() === 'sqlite') {
+    if (in_array(DB::connection()->getDriverName(), ['sqlite', 'sqlsrv'])) {
         expect($queries[0]->bindings)->toHaveCount(4 * 5); // 4 entries, 5 columns each
         expect($queries[1]->bindings)->toHaveCount(2 * 7 * 4); // 2 entries, 7 columns each, 4 periods
     } else {
@@ -184,7 +184,7 @@ it('combines duplicate min aggregates before upserting', function () {
 it('combines duplicate max aggregates before upserting', function () {
     $queries = collect();
     DB::listen(function (QueryExecuted $event) use (&$queries) {
-        if (str_starts_with($event->sql, 'insert')) {
+        if (str_starts_with($event->sql, 'insert') || str_starts_with($event->sql, 'merge')) {
             $queries[] = $event;
         }
     });
@@ -198,7 +198,7 @@ it('combines duplicate max aggregates before upserting', function () {
     expect($queries)->toHaveCount(2);
     expect($queries[0]->sql)->toContain('pulse_entries');
     expect($queries[1]->sql)->toContain('pulse_aggregates');
-    if (DB::connection()->getDriverName() === 'sqlite') {
+    if (in_array(DB::connection()->getDriverName(), ['sqlite', 'sqlsrv'])) {
         expect($queries[0]->bindings)->toHaveCount(4 * 5); // 4 entries, 5 columns each
         expect($queries[1]->bindings)->toHaveCount(2 * 7 * 4); // 2 entries, 7 columns each, 4 periods
     } else {
@@ -214,7 +214,7 @@ it('combines duplicate max aggregates before upserting', function () {
 it('combines duplicate sum aggregates before upserting', function () {
     $queries = collect();
     DB::listen(function (QueryExecuted $event) use (&$queries) {
-        if (str_starts_with($event->sql, 'insert')) {
+        if (str_starts_with($event->sql, 'insert') || str_starts_with($event->sql, 'merge')) {
             $queries[] = $event;
         }
     });
@@ -228,7 +228,7 @@ it('combines duplicate sum aggregates before upserting', function () {
     expect($queries)->toHaveCount(2);
     expect($queries[0]->sql)->toContain('pulse_entries');
     expect($queries[1]->sql)->toContain('pulse_aggregates');
-    if (DB::connection()->getDriverName() === 'sqlite') {
+    if (in_array(DB::connection()->getDriverName(), ['sqlite', 'sqlsrv'])) {
         expect($queries[0]->bindings)->toHaveCount(4 * 5); // 4 entries, 5 columns each
         expect($queries[1]->bindings)->toHaveCount(2 * 7 * 4); // 2 entries, 7 columns each, 4 periods
     } else {
@@ -244,7 +244,7 @@ it('combines duplicate sum aggregates before upserting', function () {
 it('combines duplicate average aggregates before upserting', function () {
     $queries = collect();
     DB::listen(function (QueryExecuted $event) use (&$queries) {
-        if (str_starts_with($event->sql, 'insert')) {
+        if (str_starts_with($event->sql, 'insert') || str_starts_with($event->sql, 'merge')) {
             $queries[] = $event;
         }
     });
@@ -258,7 +258,7 @@ it('combines duplicate average aggregates before upserting', function () {
     expect($queries)->toHaveCount(2);
     expect($queries[0]->sql)->toContain('pulse_entries');
     expect($queries[1]->sql)->toContain('pulse_aggregates');
-    if (DB::connection()->getDriverName() === 'sqlite') {
+    if (in_array(DB::connection()->getDriverName(), ['sqlite', 'sqlsrv'])) {
         expect($queries[0]->bindings)->toHaveCount(4 * 5); // 4 entries, 5 columns each
         expect($queries[1]->bindings)->toHaveCount(2 * 8 * 4); // 2 entries, 8 columns each, 4 periods
     } else {
@@ -480,7 +480,7 @@ test('total aggregate for multiple types', function () {
 it('collapses values with the same key into a single upsert', function () {
     $bindings = [];
     DB::listen(function (QueryExecuted $event) use (&$bindings) {
-        if (str_starts_with($event->sql, 'insert')) {
+        if (str_starts_with($event->sql, 'insert') || str_starts_with($event->sql, 'merge')) {
             $bindings = $event->bindings;
         }
     });
@@ -496,4 +496,19 @@ it('collapses values with the same key into a single upsert', function () {
     $values = Pulse::ignore(fn () => DB::table('pulse_values')->get());
     expect($values)->toHaveCount(1);
     expect($values[0]->value)->toBe('345');
+});
+
+it('stores more records than fit in a single statement', function () {
+    Carbon::setTestNow('2000-01-01 00:00:00');
+
+    for ($i = 0; $i < 1_000; $i++) {
+        Pulse::record('type', "key:{$i}", $i)->count()->min()->max()->sum()->avg();
+        Pulse::set('type', "key:{$i}", (string) $i);
+    }
+
+    Pulse::ingest();
+
+    expect(Pulse::ignore(fn () => DB::table('pulse_entries')->count()))->toBe(1_000);
+    expect(Pulse::ignore(fn () => DB::table('pulse_aggregates')->count()))->toBe(1_000 * 5 * 4); // 5 aggregates, 4 periods
+    expect(Pulse::ignore(fn () => DB::table('pulse_values')->count()))->toBe(1_000);
 });

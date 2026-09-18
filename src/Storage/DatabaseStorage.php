@@ -57,7 +57,7 @@ class DatabaseStorage implements Storage
                 ]),
                 fn ($entries) => $entries->map->attributes()
             )
-            ->chunk($this->config->get('pulse.storage.database.chunk'));
+            ->pipe($this->chunk(...));
 
         [$counts, $minimums, $maximums, $sums, $averages] = array_values($entries
             ->reduce(function ($carry, $entry) {
@@ -70,19 +70,19 @@ class DatabaseStorage implements Storage
         );
 
         $countChunks = $this->preaggregateCounts(collect($counts)) // @phpstan-ignore argument.templateType, argument.templateType
-            ->chunk($this->config->get('pulse.storage.database.chunk'));
+            ->pipe($this->chunk(...));
 
         $minimumChunks = $this->preaggregateMinimums(collect($minimums)) // @phpstan-ignore argument.templateType, argument.templateType
-            ->chunk($this->config->get('pulse.storage.database.chunk'));
+            ->pipe($this->chunk(...));
 
         $maximumChunks = $this->preaggregateMaximums(collect($maximums)) // @phpstan-ignore argument.templateType, argument.templateType
-            ->chunk($this->config->get('pulse.storage.database.chunk'));
+            ->pipe($this->chunk(...));
 
         $sumChunks = $this->preaggregateSums(collect($sums)) // @phpstan-ignore argument.templateType, argument.templateType
-            ->chunk($this->config->get('pulse.storage.database.chunk'));
+            ->pipe($this->chunk(...));
 
         $averageChunks = $this->preaggregateAverages(collect($averages)) // @phpstan-ignore argument.templateType, argument.templateType
-            ->chunk($this->config->get('pulse.storage.database.chunk'));
+            ->pipe($this->chunk(...));
 
         $valueChunks = $this
             ->collapseValues($values)
@@ -94,7 +94,7 @@ class DatabaseStorage implements Storage
                 ]),
                 fn ($values) => $values->map->attributes()
             )
-            ->chunk($this->config->get('pulse.storage.database.chunk'));
+            ->pipe($this->chunk(...));
 
         $this->connection()->transaction(function () use ($entryChunks, $countChunks, $minimumChunks, $maximumChunks, $sumChunks, $averageChunks, $valueChunks) {
             $entryChunks->each(fn ($chunk) => $this->connection()
@@ -186,7 +186,7 @@ class DatabaseStorage implements Storage
         $connection = $this->connection();
 
         return $connection->table('pulse_aggregates')->upsert(
-            $values,
+            $this->prepareAggregates($values),
             ['bucket', 'period', 'type', 'aggregate', 'key_hash'],
             [
                 'value' => match ($driver = $connection->getDriverName()) {
@@ -198,6 +198,9 @@ class DatabaseStorage implements Storage
                     'pgsql', 'sqlite' => new Expression(<<<SQL
                         {$this->wrap('pulse_aggregates.value')} + "excluded"."value"
                         SQL),
+                    'sqlsrv' => new Expression(
+                        "{$this->wrap('pulse_aggregates.value')} + {$this->castUpsertValue('laravel_source.value')}"
+                    ),
                     default => throw new RuntimeException("Unsupported database driver [{$driver}]"),
                 },
             ]
@@ -214,7 +217,7 @@ class DatabaseStorage implements Storage
         $connection = $this->connection();
 
         return $connection->table('pulse_aggregates')->upsert(
-            $values,
+            $this->prepareAggregates($values),
             ['bucket', 'period', 'type', 'aggregate', 'key_hash'],
             [
                 'value' => match ($driver = $connection->getDriverName()) {
@@ -229,6 +232,9 @@ class DatabaseStorage implements Storage
                     'sqlite' => new Expression(<<<SQL
                         min({$this->wrap('pulse_aggregates.value')}, "excluded"."value")
                         SQL),
+                    'sqlsrv' => new Expression(
+                        "iif({$this->wrap('pulse_aggregates.value')} < {$this->castUpsertValue('laravel_source.value')}, {$this->wrap('pulse_aggregates.value')}, {$this->castUpsertValue('laravel_source.value')})"
+                    ),
                     default => throw new RuntimeException("Unsupported database driver [{$driver}]"),
                 },
             ]
@@ -245,7 +251,7 @@ class DatabaseStorage implements Storage
         $connection = $this->connection();
 
         return $connection->table('pulse_aggregates')->upsert(
-            $values,
+            $this->prepareAggregates($values),
             ['bucket', 'period', 'type', 'aggregate', 'key_hash'],
             [
                 'value' => match ($driver = $connection->getDriverName()) {
@@ -260,6 +266,9 @@ class DatabaseStorage implements Storage
                     'sqlite' => new Expression(<<<SQL
                         max({$this->wrap('pulse_aggregates.value')}, "excluded"."value")
                         SQL),
+                    'sqlsrv' => new Expression(
+                        "iif({$this->wrap('pulse_aggregates.value')} > {$this->castUpsertValue('laravel_source.value')}, {$this->wrap('pulse_aggregates.value')}, {$this->castUpsertValue('laravel_source.value')})"
+                    ),
                     default => throw new RuntimeException("Unsupported database driver [{$driver}]"),
                 },
             ]
@@ -276,7 +285,7 @@ class DatabaseStorage implements Storage
         $connection = $this->connection();
 
         return $connection->table('pulse_aggregates')->upsert(
-            $values,
+            $this->prepareAggregates($values),
             ['bucket', 'period', 'type', 'aggregate', 'key_hash'],
             [
                 'value' => match ($driver = $connection->getDriverName()) {
@@ -288,6 +297,9 @@ class DatabaseStorage implements Storage
                     'pgsql', 'sqlite' => new Expression(<<<SQL
                         {$this->wrap('pulse_aggregates.value')} + "excluded"."value"
                         SQL),
+                    'sqlsrv' => new Expression(
+                        "{$this->wrap('pulse_aggregates.value')} + {$this->castUpsertValue('laravel_source.value')}"
+                    ),
                     default => throw new RuntimeException("Unsupported database driver [{$driver}]"),
                 },
             ]
@@ -304,7 +316,7 @@ class DatabaseStorage implements Storage
         $connection = $this->connection();
 
         return $connection->table('pulse_aggregates')->upsert(
-            $values,
+            $this->prepareAggregates($values),
             ['bucket', 'period', 'type', 'aggregate', 'key_hash'],
             match ($driver = $connection->getDriverName()) {
                 'mariadb', 'mysql' => $connection->getConfig('use_upsert_alias') ? [
@@ -325,6 +337,14 @@ class DatabaseStorage implements Storage
                     'count' => new Expression(<<<SQL
                         {$this->wrap('pulse_aggregates.count')} + "excluded"."count"
                         SQL),
+                ],
+                'sqlsrv' => [
+                    'value' => new Expression(
+                        "({$this->wrap('pulse_aggregates.value')} * {$this->wrap('pulse_aggregates.count')} + ({$this->castUpsertValue('laravel_source.value')} * {$this->castUpsertCount('laravel_source.count')})) / ({$this->wrap('pulse_aggregates.count')} + {$this->castUpsertCount('laravel_source.count')})"
+                    ),
+                    'count' => new Expression(
+                        "{$this->wrap('pulse_aggregates.count')} + {$this->castUpsertCount('laravel_source.count')}"
+                    ),
                 ],
                 default => throw new RuntimeException("Unsupported database driver [{$driver}]"),
             }
@@ -715,7 +735,7 @@ class DatabaseStorage implements Storage
 
                     foreach ($types as $type) {
                         $query->selectRaw(match ($aggregate) {
-                            'count' => "count(case when ({$this->wrap('type')} = ?) then true else null end)",
+                            'count' => "count(case when ({$this->wrap('type')} = ?) then 1 else null end)",
                             'min' => "min(case when ({$this->wrap('type')} = ?) then {$this->wrap('value')} else null end)",
                             'max' => "max(case when ({$this->wrap('type')} = ?) then {$this->wrap('value')} else null end)",
                             'sum' => "sum(case when ({$this->wrap('type')} = ?) then {$this->wrap('value')} else null end)",
@@ -859,10 +879,71 @@ class DatabaseStorage implements Storage
     }
 
     /**
+     * Split the rows into chunks the database accepts in a single statement.
+     *
+     * SQL Server accepts at most 2,100 parameters per request, and the statement
+     * itself takes some of them when it is executed through sp_executesql, so
+     * the configured chunk size is reduced to stay safely below that limit.
+     *
+     * @template TRow of array<string, mixed>
+     *
+     * @param  Collection<int, TRow>  $rows
+     * @return Collection<int, Collection<int, TRow>>
+     */
+    protected function chunk(Collection $rows): Collection
+    {
+        $size = $this->config->get('pulse.storage.database.chunk');
+
+        if ($rows->isNotEmpty() && $this->connection()->getDriverName() === 'sqlsrv') {
+            $size = min($size, intdiv(2000, count($rows->first())));
+        }
+
+        return $rows->chunk($size);
+    }
+
+    /**
+     * Prepare the aggregate rows for the upsert.
+     *
+     * SQL Server derives the type of each column in a table value constructor using
+     * type precedence. As integers outrank strings, a column mixing the two would
+     * make the driver cast every value to an integer, so they are unified here.
+     *
+     * @param  list<AggregateRow>  $values
+     * @return list<AggregateRow>
+     */
+    protected function prepareAggregates(array $values): array
+    {
+        if ($this->connection()->getDriverName() !== 'sqlsrv') {
+            return $values;
+        }
+
+        return array_map(fn (array $value) => [ // @phpstan-ignore return.type
+            ...$value,
+            'value' => (string) $value['value'],
+        ], $values);
+    }
+
+    /**
+     * Wrap and cast an upsert source value for drivers without implicit conversion.
+     */
+    protected function castUpsertValue(string $value): string
+    {
+        return "cast({$this->wrap($value)} as decimal(20, 2))";
+    }
+
+    /**
+     * Wrap and cast an upsert source count for drivers without implicit conversion.
+     */
+    protected function castUpsertCount(string $value): string
+    {
+        return "cast({$this->wrap($value)} as int)";
+    }
+
+    /**
      * Determine whether a manually generated key hash is required.
      */
     protected function requiresManualKeyHash(): bool
     {
-        return $this->connection()->getDriverName() === 'sqlite';
+        return in_array($this->connection()->getDriverName(), ['sqlite', 'sqlsrv']);
     }
 }

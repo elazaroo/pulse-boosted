@@ -16,6 +16,7 @@ use Livewire\Mechanisms\HandleRequests\EndpointResolver;
 use PHPUnit\Framework\Assert;
 use Ramsey\Uuid\Uuid;
 use Tests\TestCase;
+use Tests\User;
 
 /*
 |--------------------------------------------------------------------------
@@ -101,12 +102,46 @@ expect()->extend('toContainAggregateForAllPeriods', function (string|array $type
 |
 */
 
+/**
+ * Create a user with an explicit primary key.
+ *
+ * SQL Server rejects explicit values for identity columns unless IDENTITY_INSERT
+ * is enabled for the table, so it is toggled around the insert.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function createUserWithId(array $attributes): User
+{
+    if (DB::connection()->getDriverName() !== 'sqlsrv') {
+        return User::factory()->create($attributes);
+    }
+
+    $tabla = DB::getQueryGrammar()->wrapTable('users');
+
+    DB::unprepared("set identity_insert {$tabla} on");
+
+    try {
+        $user = User::factory()->make($attributes);
+
+        DB::table('users')->insert([
+            ...$user->getAttributes(),
+            'id' => $attributes['id'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    } finally {
+        DB::unprepared("set identity_insert {$tabla} off");
+    }
+
+    return User::findOrFail($attributes['id']);
+}
+
 function keyHash(string $string): string
 {
     return match (DB::connection()->getDriverName()) {
         'mariadb', 'mysql' => hex2bin(md5($string)),
         'pgsql' => Uuid::fromString(md5($string)),
-        'sqlite' => md5($string),
+        'sqlite', 'sqlsrv' => md5($string),
     };
 }
 

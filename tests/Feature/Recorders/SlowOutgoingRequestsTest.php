@@ -256,7 +256,7 @@ it('can configure threshold per url', function () {
     $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->key)->toBe('["GET","one-second-threshold"]');
-    expect($entries[0]->value)->toBe(1000);
+    expect($entries[0]->value)->toEqual(1000);
 
     DB::table('pulse_entries')->delete();
 
@@ -268,7 +268,7 @@ it('can configure threshold per url', function () {
     $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->orderBy('key')->get());
     expect($entries)->toHaveCount(2);
     expect($entries[0]->key)->toBe('["GET","one-second-threshold"]');
-    expect($entries[0]->value)->toBe(2_000);
+    expect($entries[0]->value)->toEqual(2_000);
     expect($entries[1]->key)->toBe('["GET","two-second-threshold"]');
-    expect($entries[1]->value)->toBe(2_000);
+    expect($entries[1]->value)->toEqual(2_000);
 });

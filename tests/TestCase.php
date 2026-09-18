@@ -28,6 +28,19 @@ abstract class TestCase extends OrchestraTestCase
     {
         tap($app['config'], function (Repository $config) {
             $config->set('queue.failed.driver', 'null');
+
+            // SQL Server returns every column as a string unless the driver is told
+            // to preserve numeric types, which would make assertions on integers
+            // fail for reasons that have nothing to do with the code under test.
+            if ($config->get('database.default') === 'sqlsrv') {
+                $config->set('database.connections.sqlsrv.options', [
+                    \PDO::SQLSRV_ATTR_FETCHES_NUMERIC_TYPE => true,
+                ]);
+
+                // The server used for testing has a self signed certificate, which
+                // newer versions of the ODBC driver reject by default.
+                $config->set('database.connections.sqlsrv.trust_server_certificate', true);
+            }
         });
     }
 }

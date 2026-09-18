@@ -24,7 +24,7 @@ class PulseMigration extends Migration
      */
     public function shouldRun(): bool
     {
-        if (in_array($this->driver(), ['mariadb', 'mysql', 'pgsql', 'sqlite'])) {
+        if (in_array($this->driver(), ['mariadb', 'mysql', 'pgsql', 'sqlite', 'sqlsrv'])) {
             return true;
         }
 

@@ -130,7 +130,7 @@ it('can configure threshold per query', function () {
     $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->key)->toContain('one_second_threshold');
-    expect($entries[0]->value)->toBe(1_000);
+    expect($entries[0]->value)->toEqual(1_000);
 
     Pulse::ignore(fn () => DB::table('pulse_entries')->delete());
 
@@ -144,9 +144,9 @@ it('can configure threshold per query', function () {
     $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->orderBy('key')->get());
     expect($entries)->toHaveCount(2);
     expect($entries[0]->key)->toContain('one_second_threshold');
-    expect($entries[0]->value)->toBe(2_000);
+    expect($entries[0]->value)->toEqual(2_000);
     expect($entries[1]->key)->toContain('two_second_threshold');
-    expect($entries[1]->value)->toBe(2_000);
+    expect($entries[1]->value)->toEqual(2_000);
 });
 
 it('ingests queries equal to the slow query threshold', function () {
