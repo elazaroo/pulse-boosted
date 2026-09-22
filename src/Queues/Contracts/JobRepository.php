@@ -4,6 +4,32 @@ namespace Elazaroo\PulseBoosted\Queues\Contracts;
 
 use Illuminate\Support\Collection;
 
+/**
+ * @phpstan-type RecordedJob object{
+ *     id: int,
+ *     uuid: string,
+ *     job_id: ?string,
+ *     connection: string,
+ *     queue: string,
+ *     name: string,
+ *     class: ?string,
+ *     status: string,
+ *     queued_at: ?int,
+ *     started_at: ?int,
+ *     finished_at: ?int,
+ *     duration_ms: ?int,
+ *     attempts: int,
+ *     max_tries: ?int,
+ *     timeout: ?int,
+ *     payload: ?string,
+ *     tags: ?string,
+ *     exception: ?string,
+ *     exception_class: ?string,
+ *     batch_id: ?string,
+ *     worker: ?string
+ * }
+ * @phpstan-type JobFilters array<string, string|null>
+ */
 interface JobRepository
 {
     /**
@@ -33,28 +59,30 @@ interface JobRepository
 
     /**
      * Retrieve a single job by its UUID.
+     *
+     * @return RecordedJob|null
      */
     public function find(string $uuid): ?object;
 
     /**
      * Retrieve recorded jobs, newest first.
      *
-     * @param  array{status?: string, connection?: string, queue?: string, class?: string, search?: string, batch_id?: string}  $filters
-     * @return Collection<int, object>
+     * @param  JobFilters  $filters
+     * @return Collection<int, RecordedJob>
      */
     public function jobs(array $filters = [], int $limit = 50, int $offset = 0): Collection;
 
     /**
      * Count recorded jobs matching the filters.
      *
-     * @param  array{status?: string, connection?: string, queue?: string, class?: string, search?: string, batch_id?: string}  $filters
+     * @param  JobFilters  $filters
      */
     public function count(array $filters = []): int;
 
     /**
      * Count recorded jobs per status, for the explorer's tabs.
      *
-     * @param  array{connection?: string, queue?: string, class?: string, search?: string}  $filters
+     * @param  JobFilters  $filters
      * @return array<string, int>
      */
     public function countsByStatus(array $filters = []): array;
@@ -62,7 +90,7 @@ interface JobRepository
     /**
      * The distinct connection and queue pairs that have been recorded.
      *
-     * @return Collection<int, object{connection: string, queue: string}>
+     * @return Collection<int, object>
      */
     public function recordedQueues(): Collection;
 }

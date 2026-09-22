@@ -54,7 +54,7 @@ class RedisInspector extends Inspector
             return parent::queues();
         }
 
-        return collect($keys)
+        return collect(is_array($keys) ? $keys : [])
             ->map(fn ($key) => trim(Str::between((string) $key, 'queues:', ':'), '{}'))
             ->filter()
             ->push($this->defaultQueue())
@@ -124,7 +124,7 @@ class RedisInspector extends Inspector
             return collect();
         }
 
-        return collect($members)->map(function ($score, $raw) use ($scoreMeans) {
+        return collect(is_array($members) ? $members : [])->map(function ($score, $raw) use ($scoreMeans) {
             $payload = PendingJob::decode(is_string($raw) ? $raw : null);
 
             return PendingJob::fromPayload(

@@ -47,14 +47,20 @@ trait ResolvesQueueNames
      */
     protected function queuedListenerQueue(JobQueued $event): ?string
     {
+        $job = $event->job;
+
+        if (! $job instanceof CallQueuedListener) {
+            return null;
+        }
+
         try {
-            $listener = (new ReflectionClass($event->job->class))->newInstanceWithoutConstructor();
+            $listener = (new ReflectionClass($job->class))->newInstanceWithoutConstructor();
         } catch (Throwable) {
             return null;
         }
 
         return method_exists($listener, 'viaQueue')
-            ? $listener->viaQueue($event->job->data[0] ?? null)
+            ? $listener->viaQueue($job->data[0] ?? null)
             : ($listener->queue ?? null);
     }
 

@@ -18,7 +18,7 @@ Laravel Pulse is excellent at aggregated metrics, but two things were missing fo
 - Laravel 10.48.4+, 11.0.8+, 12.x or 13.x
 - Livewire 3.6.4+ or 4.x
 
-The queue observability features require **Laravel 13+**, which is the first version to expose `pendingSize()`, `delayedSize()` and `reservedSize()` on the queue contract. On earlier versions the dashboard falls back to recorded event data and hides the live queue counters.
+Recorded job history works on every supported version. Live queue counters do too for the `database` and `redis` drivers, which are read directly. For `sqs` and `beanstalkd` the counters come from `pendingSize()`, `delayedSize()` and `reservedSize()`, which Laravel added to the queue contract in **13.0**; on older versions those two drivers show their counts as unknown rather than guessing.
 
 ## Installation
 
@@ -89,13 +89,39 @@ Gate::define('managePulseBoostedQueues', function (User $user) {
 Queue payloads routinely carry personal data, API tokens and credentials. Because of that, **payload capture is off by default**. When you turn it on, values whose keys match the redaction list are replaced before anything is written:
 
 ```php
-'jobs' => [
-    'capture_payload' => env('PULSE_BOOSTED_JOBS_CAPTURE_PAYLOAD', false),
-    'redact' => ['password', 'token', 'secret', 'api_key', 'authorization'],
+// config/pulse-boosted.php
+'recorders' => [
+    Recorders\Jobs::class => [
+        'capture_payload' => env('PULSE_BOOSTED_JOBS_CAPTURE_PAYLOAD', false),
+        'redact' => ['password', 'secret', 'token', 'api_key', 'authorization', /* ... */],
+        'trim' => ['keep' => env('PULSE_BOOSTED_JOBS_KEEP', '7 days')],
+    ],
 ],
 ```
 
+Keys are matched case-insensitively as substrings, so `redact` entry `token` also covers `apiToken` and `refresh_token`.
+
 Job arguments are captured when the job is *queued*, by reflecting over the live object, and stored as JSON. Pulse Boosted never calls `unserialize()` on the stored payload when reading it back — doing so would mean executing code derived from database contents.
+
+## The queue explorer
+
+`/pulse-boosted/queues` reads from two places and says which is which.
+
+**Live tabs** — Waiting, Delayed and Running — come from the queue backend itself, so they show what is on the queue at this moment. They are only offered by drivers that can be listed.
+
+**Recorded tabs** — Completed and Failed — come from `pulse_boosted_jobs`. The backend deletes a job the moment it finishes, so this is the only place a completed job exists, and the only way to see anything at all on `sync`.
+
+Clicking a recorded job opens `/pulse-boosted/jobs/{uuid}`: its timeline, its arguments if you captured them, the exception with its stack trace, and how many attempts it had left.
+
+| Driver | Counts | Listing |
+| --- | --- | --- |
+| `database` | yes | yes |
+| `redis` | yes | yes, except on cluster |
+| `sqs` | yes, approximate, Laravel 13+ | no — reading an SQS queue means receiving its messages, which would hide them from your workers |
+| `beanstalkd` | yes, Laravel 13+ | no |
+| `sync`, `null` | nothing waits on these | — |
+
+Listing never pops: the database inspector runs a `SELECT` and the Redis one uses `LRANGE` and `ZRANGE`, so opening the explorer cannot lose a job.
 
 ## Commands
 

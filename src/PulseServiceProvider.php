@@ -12,6 +12,7 @@ use Elazaroo\PulseBoosted\Ingests\StorageIngest;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\DatabaseJobRepository;
 use Elazaroo\PulseBoosted\Queues\InspectorManager;
+use Elazaroo\PulseBoosted\Queues\JobActions;
 use Elazaroo\PulseBoosted\Storage\DatabaseStorage;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Contracts\Auth\Access\Gate;
@@ -24,6 +25,7 @@ use Illuminate\Queue\Events\Looping;
 use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Lottery;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\View\Compilers\BladeCompiler;
@@ -105,6 +107,10 @@ class PulseServiceProvider extends ServiceProvider
     {
         $this->callAfterResolving(Gate::class, function (Gate $gate, Application $app) {
             $gate->define('viewPulseBoosted', fn ($user = null) => $app->environment('local'));
+
+            // Reading metrics must not imply being able to retry or delete
+            // production jobs, so this is a separate gate and denies by default.
+            $gate->define(JobActions::GATE, fn ($user = null) => false);
         });
     }
 
@@ -123,6 +129,14 @@ class PulseServiceProvider extends ServiceProvider
                     $router->get('/', function (Pulse $pulse, ViewFactory $view) {
                         return $view->make('pulse-boosted::dashboard');
                     })->name('pulse-boosted');
+
+                    $router->get('/queues', function (ViewFactory $view) {
+                        return $view->make('pulse-boosted::queues');
+                    })->name('pulse-boosted.queues');
+
+                    $router->get('/jobs/{uuid}', function (string $uuid, ViewFactory $view) {
+                        return $view->make('pulse-boosted::job', ['uuid' => $uuid]);
+                    })->name('pulse-boosted.jobs.show');
                 });
             }
         });
@@ -193,7 +207,19 @@ class PulseServiceProvider extends ServiceProvider
     {
         $pulse = $app->make(Pulse::class);
 
-        $pulse->rescue(fn () => $app->make(JobRepository::class)->flush());
+        $pulse->rescue(function () use ($app, $pulse) {
+            $repository = $app->make(JobRepository::class);
+
+            $pulse->ignore($repository->flush(...));
+
+            // Trimmed on the same lottery the ingest uses, so retention costs
+            // one delete every so often rather than one per flush.
+            $odds = $app->make('config')->get('pulse-boosted.ingest.trim.lottery') ?? [1, 1_000];
+
+            Lottery::odds(...$odds)
+                ->winner(fn () => $pulse->ignore($repository->trim(...)))
+                ->choose();
+        });
     }
 
     /**
@@ -224,6 +250,8 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.slow-queries', Livewire\SlowQueries::class);
             $livewire->component('pulse-boosted.period-selector', Livewire\PeriodSelector::class);
             $livewire->component('pulse-boosted.slow-outgoing-requests', Livewire\SlowOutgoingRequests::class);
+            $livewire->component('pulse-boosted.queue-explorer', Livewire\QueueExplorer::class);
+            $livewire->component('pulse-boosted.job-detail', Livewire\JobDetail::class);
         });
     }
 

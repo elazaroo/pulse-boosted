@@ -3,6 +3,7 @@
 namespace Elazaroo\PulseBoosted\Commands;
 
 use Elazaroo\PulseBoosted\Pulse;
+use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -40,7 +41,7 @@ class ClearCommand extends Command
     /**
      * Handle the command.
      */
-    public function handle(Pulse $pulse): int
+    public function handle(Pulse $pulse, JobRepository $jobs): int
     {
         if (! $this->confirmToProceed()) {
             return Command::FAILURE;
@@ -55,6 +56,13 @@ class ClearCommand extends Command
             $this->components->task(
                 'Purging all Pulse data',
                 fn () => $pulse->purge(),
+            );
+
+            // Recorded jobs have their own table and are not one of the
+            // storage "types", so purging by type leaves them alone.
+            $this->components->task(
+                'Purging recorded jobs',
+                fn () => $jobs->purge(),
             );
         }
 

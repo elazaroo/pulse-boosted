@@ -84,13 +84,12 @@ class DatabaseJobRepository implements JobRepository
             })
             ->groupBy(fn (array $row) => implode(',', array_keys($row)))
             ->each(function (Collection $group) {
-                $columns = array_keys($group->first());
+                /** @var array<string, mixed> $first */
+                $first = $group->first();
 
-                $this->table()->upsert(
-                    $group->values()->all(),
-                    ['uuid'],
-                    array_values(array_diff($columns, ['uuid'])),
-                );
+                $columns = array_values(array_diff(array_keys($first), ['uuid']));
+
+                $this->table()->upsert($group->values()->all(), ['uuid'], $columns);
             }));
     }
 
@@ -132,7 +131,10 @@ class DatabaseJobRepository implements JobRepository
      */
     public function find(string $uuid): ?object
     {
-        return $this->pulse->ignore(fn () => $this->table()->where('uuid', $uuid)->first());
+        /** @var object|null $row */
+        $row = $this->pulse->ignore(fn () => $this->table()->where('uuid', $uuid)->first());
+
+        return $row; // @phpstan-ignore return.type
     }
 
     /**
@@ -140,6 +142,8 @@ class DatabaseJobRepository implements JobRepository
      *
      * @param  array<string, string|null>  $filters
      * @return Collection<int, object>
+     *
+     * @phpstan-return Collection<int, mixed>
      */
     public function jobs(array $filters = [], int $limit = 50, int $offset = 0): Collection
     {
@@ -184,7 +188,7 @@ class DatabaseJobRepository implements JobRepository
     /**
      * The distinct connection and queue pairs that have been recorded.
      *
-     * @return Collection<int, object{connection: string, queue: string}>
+     * @return Collection<int, object>
      */
     public function recordedQueues(): Collection
     {

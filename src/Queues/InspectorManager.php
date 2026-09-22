@@ -69,10 +69,12 @@ class InspectorManager
         $configured = $this->config->get('pulse-boosted.queues.connections');
 
         if (is_array($configured)) {
-            return collect($configured)->values();
+            return collect(array_values(array_map(strval(...), $configured)));
         }
 
-        return collect(array_keys($this->config->get('queue.connections', [])))->values();
+        $connections = $this->config->get('queue.connections', []);
+
+        return collect(array_map(strval(...), array_keys(is_array($connections) ? $connections : [])));
     }
 
     /**

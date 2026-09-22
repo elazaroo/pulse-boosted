@@ -132,7 +132,7 @@ class DatabaseInspector extends Inspector
 
         return $rows->map(fn (object $row) => PendingJob::fromPayload(
             payload: PendingJob::decode($row->payload ?? null),
-            id: (string) $row->id,
+            id: isset($row->id) ? (string) $row->id : null,
             attempts: (int) ($row->attempts ?? 0),
             availableAt: isset($row->available_at) ? (int) $row->available_at : null,
             reservedAt: isset($row->reserved_at) ? (int) $row->reserved_at : null,

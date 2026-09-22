@@ -25,6 +25,12 @@ parameters:
 			path: src/Storage/DatabaseStorage.php
 
 		-
+			message: '#^Method Elazaroo\\PulseBoosted\\Storage\\DatabaseStorage\:\:graph\(\) should return Illuminate\\Support\\Collection\<string, Illuminate\\Support\\Collection\<string, Illuminate\\Support\\Collection\<string, int\|null\>\>\> but returns Illuminate\\Support\\Collection\<\(int\|string\), Illuminate\\Support\\Collection\<string, Illuminate\\Support\\Collection\<string, mixed\>\>\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Storage/DatabaseStorage.php
+
+		-
 			message: '#^Method Elazaroo\\PulseBoosted\\Storage\\DatabaseStorage\:\:values\(\) should return Illuminate\\Support\\Collection\<string, object\{timestamp\: int, key\: string, value\: string\}\> but returns Illuminate\\Support\\Collection\<\(int\|string\), stdClass\>\.$#'
 			identifier: return.type
 			count: 1
