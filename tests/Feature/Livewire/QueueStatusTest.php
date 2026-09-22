@@ -53,7 +53,6 @@ it('pauses and resumes a queue', function () {
 
     $actions = app(QueueActions::class);
 
-    expect($actions->supportsPausing())->toBeTrue();
     expect($actions->paused('database', 'default'))->toBeFalse();
 
     Livewire::test(QueueStatus::class, ['lazy' => false])
@@ -69,7 +68,18 @@ it('pauses and resumes a queue', function () {
     expect($actions->paused('database', 'default'))->toBeFalse();
 
     Pulse::flush();
-});
+})->skip(
+    fn () => ! app(QueueActions::class)->supportsPausing(),
+    'Pausing queues needs Laravel 13.',
+);
+
+it('reports that this Laravel cannot pause queues', function () {
+    expect(app(QueueActions::class)->supportsPausing())->toBeFalse();
+    expect(app(QueueActions::class)->paused('database', 'default'))->toBeFalse();
+})->skip(
+    fn () => app(QueueActions::class)->supportsPausing(),
+    'This Laravel can pause queues.',
+);
 
 it('refuses to pause without the manage gate', function () {
     Bus::dispatchToQueue(new WatchedJob);
