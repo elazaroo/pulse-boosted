@@ -153,6 +153,10 @@
                     @endif
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
+                    @if (($detail['source'] ?? '') === 'recorded')
+                        <button type="button" wire:click="showTrace('{{ $detail['uuid'] }}')"
+                            class="px-2 py-1 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap">Trace</button>
+                    @endif
                     @if ($detail['canAct'] ?? false)
                         <button type="button" wire:click="retry('{{ $detail['uuid'] }}')" wire:confirm="Push this job back onto its queue?"
                             class="px-2 py-1 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">Retry</button>

@@ -10,6 +10,8 @@ Laravel Pulse is excellent at aggregated metrics, but two things were missing fo
 
 **SQL Server.** Pulse supports MySQL, MariaDB, PostgreSQL and SQLite. Pulse Boosted adds `sqlsrv` to the storage driver and the migrations, so the dashboard runs against SQL Server without a bridging package.
 
+**No way to follow one execution.** Pulse aggregates: it can tell you a route is slow, not which queries made it slow on a given hit. Pulse Boosted records traces — every query, cache read, job, outgoing call, exception and log line tied to the request, command, task or job that caused it.
+
 **Per-job visibility.** Pulse records queue activity as bucketed counters — how many jobs were queued, processed or failed in a period. It cannot tell you *which* job failed, what arguments it was given, how many times it was retried, or what the stack trace was. Pulse Boosted records one row per job and gives you a queue explorer and a job detail view on top of it.
 
 ## Requirements
@@ -103,6 +105,65 @@ Keys are matched case-insensitively as substrings, so `redact` entry `token` als
 
 Job arguments are captured when the job is *queued*, by reflecting over the live object, and stored as JSON. Pulse Boosted never calls `unserialize()` on the stored payload when reading it back — doing so would mean executing code derived from database contents.
 
+## Traces
+
+Pulse counts things: how many exceptions this hour, how many slow queries. That
+tells you something is wrong, not what led to it. A trace is the other half.
+
+When a request, an Artisan command, a scheduled task or a queued job runs, it
+becomes an **execution context**, and everything that happens inside it —
+queries, cache reads, jobs it dispatched, outgoing HTTP calls, exceptions, log
+lines, mail, notifications — is recorded against it, with the offset at which
+it happened. The Traces card lists executions; opening one draws the timeline.
+
+A job queued during a request carries the trace id on its payload, so when a
+worker picks it up in another process minutes later, the two are still joined.
+Opening a failed job's trace shows both the job and the request that asked for
+the work.
+
+### The cost, and how it is kept down
+
+A trace is a row per event, which is far more than an aggregate. Three things
+keep that in hand:
+
+- **Sampling happens at the entry point.** An execution is recorded whole or
+  not at all — half a trace is worse than none, because the gaps read as time
+  the application spent idle. The default is 10% of requests, 50% of jobs, and
+  everything for commands and scheduled tasks, which are rare.
+- **A per-trace cap** of 500 events, so a loop that queries a thousand times
+  writes 500 rows and the timeline says how many it dropped.
+- **A day's retention**, against a week for the aggregates.
+
+```php
+// config/pulse-boosted.php
+'traces' => [
+    'enabled' => env('PULSE_BOOSTED_TRACES_ENABLED', true),
+    'sample_rate' => env('PULSE_BOOSTED_TRACES_SAMPLE_RATE', 0.1),
+    'sample_rates' => [
+        'request' => 0.1,
+        'job' => 0.5,
+        'command' => 1.0,
+        'schedule' => 1.0,
+    ],
+    'max_events' => 500,
+    'log_level' => env('PULSE_BOOSTED_TRACES_LOG_LEVEL', 'debug'),
+    'trim' => ['keep' => env('PULSE_BOOSTED_TRACES_KEEP', '24 hours')],
+],
+```
+
+To keep a noisy block out of a timeline entirely:
+
+```php
+use Elazaroo\PulseBoosted\Traces\Tracer;
+
+app(Tracer::class)->ignore(function () {
+    // Nothing in here is recorded.
+});
+```
+
+Log lines are picked up from Laravel's logger as they are written — there is no
+channel to add to `LOG_STACK`. Set `log_level` to `error` if you only want the
+ones that matter.
 ## On the dashboard
 
 Two cards come with the fork, alongside the ones Pulse already has.

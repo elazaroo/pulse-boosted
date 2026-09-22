@@ -10,6 +10,8 @@
 
     <livewire:pulse-boosted.jobs cols="full" rows="2" />
 
+    <livewire:pulse-boosted.traces cols="full" rows="2" />
+
     <livewire:pulse-boosted.queues cols="6" />
     <livewire:pulse-boosted.exceptions cols="6" />
 

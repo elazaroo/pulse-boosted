@@ -127,6 +127,64 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Traces
+    |--------------------------------------------------------------------------
+    |
+    | A trace ties everything one execution did — its queries, cache reads,
+    | dispatched jobs, outgoing calls, exceptions and log lines — to the
+    | request, command, scheduled task or job that caused them. Counters tell
+    | you something is wrong; a trace tells you what led to it.
+    |
+    | The cost is a row per event, so sampling happens at the entry point: an
+    | execution is recorded whole or not at all. Half a trace would be worse
+    | than none, because the missing parts would read as idle time.
+    |
+    */
+
+    'traces' => [
+        'enabled' => env('PULSE_BOOSTED_TRACES_ENABLED', true),
+
+        /*
+         * The share of executions to record. Start low and raise it once you
+         * know what your traffic costs; 1.0 records everything.
+         */
+        'sample_rate' => env('PULSE_BOOSTED_TRACES_SAMPLE_RATE', 0.1),
+
+        /*
+         * Per-context overrides. Commands and scheduled tasks are rare enough
+         * to record in full, and a failed job is usually the thing you came
+         * to look at, so jobs are sampled higher than requests.
+         */
+        'sample_rates' => [
+            'request' => env('PULSE_BOOSTED_TRACES_REQUEST_SAMPLE_RATE', 0.1),
+            'job' => env('PULSE_BOOSTED_TRACES_JOB_SAMPLE_RATE', 0.5),
+            'command' => env('PULSE_BOOSTED_TRACES_COMMAND_SAMPLE_RATE', 1.0),
+            'schedule' => env('PULSE_BOOSTED_TRACES_SCHEDULE_SAMPLE_RATE', 1.0),
+        ],
+
+        /*
+         * The most events one trace may hold. A loop that queries in a
+         * thousand iterations should not write a thousand rows; the timeline
+         * says how many were dropped.
+         */
+        'max_events' => 500,
+
+        /*
+         * The lowest log level that makes it into a trace.
+         */
+        'log_level' => env('PULSE_BOOSTED_TRACES_LOG_LEVEL', 'debug'),
+
+        /*
+         * Traces are far heavier than aggregates, so they are kept for a day
+         * rather than a week.
+         */
+        'trim' => [
+            'keep' => env('PULSE_BOOSTED_TRACES_KEEP', '24 hours'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Queue Inspection
     |--------------------------------------------------------------------------
     |
@@ -247,6 +305,13 @@ return [
             'sample_rate' => env('PULSE_BOOSTED_QUEUES_SAMPLE_RATE', 1),
             'ignore' => [
                 // '/^Package\\\\Jobs\\\\/',
+            ],
+        ],
+
+        Recorders\Traces::class => [
+            'enabled' => env('PULSE_BOOSTED_TRACES_ENABLED', true),
+            'ignore' => [
+                // '#^health$#',
             ],
         ],
 

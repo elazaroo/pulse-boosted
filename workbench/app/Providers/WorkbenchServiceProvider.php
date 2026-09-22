@@ -16,6 +16,11 @@ class WorkbenchServiceProvider extends ServiceProvider
         // the test suite loads the workbench too and would inherit them.
         if (! $this->app->runningUnitTests()) {
             config(['pulse-boosted.recorders.'.Jobs::class.'.capture_payload' => true]);
+
+            // Record every execution in the demo, so the traces card has
+            // something in it without having to generate traffic.
+            config(['pulse-boosted.traces.sample_rate' => 1.0]);
+            config(['pulse-boosted.traces.sample_rates' => []]);
         }
 
         // The dashboard is already open in `local`. This opens the destructive

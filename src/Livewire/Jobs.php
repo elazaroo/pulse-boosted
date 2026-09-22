@@ -95,6 +95,15 @@ class Jobs extends Card
     }
 
     /**
+     * Show this job's trace, which is where the queries and log lines it
+     * produced actually live.
+     */
+    public function showTrace(string $uuid): void
+    {
+        $this->dispatch('trace-job', uuid: $uuid);
+    }
+
+    /**
      * Close it.
      */
     public function deselect(): void

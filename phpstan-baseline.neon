@@ -95,3 +95,33 @@ parameters:
 			identifier: argument.type
 			count: 2
 			path: src/Storage/DatabaseStorage.php
+
+		-
+			message: '#^Method Elazaroo\\PulseBoosted\\Traces\\TraceRepository\:\:children\(\) should return Illuminate\\Support\\Collection\<int, object\{id\: int, trace_id\: string, parent_trace_id\: string\|null, type\: string, name\: string, started_at\: int, duration_ms\: int\|null, status\: string, user_id\: string\|null, meta\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, stdClass\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Traces/TraceRepository.php
+
+		-
+			message: '#^Method Elazaroo\\PulseBoosted\\Traces\\TraceRepository\:\:events\(\) should return Illuminate\\Support\\Collection\<int, object\{id\: int, trace_id\: string, type\: string, label\: string, offset_ms\: int, duration_ms\: int\|null, level\: string\|null, meta\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, stdClass\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Traces/TraceRepository.php
+
+		-
+			message: '#^Method Elazaroo\\PulseBoosted\\Traces\\TraceRepository\:\:find\(\) should return object\{id\: int, trace_id\: string, parent_trace_id\: string\|null, type\: string, name\: string, started_at\: int, duration_ms\: int\|null, status\: string, user_id\: string\|null, meta\: string\|null\}\|null but returns stdClass\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Traces/TraceRepository.php
+
+		-
+			message: '#^Method Elazaroo\\PulseBoosted\\Traces\\TraceRepository\:\:forJob\(\) should return object\{id\: int, trace_id\: string, parent_trace_id\: string\|null, type\: string, name\: string, started_at\: int, duration_ms\: int\|null, status\: string, user_id\: string\|null, meta\: string\|null\}\|null but returns stdClass\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Traces/TraceRepository.php
+
+		-
+			message: '#^Method Elazaroo\\PulseBoosted\\Traces\\TraceRepository\:\:recent\(\) should return Illuminate\\Support\\Collection\<int, object\{id\: int, trace_id\: string, parent_trace_id\: string\|null, type\: string, name\: string, started_at\: int, duration_ms\: int\|null, status\: string, user_id\: string\|null, meta\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, stdClass\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Traces/TraceRepository.php

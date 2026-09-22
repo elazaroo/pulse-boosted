@@ -13,7 +13,9 @@ use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\DatabaseJobRepository;
 use Elazaroo\PulseBoosted\Queues\InspectorManager;
 use Elazaroo\PulseBoosted\Queues\QueueActions;
+use Elazaroo\PulseBoosted\Recorders\Traces as TracesRecorder;
 use Elazaroo\PulseBoosted\Storage\DatabaseStorage;
+use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
@@ -23,6 +25,7 @@ use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Queue\Events\WorkerStopping;
+use Illuminate\Queue\Queue as QueueBase;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Lottery;
@@ -58,6 +61,9 @@ class PulseServiceProvider extends ServiceProvider
         // Singleton because it buffers writes between flushes.
         $this->app->singleton(JobRepository::class, DatabaseJobRepository::class);
         $this->app->singleton(InspectorManager::class);
+
+        // Singleton because it holds the execution context for this process.
+        $this->app->singleton(Tracer::class);
 
         $this->registerIngest();
     }
@@ -152,6 +158,15 @@ class PulseServiceProvider extends ServiceProvider
     protected function listenForEvents(): void
     {
         $this->app->booted(function () {
+            // A job queued inside a request should be joinable to it, even
+            // though it runs later in another process. The id rides along in
+            // the payload, which is the only thing that crosses the gap.
+            QueueBase::createPayloadUsing(function () {
+                $id = $this->app->make(Tracer::class)->currentId();
+
+                return $id === null ? [] : [TracesRecorder::PAYLOAD_KEY => $id];
+            });
+
             $this->callAfterResolving(Dispatcher::class, function (Dispatcher $event, Application $app) {
                 $event->listen(function (Logout $event) use ($app) {
                     if ($event->user === null) {
@@ -169,6 +184,7 @@ class PulseServiceProvider extends ServiceProvider
                 ], function () use ($app) {
                     $app->make(Pulse::class)->ingest();
                     $this->flushJobs($app);
+                    $this->flushTraces($app);
                 });
             });
 
@@ -176,6 +192,7 @@ class PulseServiceProvider extends ServiceProvider
                 $kernel->whenRequestLifecycleIsLongerThan(-1, function () use ($app) { // @phpstan-ignore method.notFound
                     $app->make(Pulse::class)->ingest();
                     $this->flushJobs($app);
+                    $this->flushTraces($app);
                 });
             });
 
@@ -183,6 +200,7 @@ class PulseServiceProvider extends ServiceProvider
                 $kernel->whenCommandLifecycleIsLongerThan(-1, function () use ($app) { // @phpstan-ignore method.notFound
                     $app->make(Pulse::class)->ingest();
                     $this->flushJobs($app);
+                    $this->flushTraces($app);
                 });
             });
         });
@@ -227,6 +245,30 @@ class PulseServiceProvider extends ServiceProvider
     }
 
     /**
+     * Close the current trace and write whatever is buffered.
+     *
+     * A request has no event of its own to say it finished, so this runs on
+     * the same lifecycle hooks Pulse uses for its ingest.
+     */
+    protected function flushTraces(Application $app): void
+    {
+        $pulse = $app->make(Pulse::class);
+
+        $pulse->rescue(function () use ($app) {
+            $tracer = $app->make(Tracer::class);
+
+            $tracer->finish();
+            $tracer->flush();
+
+            $odds = $app->make('config')->get('pulse-boosted.ingest.trim.lottery') ?? [1, 1_000];
+
+            Lottery::odds(...$odds)
+                ->winner($tracer->trim(...))
+                ->choose();
+        });
+    }
+
+    /**
      * Register the package's components.
      */
     protected function registerComponents(): void
@@ -257,6 +299,7 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.jobs', Livewire\Jobs::class);
             $livewire->component('pulse-boosted.queue-status', Livewire\QueueStatus::class);
             $livewire->component('pulse-boosted.workers', Livewire\Workers::class);
+            $livewire->component('pulse-boosted.traces', Livewire\Traces::class);
         });
     }
 

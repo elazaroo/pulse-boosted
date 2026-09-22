@@ -14,6 +14,7 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 - Retry, delete, flush, pause, resume and worker restart actions behind a `managePulseBoostedQueues` gate, separate from `viewPulseBoosted` and denied by default.
 - A Queue Status card on the dashboard: live counts per queue, paused state, and pause/resume in place.
 - A Workers card, built from a heartbeat each worker writes as it loops, since Laravel does not track them. Distinguishes a worker that stopped cleanly from one that went quiet.
+- Traces: requests, commands, scheduled tasks and jobs become execution contexts, and the queries, cache reads, dispatched jobs, outgoing calls, exceptions, log lines, mail and notifications inside them are recorded against them with a timeline. A job carries its parent's trace id on the queue payload, so work is still joined to whatever asked for it across processes. Sampled at the entry point, capped per trace, and kept for a day.
 - A runnable demo application in `workbench/`, with `demo:seed-queue`.
 
 ### Changed
