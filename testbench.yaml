@@ -1,5 +1,6 @@
 providers:
   - Elazaroo\PulseBoosted\PulseServiceProvider
+  - Workbench\App\Providers\WorkbenchServiceProvider
 
 migrations:
   - database/migrations
