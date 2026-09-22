@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -156,6 +157,18 @@ it('filters recorded jobs by search term', function () {
         ->assertDontSee(ExploredJob::class);
 
     Pulse::flush();
+});
+
+it('renders the dashboard when the application registers its own routes', function () {
+    // Pulse::ignoreRoutes() leaves the named routes undefined, so anything in
+    // the layout or the cards that calls route() has to cope.
+    Pulse::ignoreRoutes();
+
+    Route::get('/my-pulse', fn () => view('pulse-boosted::dashboard'))->middleware('pulse-boosted');
+
+    $this->get('/my-pulse')
+        ->assertOk()
+        ->assertDontSee('Explore');
 });
 
 function failedCount(): int

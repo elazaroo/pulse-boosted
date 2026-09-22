@@ -1,4 +1,5 @@
 @use('Elazaroo\PulseBoosted\Facades\Pulse')
+@use('Illuminate\Support\Facades\Route')
 @props(['cols' => 12, 'fullWidth' => false, 'title' => null])
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -25,12 +26,13 @@
                 <div class="{{ $fullWidth ? '' : 'container' }} py-3 sm:py-5 mx-auto border-b border-gray-200 dark:border-gray-900">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center">
-                            <a href="{{ route('pulse-boosted') }}" class="flex items-center gap-2">
+                            <a href="{{ Route::has('pulse-boosted') ? route('pulse-boosted') : url(config('pulse-boosted.path')) }}" class="flex items-center gap-2">
                                 <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-b from-[#F85A5A] to-[#7A5AF8] text-white font-bold text-sm">PB</span>
                                 <span class="text-lg sm:text-2xl text-gray-700 dark:text-gray-300 font-medium"><b class="font-bold">Pulse</b> Boosted</span>
                             </a>
                         </div>
                         <div class="flex items-center gap-3 sm:gap-6">
+                            @if (Route::has('pulse-boosted') && Route::has('pulse-boosted.queues'))
                             <nav class="flex items-center gap-4 text-sm font-medium">
                                 <a href="{{ route('pulse-boosted') }}" @class([
                                     'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
@@ -41,6 +43,7 @@
                                     'text-gray-900 dark:text-gray-100' => request()->routeIs('pulse-boosted.queues*'),
                                 ])>Queues</a>
                             </nav>
+                            @endif
                             @if (request()->routeIs('pulse-boosted'))
                                 <livewire:pulse-boosted.period-selector />
                             @endif
