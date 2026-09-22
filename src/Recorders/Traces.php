@@ -205,7 +205,8 @@ class Traces
 
         $this->tracer->event(TraceEvent::JOB, $name, meta: [
             'connection' => $event->connectionName,
-            'queue' => $event->queue,
+            // JobQueued only gained a queue property in Laravel 11.
+            'queue' => $event->queue ?? null,
         ]);
     }
 
