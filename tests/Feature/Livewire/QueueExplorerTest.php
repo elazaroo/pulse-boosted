@@ -4,7 +4,7 @@ use Elazaroo\PulseBoosted\Facades\Pulse;
 use Elazaroo\PulseBoosted\Livewire\JobDetail;
 use Elazaroo\PulseBoosted\Livewire\QueueExplorer;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
-use Elazaroo\PulseBoosted\Queues\JobActions;
+use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Schema\Blueprint;
@@ -86,7 +86,7 @@ it('hides live tabs for a driver that cannot list', function () {
 it('hides destructive actions unless the manage gate allows them', function () {
     Livewire::test(QueueExplorer::class)->assertDontSee('Delete all failed');
 
-    Gate::define(JobActions::GATE, fn ($user = null) => true);
+    Gate::define(QueueActions::GATE, fn ($user = null) => true);
 
     Livewire::test(QueueExplorer::class)->assertSee('Delete all failed');
 
@@ -107,7 +107,7 @@ it('refuses to retry a job without the manage gate', function () {
 });
 
 it('retries a failed job when the gate allows it', function () {
-    Gate::define(JobActions::GATE, fn ($user = null) => true);
+    Gate::define(QueueActions::GATE, fn ($user = null) => true);
     Str::createUuidsUsingSequence(['33333333-6c2e-4bc5-82c9-45e79c3e8fdd']);
 
     Bus::dispatchToQueue(new ExplodingJob);

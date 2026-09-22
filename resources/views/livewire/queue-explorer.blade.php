@@ -28,8 +28,27 @@
             >
         </div>
 
+        <div class="ml-auto flex items-center gap-2">
+            @if ($canPause)
+                @if ($paused)
+                    <button
+                        type="button"
+                        wire:click="resume"
+                        class="px-3 py-1.5 text-xs font-medium rounded-md border border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950"
+                    >Paused &mdash; resume</button>
+                @else
+                    <button
+                        type="button"
+                        wire:click="pause"
+                        wire:confirm="Stop workers picking up new jobs from this queue? Jobs already running will finish."
+                        class="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >Pause queue</button>
+                @endif
+            @endif
+        </div>
+
         @if ($canManage)
-            <div class="ml-auto flex items-center gap-2">
+            <div class="flex items-center gap-2">
                 <button
                     type="button"
                     wire:click="retryAll"
@@ -146,7 +165,7 @@
                                 </x-pulse-boosted::td>
                             @endunless
                             <x-pulse-boosted::td numeric>
-                                @if ($uuid && ! $live)
+                                @if ($uuid && \Illuminate\Support\Facades\Route::has('pulse-boosted.jobs.show'))
                                     <a href="{{ route('pulse-boosted.jobs.show', $uuid) }}" class="text-xs font-medium text-[#7A5AF8] hover:underline">Details</a>
                                 @endif
                             </x-pulse-boosted::td>

@@ -6,8 +6,8 @@ use Elazaroo\PulseBoosted\Queues\Capabilities;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\Counts;
 use Elazaroo\PulseBoosted\Queues\InspectorManager;
-use Elazaroo\PulseBoosted\Queues\JobActions;
 use Elazaroo\PulseBoosted\Queues\JobStatus;
+use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\View;
@@ -66,9 +66,25 @@ class QueueExplorer extends Component
     }
 
     /**
+     * Stop workers picking anything up from the queue being viewed.
+     */
+    public function pause(QueueActions $actions): void
+    {
+        $actions->pause((string) $this->connection, (string) $this->queue);
+    }
+
+    /**
+     * Let workers pick up from it again.
+     */
+    public function resume(QueueActions $actions): void
+    {
+        $actions->resume((string) $this->connection, (string) $this->queue);
+    }
+
+    /**
      * Put a failed job back onto its queue.
      */
-    public function retry(string $uuid, JobActions $actions): void
+    public function retry(string $uuid, QueueActions $actions): void
     {
         $actions->retry($uuid);
 
@@ -78,7 +94,7 @@ class QueueExplorer extends Component
     /**
      * Forget a failed job.
      */
-    public function forget(string $uuid, JobActions $actions): void
+    public function forget(string $uuid, QueueActions $actions): void
     {
         $actions->forget($uuid);
 
@@ -88,7 +104,7 @@ class QueueExplorer extends Component
     /**
      * Retry every failed job.
      */
-    public function retryAll(JobActions $actions): void
+    public function retryAll(QueueActions $actions): void
     {
         $actions->retryAll();
 
@@ -98,7 +114,7 @@ class QueueExplorer extends Component
     /**
      * Forget every failed job.
      */
-    public function flush(JobActions $actions): void
+    public function flush(QueueActions $actions): void
     {
         $actions->flush();
 
@@ -111,7 +127,7 @@ class QueueExplorer extends Component
     public function render(
         InspectorManager $inspectors,
         JobRepository $repository,
-        JobActions $actions,
+        QueueActions $actions,
     ): Renderable {
         $connections = $inspectors->connections();
 
@@ -149,6 +165,8 @@ class QueueExplorer extends Component
             'total' => $this->total($repository),
             'live' => in_array($this->tab, self::LIVE_TABS, true),
             'canManage' => $actions->allowed(),
+            'canPause' => $actions->allowed() && $actions->supportsPausing(),
+            'paused' => $actions->paused($connection, (string) $this->queue),
             'tabs' => $this->tabs($capabilities),
         ]);
     }

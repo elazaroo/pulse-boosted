@@ -18,7 +18,7 @@ Laravel Pulse is excellent at aggregated metrics, but two things were missing fo
 - Laravel 10.48.4+, 11.0.8+, 12.x or 13.x
 - Livewire 3.6.4+ or 4.x
 
-Recorded job history works on every supported version. Live queue counters do too for the `database` and `redis` drivers, which are read directly. For `sqs` and `beanstalkd` the counters come from `pendingSize()`, `delayedSize()` and `reservedSize()`, which Laravel added to the queue contract in **13.0**; on older versions those two drivers show their counts as unknown rather than guessing.
+Pausing queues from the dashboard needs **Laravel 13**, which is where `queue:pause` and the API behind it landed; on older versions the buttons are not shown. Recorded job history works on every supported version. Live queue counters do too for the `database` and `redis` drivers, which are read directly. For `sqs` and `beanstalkd` the counters come from `pendingSize()`, `delayedSize()` and `reservedSize()`, which Laravel added to the queue contract in **13.0**; on older versions those two drivers show their counts as unknown rather than guessing.
 
 ## Installation
 
@@ -76,7 +76,7 @@ Gate::define('viewPulseBoosted', function (User $user) {
 });
 ```
 
-Actions that change queue state — retrying a job, deleting one, flushing failed jobs — are behind a **separate** gate, `managePulseBoostedQueues`, which is denied unless you define it. Being able to read the dashboard never implies being able to mutate your queues.
+Actions that change queue state — pausing a queue, restarting workers, retrying a job, deleting one, flushing failed jobs — are behind a **separate** gate, `managePulseBoostedQueues`, which is denied unless you define it. Being able to read the dashboard never implies being able to mutate your queues.
 
 ```php
 Gate::define('managePulseBoostedQueues', function (User $user) {
@@ -103,6 +103,21 @@ Keys are matched case-insensitively as substrings, so `redact` entry `token` als
 
 Job arguments are captured when the job is *queued*, by reflecting over the live object, and stored as JSON. Pulse Boosted never calls `unserialize()` on the stored payload when reading it back — doing so would mean executing code derived from database contents.
 
+## On the dashboard
+
+Two cards come with the fork, alongside the ones Pulse already has.
+
+**Queue Status** lists every queue with its live counts, says which are paused,
+and lets you pause or resume one without leaving the page. Each queue name
+links into the explorer, already filtered.
+
+**Workers** shows the workers that are running: what each is working on, how
+many jobs it has finished, its memory, and when it was last heard from. Laravel
+does not track workers, so this reads a heartbeat each one writes as it loops.
+A worker that shuts down cleanly reports itself as stopped; one that is killed
+outright cannot, so it is shown as stale once it goes quiet. There is also a
+button to restart them all, which tells each to finish its current job and exit
+for your process manager to bring back.
 ## The queue explorer
 
 `/pulse-boosted/queues` reads from two places and says which is which.

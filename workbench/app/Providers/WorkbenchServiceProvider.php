@@ -2,7 +2,7 @@
 
 namespace Workbench\App\Providers;
 
-use Elazaroo\PulseBoosted\Queues\JobActions;
+use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Elazaroo\PulseBoosted\Recorders\Jobs;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -21,7 +21,7 @@ class WorkbenchServiceProvider extends ServiceProvider
         // The dashboard is already open in `local`. This opens the destructive
         // actions too, which are denied by default, so retry and delete can be
         // tried out in the demo.
-        Gate::define(JobActions::GATE, fn ($user = null) => $this->app->environment('local'));
+        Gate::define(QueueActions::GATE, fn ($user = null) => $this->app->environment('local'));
 
         if ($this->app->runningInConsole()) {
             $this->commands([SeedQueueCommand::class]);

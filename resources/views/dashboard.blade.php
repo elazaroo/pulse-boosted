@@ -3,6 +3,10 @@
 
     <livewire:pulse-boosted.usage cols="4" rows="2" />
 
+    <livewire:pulse-boosted.queue-status cols="6" />
+
+    <livewire:pulse-boosted.workers cols="6" />
+
     <livewire:pulse-boosted.queues cols="4" />
 
     <livewire:pulse-boosted.cache cols="4" />

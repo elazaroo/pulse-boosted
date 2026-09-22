@@ -3,8 +3,8 @@
 namespace Elazaroo\PulseBoosted\Livewire;
 
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
-use Elazaroo\PulseBoosted\Queues\JobActions;
 use Elazaroo\PulseBoosted\Queues\JobStatus;
+use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\View;
 use Livewire\Component;
@@ -21,7 +21,7 @@ class JobDetail extends Component
     /**
      * Put the job back onto its queue.
      */
-    public function retry(JobActions $actions): void
+    public function retry(QueueActions $actions): void
     {
         $actions->retry($this->uuid);
 
@@ -31,7 +31,7 @@ class JobDetail extends Component
     /**
      * Forget the failed job.
      */
-    public function forget(JobActions $actions): void
+    public function forget(QueueActions $actions): void
     {
         $actions->forget($this->uuid);
 
@@ -41,7 +41,7 @@ class JobDetail extends Component
     /**
      * Render the component.
      */
-    public function render(JobRepository $repository, JobActions $actions): Renderable
+    public function render(JobRepository $repository, QueueActions $actions): Renderable
     {
         $job = $repository->find($this->uuid);
 

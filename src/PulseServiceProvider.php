@@ -12,7 +12,7 @@ use Elazaroo\PulseBoosted\Ingests\StorageIngest;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\DatabaseJobRepository;
 use Elazaroo\PulseBoosted\Queues\InspectorManager;
-use Elazaroo\PulseBoosted\Queues\JobActions;
+use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Elazaroo\PulseBoosted\Storage\DatabaseStorage;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Contracts\Auth\Access\Gate;
@@ -110,7 +110,7 @@ class PulseServiceProvider extends ServiceProvider
 
             // Reading metrics must not imply being able to retry or delete
             // production jobs, so this is a separate gate and denies by default.
-            $gate->define(JobActions::GATE, fn ($user = null) => false);
+            $gate->define(QueueActions::GATE, fn ($user = null) => false);
         });
     }
 
@@ -252,6 +252,8 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.slow-outgoing-requests', Livewire\SlowOutgoingRequests::class);
             $livewire->component('pulse-boosted.queue-explorer', Livewire\QueueExplorer::class);
             $livewire->component('pulse-boosted.job-detail', Livewire\JobDetail::class);
+            $livewire->component('pulse-boosted.queue-status', Livewire\QueueStatus::class);
+            $livewire->component('pulse-boosted.workers', Livewire\Workers::class);
         });
     }
 

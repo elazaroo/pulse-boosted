@@ -250,6 +250,10 @@ return [
             ],
         ],
 
+        Recorders\Workers::class => [
+            'enabled' => env('PULSE_BOOSTED_WORKERS_ENABLED', true),
+        ],
+
         Recorders\Servers::class => [
             'server_name' => env('PULSE_BOOSTED_SERVER_NAME', gethostname()),
             'directories' => explode(':', env('PULSE_BOOSTED_SERVER_DIRECTORIES', '/')),
