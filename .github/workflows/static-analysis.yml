@@ -14,4 +14,4 @@ jobs:
   tests:
     uses: laravel/.github/.github/workflows/static-analysis.yml@e452f9eed97229303120af74915504885b578b7c # main
     with:
-      php-version: 8.3
+      php: 8.3
