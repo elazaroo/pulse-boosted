@@ -34,7 +34,10 @@ jobs:
         options: --entrypoint redis-server
 
     strategy:
-      fail-fast: true
+      # Keep going: cancelling the matrix on the first failure marks every
+      # in-flight test as failed with no message, which hides the one that
+      # actually broke.
+      fail-fast: false
       matrix:
         php: [8.1, 8.2, 8.3, 8.4]
         laravel: [10, 11, 12, 13]
@@ -119,7 +122,10 @@ jobs:
         options: --entrypoint redis-server
 
     strategy:
-      fail-fast: true
+      # Keep going: cancelling the matrix on the first failure marks every
+      # in-flight test as failed with no message, which hides the one that
+      # actually broke.
+      fail-fast: false
       matrix:
         php: [8.1, 8.2, 8.3, 8.4]
         laravel: [10, 11, 12, 13]
@@ -204,7 +210,10 @@ jobs:
         options: --entrypoint redis-server
 
     strategy:
-      fail-fast: true
+      # Keep going: cancelling the matrix on the first failure marks every
+      # in-flight test as failed with no message, which hides the one that
+      # actually broke.
+      fail-fast: false
       matrix:
         php: [8.3]
         laravel: [12]
@@ -271,7 +280,10 @@ jobs:
         options: --entrypoint redis-server
 
     strategy:
-      fail-fast: true
+      # Keep going: cancelling the matrix on the first failure marks every
+      # in-flight test as failed with no message, which hides the one that
+      # actually broke.
+      fail-fast: false
       matrix:
         php: [8.3]
         laravel: [12]
@@ -336,7 +348,10 @@ jobs:
         options: --entrypoint redis-server
 
     strategy:
-      fail-fast: true
+      # Keep going: cancelling the matrix on the first failure marks every
+      # in-flight test as failed with no message, which hides the one that
+      # actually broke.
+      fail-fast: false
       matrix:
         php: [8.3]
         laravel: [12]
@@ -413,7 +428,10 @@ jobs:
         options: --entrypoint redis-server
 
     strategy:
-      fail-fast: true
+      # Keep going: cancelling the matrix on the first failure marks every
+      # in-flight test as failed with no message, which hides the one that
+      # actually broke.
+      fail-fast: false
       matrix:
         php: [8.3]
         laravel: [12]
