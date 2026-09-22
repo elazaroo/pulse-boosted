@@ -6,11 +6,6 @@
         <x-slot:icon>
             <x-pulse-boosted::icons.queue-list />
         </x-slot:icon>
-        <x-slot:actions>
-            @if (\Illuminate\Support\Facades\Route::has('pulse-boosted.queues'))
-                <a href="{{ route('pulse-boosted.queues') }}" class="text-xs font-medium text-[#7A5AF8] hover:underline whitespace-nowrap">Explore &rarr;</a>
-            @endif
-        </x-slot:actions>
     </x-pulse-boosted::card-header>
 
     <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s="">
@@ -46,15 +41,12 @@
                         <tr wire:key="{{ $key }}-spacer" class="h-2 first:h-0"></tr>
                         <tr wire:key="{{ $key }}-row">
                             <x-pulse-boosted::td class="max-w-[1px]">
-                                @if (\Illuminate\Support\Facades\Route::has('pulse-boosted.queues'))
-                                    <a
-                                        href="{{ route('pulse-boosted.queues', ['connection' => $row['connection'], 'queue' => $row['queue']]) }}"
-                                        class="block truncate text-sm text-gray-900 dark:text-gray-100 hover:text-[#7A5AF8]"
-                                        title="{{ $key }}"
-                                    >{{ $row['queue'] }}</a>
-                                @else
-                                    <span class="block truncate text-sm text-gray-900 dark:text-gray-100">{{ $row['queue'] }}</span>
-                                @endif
+                                <button
+                                    type="button"
+                                    wire:click="focus('{{ $row['connection'] }}', '{{ $row['queue'] }}')"
+                                    class="block w-full text-left truncate text-sm text-gray-900 dark:text-gray-100 hover:text-[#7A5AF8]"
+                                    title="Show {{ $key }} in the jobs table"
+                                >{{ $row['queue'] }}</button>
                                 <p class="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                                     <span class="truncate">{{ $row['connection'] }}</span>
                                     @if ($row['paused'])

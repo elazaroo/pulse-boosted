@@ -55,6 +55,23 @@ abstract class Inspector implements QueueInspector
     }
 
     /**
+     * The same, for every queue at once.
+     *
+     * @param  iterable<int, string>  $queues
+     * @return Collection<string, Counts>
+     */
+    public function allCounts(iterable $queues): Collection
+    {
+        $counts = [];
+
+        foreach ($queues as $queue) {
+            $counts[$queue] = $this->counts($queue);
+        }
+
+        return collect($counts);
+    }
+
+    /**
      * The queue names that exist on this connection.
      *
      * @return Collection<int, string>

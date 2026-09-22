@@ -130,12 +130,16 @@ class PulseServiceProvider extends ServiceProvider
                         return $view->make('pulse-boosted::dashboard');
                     })->name('pulse-boosted');
 
-                    $router->get('/queues', function (ViewFactory $view) {
-                        return $view->make('pulse-boosted::queues');
+                    // Everything lives on the dashboard now. These are kept so
+                    // links people already have keep working, and so a job can
+                    // still be linked to directly; both land on the dashboard
+                    // with the right thing open.
+                    $router->get('/queues', function () {
+                        return redirect()->route('pulse-boosted');
                     })->name('pulse-boosted.queues');
 
-                    $router->get('/jobs/{uuid}', function (string $uuid, ViewFactory $view) {
-                        return $view->make('pulse-boosted::job', ['uuid' => $uuid]);
+                    $router->get('/jobs/{uuid}', function (string $uuid) {
+                        return redirect()->route('pulse-boosted', ['job' => $uuid]);
                     })->name('pulse-boosted.jobs.show');
                 });
             }
@@ -250,8 +254,7 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.slow-queries', Livewire\SlowQueries::class);
             $livewire->component('pulse-boosted.period-selector', Livewire\PeriodSelector::class);
             $livewire->component('pulse-boosted.slow-outgoing-requests', Livewire\SlowOutgoingRequests::class);
-            $livewire->component('pulse-boosted.queue-explorer', Livewire\QueueExplorer::class);
-            $livewire->component('pulse-boosted.job-detail', Livewire\JobDetail::class);
+            $livewire->component('pulse-boosted.jobs', Livewire\Jobs::class);
             $livewire->component('pulse-boosted.queue-status', Livewire\QueueStatus::class);
             $livewire->component('pulse-boosted.workers', Livewire\Workers::class);
         });

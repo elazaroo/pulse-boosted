@@ -32,21 +32,7 @@
                             </a>
                         </div>
                         <div class="flex items-center gap-3 sm:gap-6">
-                            @if (Route::has('pulse-boosted') && Route::has('pulse-boosted.queues'))
-                            <nav class="flex items-center gap-4 text-sm font-medium">
-                                <a href="{{ route('pulse-boosted') }}" @class([
-                                    'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
-                                    'text-gray-900 dark:text-gray-100' => request()->routeIs('pulse-boosted'),
-                                ])>Dashboard</a>
-                                <a href="{{ route('pulse-boosted.queues') }}" @class([
-                                    'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
-                                    'text-gray-900 dark:text-gray-100' => request()->routeIs('pulse-boosted.queues*'),
-                                ])>Queues</a>
-                            </nav>
-                            @endif
-                            @if (request()->routeIs('pulse-boosted'))
-                                <livewire:pulse-boosted.period-selector />
-                            @endif
+                            <livewire:pulse-boosted.period-selector />
                             <x-pulse-boosted::theme-switcher />
                         </div>
                     </div>

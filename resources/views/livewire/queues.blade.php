@@ -37,7 +37,7 @@
         </x-slot:actions>
     </x-pulse-boosted::card-header>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.15s="">
         @if ($queues->isEmpty())
             <x-pulse-boosted::no-results />
         @else

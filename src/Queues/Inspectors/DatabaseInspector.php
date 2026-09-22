@@ -70,6 +70,53 @@ class DatabaseInspector extends Inspector
     }
 
     /**
+     * Counts for every queue in one query.
+     *
+     * The dashboard shows a row per queue and refreshes on a timer, so asking
+     * per queue means three counts times however many queues, several times a
+     * minute. This is one grouped scan instead.
+     *
+     * @param  iterable<int, string>  $queues
+     * @return Collection<string, Counts>
+     */
+    public function allCounts(iterable $queues): Collection
+    {
+        $names = collect($queues)->values();
+
+        if ($names->isEmpty()) {
+            return collect();
+        }
+
+        try {
+            $now = $this->now();
+
+            $rows = $this->ignore(fn () => $this->table()
+                ->whereIn('queue', $names->all())
+                ->groupBy('queue')
+                ->select('queue')
+                ->selectRaw('sum(case when reserved_at is null and available_at <= ? then 1 else 0 end) as pending', [$now])
+                ->selectRaw('sum(case when reserved_at is null and available_at > ? then 1 else 0 end) as delayed', [$now])
+                ->selectRaw('sum(case when reserved_at is not null then 1 else 0 end) as reserved')
+                ->get()
+                ->keyBy('queue'));
+        } catch (Throwable) {
+            return parent::allCounts($names);
+        }
+
+        // A queue with nothing on it has no rows, so it is absent from the
+        // result rather than being zero; say zero, not unknown.
+        return $names->mapWithKeys(function (string $queue) use ($rows) {
+            $row = $rows->get($queue);
+
+            return [$queue => new Counts(
+                pending: (int) ($row->pending ?? 0),
+                delayed: (int) ($row->delayed ?? 0),
+                reserved: (int) ($row->reserved ?? 0),
+            )];
+        });
+    }
+
+    /**
      * @return Collection<int, PendingJob>
      */
     public function pending(string $queue, int $limit = 50, int $offset = 0): Collection

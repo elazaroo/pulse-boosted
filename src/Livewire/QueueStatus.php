@@ -28,6 +28,14 @@ class QueueStatus extends Card
     public const MAX_QUEUES = 12;
 
     /**
+     * Point the jobs table at a queue.
+     */
+    public function focus(string $connection, string $queue): void
+    {
+        $this->dispatch('queue-selected', connection: $connection, queue: $queue);
+    }
+
+    /**
      * Stop workers picking anything up from a queue.
      */
     public function pause(string $connection, string $queue, QueueActions $actions): void
@@ -77,10 +85,17 @@ class QueueStatus extends Card
                     return [];
                 }
 
-                return $inspector->queues()->map(fn (string $queue) => [
+                $queues = $inspector->queues();
+
+                // One round trip for the whole connection rather than three
+                // counts per queue, which this card would otherwise run on
+                // every refresh.
+                $counts = $inspector->allCounts($queues);
+
+                return $queues->map(fn (string $queue) => [
                     'connection' => $connection,
                     'queue' => $queue,
-                    'counts' => $inspector->counts($queue),
+                    'counts' => $counts->get($queue) ?? $inspector->counts($queue),
                     'paused' => $actions->paused($connection, $queue),
                 ]);
             })

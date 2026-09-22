@@ -28,6 +28,18 @@ interface QueueInspector
     public function counts(string $queue): Counts;
 
     /**
+     * The same, for every queue at once.
+     *
+     * The dashboard asks about every queue on every refresh, so a driver that
+     * can answer in one round trip should do so here rather than being asked
+     * one queue at a time.
+     *
+     * @param  iterable<int, string>  $queues
+     * @return Collection<string, Counts>
+     */
+    public function allCounts(iterable $queues): Collection;
+
+    /**
      * Jobs that are available to be worked right now.
      *
      * @return Collection<int, PendingJob>

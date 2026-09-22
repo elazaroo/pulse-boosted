@@ -24,7 +24,7 @@
         </x-slot:actions>
     </x-pulse-boosted::card-header>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s="">
         @if ($allCacheInteractions->hits === 0 && $allCacheInteractions->misses === 0)
             <x-pulse-boosted::no-results />
         @else
