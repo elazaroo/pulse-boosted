@@ -11,6 +11,7 @@ use Elazaroo\PulseBoosted\Ingests\RedisIngest;
 use Elazaroo\PulseBoosted\Ingests\StorageIngest;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\DatabaseJobRepository;
+use Elazaroo\PulseBoosted\Queues\InspectorManager;
 use Elazaroo\PulseBoosted\Storage\DatabaseStorage;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Contracts\Auth\Access\Gate;
@@ -54,6 +55,7 @@ class PulseServiceProvider extends ServiceProvider
 
         // Singleton because it buffers writes between flushes.
         $this->app->singleton(JobRepository::class, DatabaseJobRepository::class);
+        $this->app->singleton(InspectorManager::class);
 
         $this->registerIngest();
     }
