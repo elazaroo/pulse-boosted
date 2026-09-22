@@ -123,7 +123,9 @@ class DatabaseJobRepository implements JobRepository
      */
     public function purge(): void
     {
-        $this->pulse->ignore(fn () => $this->table()->truncate());
+        // Not truncate: that is DDL, and MySQL commits implicitly on DDL,
+        // which would end any transaction this is called inside.
+        $this->pulse->ignore(fn () => $this->table()->delete());
     }
 
     /**

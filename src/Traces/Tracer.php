@@ -282,8 +282,10 @@ class Tracer
     public function purge(): void
     {
         $this->ignore(fn () => $this->pulse->ignore(function () {
-            $this->connection()->table('pulse_boosted_trace_events')->truncate();
-            $this->connection()->table('pulse_boosted_traces')->truncate();
+            // Not truncate: DDL commits implicitly on MySQL, ending any
+            // transaction this is called inside.
+            $this->connection()->table('pulse_boosted_trace_events')->delete();
+            $this->connection()->table('pulse_boosted_traces')->delete();
         }));
     }
 
