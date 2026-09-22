@@ -3,7 +3,7 @@ name: facades
 on:
   push:
     branches:
-      - master
+      - main
       - '*.x'
 
 permissions:
