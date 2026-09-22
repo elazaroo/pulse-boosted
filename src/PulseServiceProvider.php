@@ -9,6 +9,8 @@ use Elazaroo\PulseBoosted\Contracts\Storage;
 use Elazaroo\PulseBoosted\Ingests\NullIngest;
 use Elazaroo\PulseBoosted\Ingests\RedisIngest;
 use Elazaroo\PulseBoosted\Ingests\StorageIngest;
+use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
+use Elazaroo\PulseBoosted\Queues\DatabaseJobRepository;
 use Elazaroo\PulseBoosted\Storage\DatabaseStorage;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Contracts\Auth\Access\Gate;
@@ -49,6 +51,9 @@ class PulseServiceProvider extends ServiceProvider
         $this->app->singleton(Pulse::class);
         $this->app->bind(Storage::class, DatabaseStorage::class);
         $this->app->singletonIf(ResolvesUsers::class, Users::class);
+
+        // Singleton because it buffers writes between flushes.
+        $this->app->singleton(JobRepository::class, DatabaseJobRepository::class);
 
         $this->registerIngest();
     }
@@ -143,18 +148,21 @@ class PulseServiceProvider extends ServiceProvider
                     WorkerStopping::class,
                 ], function () use ($app) {
                     $app->make(Pulse::class)->ingest();
+                    $this->flushJobs($app);
                 });
             });
 
             $this->callAfterResolving(HttpKernel::class, function (HttpKernel $kernel, Application $app) {
                 $kernel->whenRequestLifecycleIsLongerThan(-1, function () use ($app) { // @phpstan-ignore method.notFound
                     $app->make(Pulse::class)->ingest();
+                    $this->flushJobs($app);
                 });
             });
 
             $this->callAfterResolving(ConsoleKernel::class, function (ConsoleKernel $kernel, Application $app) {
                 $kernel->whenCommandLifecycleIsLongerThan(-1, function () use ($app) { // @phpstan-ignore method.notFound
                     $app->make(Pulse::class)->ingest();
+                    $this->flushJobs($app);
                 });
             });
         });
@@ -170,6 +178,20 @@ class PulseServiceProvider extends ServiceProvider
                 }
             });
         });
+    }
+
+    /**
+     * Write any buffered job records.
+     *
+     * Recorded jobs do not travel through Pulse's ingest — an Entry has
+     * nowhere to put a payload or a stack trace — so the repository keeps its
+     * own buffer and is emptied on the same signals.
+     */
+    protected function flushJobs(Application $app): void
+    {
+        $pulse = $app->make(Pulse::class);
+
+        $pulse->rescue(fn () => $app->make(JobRepository::class)->flush());
     }
 
     /**

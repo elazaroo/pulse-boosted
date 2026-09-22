@@ -127,6 +127,41 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Queue Inspection
+    |--------------------------------------------------------------------------
+    |
+    | The queue explorer reads the queue backend directly to show what is
+    | waiting right now. This is separate from the recorded job history: it
+    | costs a query against your queue on every refresh, and how much it can
+    | show depends on the driver. Listing can be disabled independently of
+    | counting, since listing is the more expensive of the two.
+    |
+    */
+
+    'queues' => [
+        'enabled' => env('PULSE_BOOSTED_QUEUE_INSPECTION_ENABLED', true),
+
+        /*
+         * Which queue connections to inspect. When null, every connection
+         * configured in config/queue.php is offered.
+         */
+        'connections' => null,
+
+        /*
+         * Reading the contents of a queue, rather than just its size. Turn
+         * this off if your queues are large enough that scanning them is a
+         * problem.
+         */
+        'listing' => env('PULSE_BOOSTED_QUEUE_LISTING_ENABLED', true),
+
+        /*
+         * The most rows a single listing query may return.
+         */
+        'max_results' => 100,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Pulse Recorders
     |--------------------------------------------------------------------------
     |
@@ -155,6 +190,55 @@ return [
             'location' => env('PULSE_BOOSTED_EXCEPTIONS_LOCATION', true),
             'ignore' => [
                 // '/^Package\\\\Exceptions\\\\/',
+            ],
+        ],
+
+        Recorders\Jobs::class => [
+            'enabled' => env('PULSE_BOOSTED_JOBS_ENABLED', true),
+            'sample_rate' => env('PULSE_BOOSTED_JOBS_SAMPLE_RATE', 1),
+
+            /*
+             * Job payloads routinely carry personal data, API tokens and
+             * credentials, so arguments are not captured unless you ask for
+             * them. When enabled, they are read from the live job object as it
+             * is queued, redacted, and stored as JSON.
+             */
+            'capture_payload' => env('PULSE_BOOSTED_JOBS_CAPTURE_PAYLOAD', false),
+
+            /*
+             * Values whose key matches any of these patterns are replaced with
+             * a placeholder before anything is written. Matching is done on the
+             * key, case insensitively, as a substring.
+             */
+            'redact' => [
+                'password',
+                'secret',
+                'token',
+                'api_key',
+                'apikey',
+                'authorization',
+                'auth',
+                'credential',
+                'private_key',
+                'credit_card',
+                'card_number',
+                'cvv',
+                'ssn',
+            ],
+
+            /*
+             * How deep to walk a job's properties when capturing arguments, and
+             * how many characters a single captured value may contribute.
+             */
+            'max_depth' => 4,
+            'max_length' => 2_000,
+
+            'trim' => [
+                'keep' => env('PULSE_BOOSTED_JOBS_KEEP', '7 days'),
+            ],
+
+            'ignore' => [
+                // '/^Package\\Jobs\\/',
             ],
         ],
 
