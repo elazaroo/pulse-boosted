@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Concerns;
+namespace Elazaroo\PulseBoosted\Concerns;
 
 use Closure;
 use Illuminate\Contracts\Foundation\Application;

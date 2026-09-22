@@ -1,11 +1,11 @@
 <?php
 
-namespace Laravel\Pulse\Ingests;
+namespace Elazaroo\PulseBoosted\Ingests;
 
+use Elazaroo\PulseBoosted\Contracts\Ingest;
+use Elazaroo\PulseBoosted\Contracts\Storage;
+use Elazaroo\PulseBoosted\Entry;
 use Illuminate\Support\Collection;
-use Laravel\Pulse\Contracts\Ingest;
-use Laravel\Pulse\Contracts\Storage;
-use Laravel\Pulse\Entry;
 
 class NullIngest implements Ingest
 {

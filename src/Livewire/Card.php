@@ -1,12 +1,12 @@
 <?php
 
-namespace Laravel\Pulse\Livewire;
+namespace Elazaroo\PulseBoosted\Livewire;
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\View;
-use Laravel\Pulse\Facades\Pulse;
 use Livewire\Component;
 use Livewire\Livewire;
 
@@ -43,7 +43,7 @@ abstract class Card extends Component
      */
     public function placeholder(): Renderable
     {
-        return View::make('pulse::components.placeholder', [
+        return View::make('pulse-boosted::components.placeholder', [
             'cols' => $this->cols ?? null,
             'rows' => $this->rows ?? null,
             'class' => $this->class,

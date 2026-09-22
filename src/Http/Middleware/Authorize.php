@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Http\Middleware;
+namespace Elazaroo\PulseBoosted\Http\Middleware;
 
 use Closure;
 use Illuminate\Contracts\Auth\Access\Gate;
@@ -21,7 +21,7 @@ class Authorize
      */
     public function handle(Request $request, Closure $next): mixed
     {
-        $this->gate->authorize('viewPulse');
+        $this->gate->authorize('viewPulseBoosted');
 
         return $next($request);
     }

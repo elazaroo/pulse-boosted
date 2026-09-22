@@ -4,9 +4,9 @@ namespace Tests;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
+use Elazaroo\PulseBoosted\Contracts\Storage;
+use Elazaroo\PulseBoosted\Entry;
 use Illuminate\Support\Collection;
-use Laravel\Pulse\Contracts\Storage;
-use Laravel\Pulse\Entry;
 
 class StorageFake implements Storage
 {
@@ -35,7 +35,7 @@ class StorageFake implements Storage
     {
         $now = CarbonImmutable::now();
 
-        $keep = config('pulse.storage.trim.keep') ?? '7 days';
+        $keep = config('pulse-boosted.storage.trim.keep') ?? '7 days';
 
         $before = $now->subMilliseconds(
             (int) CarbonInterval::fromString($keep)->totalMilliseconds

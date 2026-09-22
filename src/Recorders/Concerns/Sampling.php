@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Recorders\Concerns;
+namespace Elazaroo\PulseBoosted\Recorders\Concerns;
 
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Lottery;
@@ -13,7 +13,7 @@ trait Sampling
     protected function shouldSample(): bool
     {
         return Lottery::odds(
-            Config::get('pulse.recorders.'.static::class.'.sample_rate', 1)
+            Config::get('pulse-boosted.recorders.'.static::class.'.sample_rate', 1)
         )->choose();
     }
 
@@ -24,6 +24,6 @@ trait Sampling
     {
         $value = hexdec(md5($seed)) / pow(16, 32); // Scale to 0-1
 
-        return $value <= Config::get('pulse.recorders.'.static::class.'.sample_rate', 1);
+        return $value <= Config::get('pulse-boosted.recorders.'.static::class.'.sample_rate', 1);
     }
 }

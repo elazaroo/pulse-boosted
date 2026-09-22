@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Recorders\Concerns;
+namespace Elazaroo\PulseBoosted\Recorders\Concerns;
 
 use Illuminate\Support\Facades\Config;
 
@@ -21,7 +21,7 @@ trait Thresholds
     {
         $recorder ??= static::class;
 
-        $config = Config::get("pulse.recorders.{$recorder}.threshold", 1_000);
+        $config = Config::get("pulse-boosted.recorders.{$recorder}.threshold", 1_000);
 
         if (! is_array($config)) {
             return $config;

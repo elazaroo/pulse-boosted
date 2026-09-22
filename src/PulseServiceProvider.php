@@ -1,8 +1,15 @@
 <?php
 
-namespace Laravel\Pulse;
+namespace Elazaroo\PulseBoosted;
 
 use Composer\InstalledVersions;
+use Elazaroo\PulseBoosted\Contracts\Ingest;
+use Elazaroo\PulseBoosted\Contracts\ResolvesUsers;
+use Elazaroo\PulseBoosted\Contracts\Storage;
+use Elazaroo\PulseBoosted\Ingests\NullIngest;
+use Elazaroo\PulseBoosted\Ingests\RedisIngest;
+use Elazaroo\PulseBoosted\Ingests\StorageIngest;
+use Elazaroo\PulseBoosted\Storage\DatabaseStorage;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
@@ -21,13 +28,6 @@ use Illuminate\View\Factory as ViewFactory;
 use Laravel\Octane\Events\RequestReceived;
 use Laravel\Octane\Events\TaskReceived;
 use Laravel\Octane\Events\TickReceived;
-use Laravel\Pulse\Contracts\Ingest;
-use Laravel\Pulse\Contracts\ResolvesUsers;
-use Laravel\Pulse\Contracts\Storage;
-use Laravel\Pulse\Ingests\NullIngest;
-use Laravel\Pulse\Ingests\RedisIngest;
-use Laravel\Pulse\Ingests\StorageIngest;
-use Laravel\Pulse\Storage\DatabaseStorage;
 use Laravel\Sentinel\Http\Middleware\SentinelMiddleware;
 use Livewire\LivewireManager;
 use RuntimeException;
@@ -43,7 +43,7 @@ class PulseServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(
-            __DIR__.'/../config/pulse.php', 'pulse'
+            __DIR__.'/../config/pulse-boosted.php', 'pulse-boosted'
         );
 
         $this->app->singleton(Pulse::class);
@@ -58,11 +58,11 @@ class PulseServiceProvider extends ServiceProvider
      */
     protected function registerIngest(): void
     {
-        $this->app->bind(Ingest::class, fn (Application $app) => match ($app->make('config')->get('pulse.ingest.driver')) {
+        $this->app->bind(Ingest::class, fn (Application $app) => match ($app->make('config')->get('pulse-boosted.ingest.driver')) {
             'storage' => $app->make(StorageIngest::class),
             'redis' => $app->make(RedisIngest::class),
             null, 'null' => $app->make(NullIngest::class),
-            default => throw new RuntimeException("Unknown ingest driver [{$app->make('config')->get('pulse.ingest.driver')}]."),
+            default => throw new RuntimeException("Unknown ingest driver [{$app->make('config')->get('pulse-boosted.ingest.driver')}]."),
         });
     }
 
@@ -71,16 +71,16 @@ class PulseServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if ($this->app->make('config')->get('pulse.enabled')) {
-            $this->app->make(Pulse::class)->register($this->app->make('config')->get('pulse.recorders'));
+        if ($this->app->make('config')->get('pulse-boosted.enabled')) {
+            $this->app->make(Pulse::class)->register($this->app->make('config')->get('pulse-boosted.recorders'));
             $this->listenForEvents();
         } else {
             $this->app->make(Pulse::class)->stopRecording();
         }
 
-        Route::middlewareGroup('pulse', [
-            SentinelMiddleware::class.':pulse',
-            ...$this->app->make('config')->get('pulse.middleware', []),
+        Route::middlewareGroup('pulse-boosted', [
+            SentinelMiddleware::class.':pulse-boosted',
+            ...$this->app->make('config')->get('pulse-boosted.middleware', []),
         ]);
 
         $this->registerAuthorization();
@@ -97,7 +97,7 @@ class PulseServiceProvider extends ServiceProvider
     protected function registerAuthorization(): void
     {
         $this->callAfterResolving(Gate::class, function (Gate $gate, Application $app) {
-            $gate->define('viewPulse', fn ($user = null) => $app->environment('local'));
+            $gate->define('viewPulseBoosted', fn ($user = null) => $app->environment('local'));
         });
     }
 
@@ -109,13 +109,13 @@ class PulseServiceProvider extends ServiceProvider
         $this->callAfterResolving('router', function (Router $router, Application $app) {
             if ($app->make(Pulse::class)->registersRoutes()) {
                 $router->group([
-                    'domain' => $app->make('config')->get('pulse.domain', null),
-                    'prefix' => $app->make('config')->get('pulse.path'),
-                    'middleware' => 'pulse',
+                    'domain' => $app->make('config')->get('pulse-boosted.domain', null),
+                    'prefix' => $app->make('config')->get('pulse-boosted.path'),
+                    'middleware' => 'pulse-boosted',
                 ], function (Router $router) {
                     $router->get('/', function (Pulse $pulse, ViewFactory $view) {
-                        return $view->make('pulse::dashboard');
-                    })->name('pulse');
+                        return $view->make('pulse-boosted::dashboard');
+                    })->name('pulse-boosted');
                 });
             }
         });
@@ -178,11 +178,11 @@ class PulseServiceProvider extends ServiceProvider
     protected function registerComponents(): void
     {
         $this->callAfterResolving('blade.compiler', function (BladeCompiler $blade) {
-            $blade->anonymousComponentPath(__DIR__.'/../resources/views/components', 'pulse');
+            $blade->anonymousComponentPath(__DIR__.'/../resources/views/components', 'pulse-boosted');
         });
 
         $this->callAfterResolving('livewire', function (LivewireManager $livewire, Application $app) {
-            $middleware = collect($app->make('config')->get('pulse.middleware')) // @phpstan-ignore argument.templateType, argument.templateType
+            $middleware = collect($app->make('config')->get('pulse-boosted.middleware')) // @phpstan-ignore argument.templateType, argument.templateType
                 ->map(fn ($middleware) => is_string($middleware)
                     ? Str::before($middleware, ':')
                     : $middleware)
@@ -190,16 +190,16 @@ class PulseServiceProvider extends ServiceProvider
 
             $livewire->addPersistentMiddleware($middleware);
 
-            $livewire->component('pulse.cache', Livewire\Cache::class);
-            $livewire->component('pulse.usage', Livewire\Usage::class);
-            $livewire->component('pulse.queues', Livewire\Queues::class);
-            $livewire->component('pulse.servers', Livewire\Servers::class);
-            $livewire->component('pulse.slow-jobs', Livewire\SlowJobs::class);
-            $livewire->component('pulse.exceptions', Livewire\Exceptions::class);
-            $livewire->component('pulse.slow-requests', Livewire\SlowRequests::class);
-            $livewire->component('pulse.slow-queries', Livewire\SlowQueries::class);
-            $livewire->component('pulse.period-selector', Livewire\PeriodSelector::class);
-            $livewire->component('pulse.slow-outgoing-requests', Livewire\SlowOutgoingRequests::class);
+            $livewire->component('pulse-boosted.cache', Livewire\Cache::class);
+            $livewire->component('pulse-boosted.usage', Livewire\Usage::class);
+            $livewire->component('pulse-boosted.queues', Livewire\Queues::class);
+            $livewire->component('pulse-boosted.servers', Livewire\Servers::class);
+            $livewire->component('pulse-boosted.slow-jobs', Livewire\SlowJobs::class);
+            $livewire->component('pulse-boosted.exceptions', Livewire\Exceptions::class);
+            $livewire->component('pulse-boosted.slow-requests', Livewire\SlowRequests::class);
+            $livewire->component('pulse-boosted.slow-queries', Livewire\SlowQueries::class);
+            $livewire->component('pulse-boosted.period-selector', Livewire\PeriodSelector::class);
+            $livewire->component('pulse-boosted.slow-outgoing-requests', Livewire\SlowOutgoingRequests::class);
         });
     }
 
@@ -208,7 +208,7 @@ class PulseServiceProvider extends ServiceProvider
      */
     protected function registerResources(): void
     {
-        $this->loadViewsFrom(__DIR__.'/../resources/views', 'pulse');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'pulse-boosted');
     }
 
     /**
@@ -218,18 +218,18 @@ class PulseServiceProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->publishes([
-                __DIR__.'/../config/pulse.php' => config_path('pulse.php'),
-            ], ['pulse', 'pulse-config']);
+                __DIR__.'/../config/pulse-boosted.php' => config_path('pulse-boosted.php'),
+            ], ['pulse-boosted', 'pulse-boosted-config']);
 
             $this->publishes([
-                __DIR__.'/../resources/views/dashboard.blade.php' => resource_path('views/vendor/pulse/dashboard.blade.php'),
-            ], ['pulse', 'pulse-dashboard']);
+                __DIR__.'/../resources/views/dashboard.blade.php' => resource_path('views/vendor/pulse-boosted/dashboard.blade.php'),
+            ], ['pulse-boosted', 'pulse-boosted-dashboard']);
 
             $method = method_exists($this, 'publishesMigrations') ? 'publishesMigrations' : 'publishes';
 
             $this->{$method}([
                 __DIR__.'/../database/migrations' => database_path('migrations'),
-            ], ['pulse', 'pulse-migrations']);
+            ], ['pulse-boosted', 'pulse-boosted-migrations']);
         }
     }
 
@@ -246,13 +246,13 @@ class PulseServiceProvider extends ServiceProvider
                 Commands\ClearCommand::class,
             ]);
 
-            AboutCommand::add('Pulse', fn () => [
-                'Version' => InstalledVersions::getPrettyVersion('laravel/pulse'),
-                'Enabled' => AboutCommand::format(config('pulse.enabled'), console: fn ($value) => $value ? '<fg=yellow;options=bold>ENABLED</>' : 'OFF'),
+            AboutCommand::add('Pulse Boosted', fn () => [
+                'Version' => InstalledVersions::getPrettyVersion('elazaroo/pulse-boosted'),
+                'Enabled' => AboutCommand::format(config('pulse-boosted.enabled'), console: fn ($value) => $value ? '<fg=yellow;options=bold>ENABLED</>' : 'OFF'),
             ]);
 
             if (method_exists($this, 'reloads')) {
-                $this->reloads('pulse:restart', 'pulse');
+                $this->reloads('pulse-boosted:restart', 'pulse-boosted');
             }
         }
     }

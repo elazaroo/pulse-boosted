@@ -1,14 +1,14 @@
 <?php
 
-namespace Laravel\Pulse\Recorders;
+namespace Elazaroo\PulseBoosted\Recorders;
 
+use Elazaroo\PulseBoosted\Concerns\ConfiguresAfterResolving;
+use Elazaroo\PulseBoosted\Pulse;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Carbon;
-use Laravel\Pulse\Concerns\ConfiguresAfterResolving;
-use Laravel\Pulse\Pulse;
 use Symfony\Component\HttpFoundation\Response;
 
 /**

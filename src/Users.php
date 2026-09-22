@@ -1,11 +1,11 @@
 <?php
 
-namespace Laravel\Pulse;
+namespace Elazaroo\PulseBoosted;
 
+use Elazaroo\PulseBoosted\Contracts\ResolvesUsers;
 use Illuminate\Auth\EloquentUserProvider;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
-use Laravel\Pulse\Contracts\ResolvesUsers;
 
 class Users implements ResolvesUsers
 {

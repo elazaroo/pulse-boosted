@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Livewire\Concerns;
+namespace Elazaroo\PulseBoosted\Livewire\Concerns;
 
 use Carbon\CarbonInterval;
 use Livewire\Attributes\Url;

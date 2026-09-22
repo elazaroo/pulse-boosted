@@ -1,14 +1,14 @@
 <?php
 
-namespace Laravel\Pulse\Livewire;
+namespace Elazaroo\PulseBoosted\Livewire;
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Recorders\SlowRequests;
+use Elazaroo\PulseBoosted\Recorders\UserJobs;
+use Elazaroo\PulseBoosted\Recorders\UserRequests;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\View;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Recorders\SlowRequests;
-use Laravel\Pulse\Recorders\UserJobs;
-use Laravel\Pulse\Recorders\UserRequests;
 use Livewire\Attributes\Lazy;
 use Livewire\Attributes\Url;
 
@@ -63,12 +63,12 @@ class Usage extends Card
             $type
         );
 
-        return View::make('pulse::livewire.usage', [
+        return View::make('pulse-boosted::livewire.usage', [
             'time' => $time,
             'runAt' => $runAt,
-            'userRequestsConfig' => Config::get('pulse.recorders.'.UserRequests::class),
-            'slowRequestsConfig' => Config::get('pulse.recorders.'.SlowRequests::class),
-            'jobsConfig' => Config::get('pulse.recorders.'.UserJobs::class),
+            'userRequestsConfig' => Config::get('pulse-boosted.recorders.'.UserRequests::class),
+            'slowRequestsConfig' => Config::get('pulse-boosted.recorders.'.SlowRequests::class),
+            'jobsConfig' => Config::get('pulse-boosted.recorders.'.UserJobs::class),
             'userRequestCounts' => $userRequestCounts,
         ]);
     }

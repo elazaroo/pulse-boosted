@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Livewire;
+namespace Elazaroo\PulseBoosted\Livewire;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
@@ -60,7 +60,7 @@ class Servers extends Card
             $this->dispatch('servers-chart-update', servers: $servers);
         }
 
-        return View::make('pulse::livewire.servers', [
+        return View::make('pulse-boosted::livewire.servers', [
             'servers' => $servers,
             'time' => $time,
             'runAt' => $runAt,
@@ -72,7 +72,7 @@ class Servers extends Card
      */
     public function placeholder(): Renderable
     {
-        return View::make('pulse::components.servers-placeholder', ['cols' => $this->cols, 'rows' => $this->rows, 'class' => $this->class]);
+        return View::make('pulse-boosted::components.servers-placeholder', ['cols' => $this->cols, 'rows' => $this->rows, 'class' => $this->class]);
     }
 
     /**

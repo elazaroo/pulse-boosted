@@ -1,8 +1,8 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
-use Laravel\Pulse\Facades\Pulse;
 
 it('clears Pulse data', function () {
     Pulse::set('foo', 'bar', 'baz');
@@ -10,17 +10,17 @@ it('clears Pulse data', function () {
     Pulse::ingest();
 
     Pulse::ignore(function () {
-        expect(DB::table('pulse_values')->count())->toBe(1);
-        expect(DB::table('pulse_entries')->count())->toBe(1);
-        expect(DB::table('pulse_aggregates')->count())->toBe(8);
+        expect(DB::table('pulse_boosted_values')->count())->toBe(1);
+        expect(DB::table('pulse_boosted_entries')->count())->toBe(1);
+        expect(DB::table('pulse_boosted_aggregates')->count())->toBe(8);
     });
 
-    Artisan::call('pulse:clear');
+    Artisan::call('pulse-boosted:clear');
 
     Pulse::ignore(function () {
-        expect(DB::table('pulse_values')->count())->toBe(0);
-        expect(DB::table('pulse_entries')->count())->toBe(0);
-        expect(DB::table('pulse_aggregates')->count())->toBe(0);
+        expect(DB::table('pulse_boosted_values')->count())->toBe(0);
+        expect(DB::table('pulse_boosted_entries')->count())->toBe(0);
+        expect(DB::table('pulse_boosted_aggregates')->count())->toBe(0);
     });
 });
 
@@ -32,19 +32,19 @@ it('can specify types', function () {
     Pulse::ingest();
 
     Pulse::ignore(function () {
-        expect(DB::table('pulse_values')->count())->toBe(2);
-        expect(DB::table('pulse_entries')->count())->toBe(2);
-        expect(DB::table('pulse_aggregates')->count())->toBe(16);
+        expect(DB::table('pulse_boosted_values')->count())->toBe(2);
+        expect(DB::table('pulse_boosted_entries')->count())->toBe(2);
+        expect(DB::table('pulse_boosted_aggregates')->count())->toBe(16);
     });
 
-    Artisan::call('pulse:clear --type delete-me');
+    Artisan::call('pulse-boosted:clear --type delete-me');
 
     Pulse::ignore(function () {
-        expect(DB::table('pulse_values')->where('type', 'keep-me')->count())->toBe(1);
-        expect(DB::table('pulse_values')->where('type', 'delete-me')->count())->toBe(0);
-        expect(DB::table('pulse_entries')->where('type', 'keep-me')->count())->toBe(1);
-        expect(DB::table('pulse_entries')->where('type', 'delete-me')->count())->toBe(0);
-        expect(DB::table('pulse_aggregates')->where('type', 'keep-me')->count())->toBe(8);
-        expect(DB::table('pulse_aggregates')->where('type', 'delete-me')->count())->toBe(0);
+        expect(DB::table('pulse_boosted_values')->where('type', 'keep-me')->count())->toBe(1);
+        expect(DB::table('pulse_boosted_values')->where('type', 'delete-me')->count())->toBe(0);
+        expect(DB::table('pulse_boosted_entries')->where('type', 'keep-me')->count())->toBe(1);
+        expect(DB::table('pulse_boosted_entries')->where('type', 'delete-me')->count())->toBe(0);
+        expect(DB::table('pulse_boosted_aggregates')->where('type', 'keep-me')->count())->toBe(8);
+        expect(DB::table('pulse_boosted_aggregates')->where('type', 'delete-me')->count())->toBe(0);
     });
 });

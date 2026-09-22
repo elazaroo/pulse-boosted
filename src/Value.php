@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse;
+namespace Elazaroo\PulseBoosted;
 
 class Value
 {

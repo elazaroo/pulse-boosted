@@ -1,12 +1,12 @@
 <?php
 
-namespace Laravel\Pulse\Livewire;
+namespace Elazaroo\PulseBoosted\Livewire;
 
+use Elazaroo\PulseBoosted\Recorders\Concerns\Thresholds;
+use Elazaroo\PulseBoosted\Recorders\SlowOutgoingRequests as SlowOutgoingRequestsRecorder;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\View;
-use Laravel\Pulse\Recorders\Concerns\Thresholds;
-use Laravel\Pulse\Recorders\SlowOutgoingRequests as SlowOutgoingRequestsRecorder;
 use Livewire\Attributes\Lazy;
 use Livewire\Attributes\Url;
 
@@ -53,10 +53,10 @@ class SlowOutgoingRequests extends Card
             $this->orderBy,
         );
 
-        return View::make('pulse::livewire.slow-outgoing-requests', [
+        return View::make('pulse-boosted::livewire.slow-outgoing-requests', [
             'time' => $time,
             'runAt' => $runAt,
-            'config' => Config::get('pulse.recorders.'.SlowOutgoingRequestsRecorder::class),
+            'config' => Config::get('pulse-boosted.recorders.'.SlowOutgoingRequestsRecorder::class),
             'slowOutgoingRequests' => $slowOutgoingRequests,
         ]);
     }

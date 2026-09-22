@@ -1,5 +1,10 @@
 <?php
 
+use Elazaroo\PulseBoosted\Contracts\ResolvesUsers;
+use Elazaroo\PulseBoosted\Contracts\Storage;
+use Elazaroo\PulseBoosted\Entry;
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Value;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
@@ -8,11 +13,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Facade;
-use Laravel\Pulse\Contracts\ResolvesUsers;
-use Laravel\Pulse\Contracts\Storage;
-use Laravel\Pulse\Entry;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Value;
 use Livewire\Livewire;
 use Livewire\LivewireManager;
 use Tests\StorageFake;
@@ -49,7 +49,7 @@ it('can trim records', function () {
 });
 
 it('can configure days of data to keep when trimming', function () {
-    Config::set('pulse.storage.trim.keep', '30 days');
+    Config::set('pulse-boosted.storage.trim.keep', '30 days');
     App::instance(Storage::class, $storage = new StorageFake);
 
     Pulse::record('foo', 'delete', 0, now()->subDays(30));
@@ -196,7 +196,7 @@ it('can customize user resolving', function () {
 });
 
 it('can limit the buffer size of entries', function () {
-    Config::set('pulse.ingest.buffer', 4);
+    Config::set('pulse-boosted.ingest.buffer', 4);
 
     Pulse::record('type', 'key');
     expect(Pulse::wantsIngesting())->toBeTrue();
@@ -222,7 +222,7 @@ it('can limit the buffer size of entries', function () {
 });
 
 it('resolves lazy entries when considering the buffer', function () {
-    Config::set('pulse.ingest.buffer', 4);
+    Config::set('pulse-boosted.ingest.buffer', 4);
 
     Pulse::lazy(fn () => Pulse::record('type', 'key'));
     expect(Pulse::wantsIngesting())->toBeTrue();
@@ -254,7 +254,7 @@ it('rescues exceptions that occur while filtering', function () {
 it('strips arguments from persistent middleware', function () {
     App::forgetInstance(LivewireManager::class);
     Facade::clearResolvedInstance('livewire');
-    Config::set('pulse.middleware', [MyTestMiddleware::class.':admin']);
+    Config::set('pulse-boosted.middleware', [MyTestMiddleware::class.':admin']);
 
     $persistentMiddleware = Livewire::getPersistentMiddleware();
 

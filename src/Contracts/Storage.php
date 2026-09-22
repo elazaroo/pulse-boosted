@@ -1,11 +1,11 @@
 <?php
 
-namespace Laravel\Pulse\Contracts;
+namespace Elazaroo\PulseBoosted\Contracts;
 
 use Carbon\CarbonInterval;
+use Elazaroo\PulseBoosted\Entry;
+use Elazaroo\PulseBoosted\Value;
 use Illuminate\Support\Collection;
-use Laravel\Pulse\Entry;
-use Laravel\Pulse\Value;
 
 interface Storage
 {

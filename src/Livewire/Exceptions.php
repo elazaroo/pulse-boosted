@@ -1,12 +1,12 @@
 <?php
 
-namespace Laravel\Pulse\Livewire;
+namespace Elazaroo\PulseBoosted\Livewire;
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Recorders\Exceptions as ExceptionsRecorder;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\View;
-use Laravel\Pulse\Recorders\Exceptions as ExceptionsRecorder;
 use Livewire\Attributes\Lazy;
 use Livewire\Attributes\Url;
 
@@ -50,11 +50,11 @@ class Exceptions extends Card
             $this->orderBy
         );
 
-        return View::make('pulse::livewire.exceptions', [
+        return View::make('pulse-boosted::livewire.exceptions', [
             'time' => $time,
             'runAt' => $runAt,
             'exceptions' => $exceptions,
-            'config' => Config::get('pulse.recorders.'.ExceptionsRecorder::class),
+            'config' => Config::get('pulse-boosted.recorders.'.ExceptionsRecorder::class),
         ]);
     }
 }

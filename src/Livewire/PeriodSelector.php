@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Livewire;
+namespace Elazaroo\PulseBoosted\Livewire;
 
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\View;
@@ -25,6 +25,6 @@ class PeriodSelector extends Component
      */
     public function render(): Renderable
     {
-        return View::make('pulse::livewire.period-selector');
+        return View::make('pulse-boosted::livewire.period-selector');
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Recorders\Queues;
 use Illuminate\Bus\Queueable;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Debug\ExceptionHandler;
@@ -17,14 +19,12 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Recorders\Queues;
 
 use function Pest\Laravel\freezeTime;
 
 function queueAggregates()
 {
-    return Pulse::ignore(fn () => DB::table('pulse_aggregates')->whereIn('type', [
+    return Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->whereIn('type', [
         'queued',
         'processing',
         'processed',
@@ -518,7 +518,7 @@ it('handles a job that was manually failed', function () {
 
 it('can ignore jobs', function () {
     Config::set('queue.default', 'database');
-    Config::set('pulse.recorders.'.Queues::class.'.ignore', [
+    Config::set('pulse-boosted.recorders.'.Queues::class.'.ignore', [
         '/My/',
     ]);
     MyJobThatPassesOnTheSecondAttempt::$attempts = 0;
@@ -544,7 +544,7 @@ it('can ignore jobs', function () {
 
 it('can sample', function () {
     Config::set('queue.default', 'database');
-    Config::set('pulse.recorders.'.Queues::class.'.sample_rate', 0.1);
+    Config::set('pulse-boosted.recorders.'.Queues::class.'.sample_rate', 0.1);
     // md5 of this UUID hashes to ~0.076, which is <= 0.1 sample rate
     Str::createUuidsUsing(fn () => '00000000-0000-0000-0000-000000000023');
 
@@ -568,7 +568,7 @@ it('can sample', function () {
 
 it('can sample at zero', function () {
     Config::set('queue.default', 'database');
-    Config::set('pulse.recorders.'.Queues::class.'.sample_rate', 0);
+    Config::set('pulse-boosted.recorders.'.Queues::class.'.sample_rate', 0);
 
     Bus::dispatchToQueue(new MyJob);
     Bus::dispatchToQueue(new MyJob);
@@ -587,7 +587,7 @@ it('can sample at zero', function () {
 
 it('can sample at one', function () {
     Config::set('queue.default', 'database');
-    Config::set('pulse.recorders.'.Queues::class.'.sample_rate', 1);
+    Config::set('pulse-boosted.recorders.'.Queues::class.'.sample_rate', 1);
 
     Bus::dispatchToQueue(new MyJob);
     Bus::dispatchToQueue(new MyJob);
@@ -606,7 +606,7 @@ it('can sample at one', function () {
 
 it("doesn't sample subsequent events for jobs that aren't initially sampled", function () {
     Config::set('queue.default', 'database');
-    Config::set('pulse.recorders.'.Queues::class.'.sample_rate', 0.5);
+    Config::set('pulse-boosted.recorders.'.Queues::class.'.sample_rate', 0.5);
     Str::createUuidsUsingSequence([
         '9a6569d9-ce2e-4e3a-924f-48e2de48a3b3', // Always sampled
         '9a656a13-c0b0-48e9-bc6e-bce99deb48f5', // Never sampled

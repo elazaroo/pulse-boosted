@@ -1,11 +1,11 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Recorders\Exceptions;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Lottery;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Recorders\Exceptions;
 use Tests\Feature\Exceptions\MyException;
 
 it('ingests exceptions', function () {
@@ -15,7 +15,7 @@ it('ingests exceptions', function () {
 
     expect(Pulse::ingest())->toBe(1);
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -24,7 +24,7 @@ it('ingests exceptions', function () {
     $key = json_decode($entries[0]->key);
     expect($key[0])->toBe('RuntimeException');
     expect($key[1])->toStartWith(__FILE__.':');
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->orderBy('period')->get());
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->orderBy('period')->get());
     expect($aggregates)->toHaveCount(8);
     expect($aggregates[0])->toHaveProperties([
         'bucket' => (int) (floor(now()->timestamp / 60) * 60),
@@ -49,13 +49,13 @@ it('ingests exceptions', function () {
 });
 
 it('can disable capturing the location', function () {
-    Config::set('pulse.recorders.'.Exceptions::class.'.location', false);
+    Config::set('pulse-boosted.recorders.'.Exceptions::class.'.location', false);
     Carbon::setTestNow('2000-01-02 03:04:05');
 
     report(new RuntimeException('Expected exception.'));
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -64,7 +64,7 @@ it('can disable capturing the location', function () {
     ]);
     $key = json_decode($entries[0]->key);
     expect($key)->toBe(['RuntimeException', null]);
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->orderBy('period')->get());
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->orderBy('period')->get());
     expect($aggregates)->toHaveCount(8);
     expect($aggregates[0])->toHaveProperties([
         'bucket' => (int) (floor(now()->timestamp / 60) * 60),
@@ -92,7 +92,7 @@ it('can manually report exceptions', function () {
     Pulse::report(new MyReportedException('Hello, Pulse!'));
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -105,7 +105,7 @@ it('can manually report exceptions', function () {
 });
 
 it('can ignore exceptions', function () {
-    Config::set('pulse.recorders.'.Exceptions::class.'.ignore', [
+    Config::set('pulse-boosted.recorders.'.Exceptions::class.'.ignore', [
         '/^Tests\\\\Feature\\\\Exceptions/',
     ]);
 
@@ -115,7 +115,7 @@ it('can ignore exceptions', function () {
 });
 
 it('can sample', function () {
-    Config::set('pulse.recorders.'.Exceptions::class.'.sample_rate', 0.1);
+    Config::set('pulse-boosted.recorders.'.Exceptions::class.'.sample_rate', 0.1);
     Lottery::alwaysWin();
 
     report(new MyReportedException);
@@ -135,7 +135,7 @@ it('can sample', function () {
 });
 
 it('can sample at zero', function () {
-    Config::set('pulse.recorders.'.Exceptions::class.'.sample_rate', 0);
+    Config::set('pulse-boosted.recorders.'.Exceptions::class.'.sample_rate', 0);
 
     report(new MyReportedException);
     report(new MyReportedException);
@@ -152,7 +152,7 @@ it('can sample at zero', function () {
 });
 
 it('can sample at one', function () {
-    Config::set('pulse.recorders.'.Exceptions::class.'.sample_rate', 1);
+    Config::set('pulse-boosted.recorders.'.Exceptions::class.'.sample_rate', 1);
 
     report(new MyReportedException);
     report(new MyReportedException);

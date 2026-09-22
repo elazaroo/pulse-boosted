@@ -1,25 +1,25 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Recorders\SlowOutgoingRequests;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Lottery;
 use Illuminate\Support\Sleep;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Recorders\SlowOutgoingRequests;
 
 use function Pest\Laravel\freezeTime;
 
 it('ingests slow outgoing http requests', function () {
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
     Carbon::setTestNow('2000-01-02 03:04:05');
     Http::fake(fn () => Http::response('ok'));
 
     Http::get('https://laravel.com');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -27,7 +27,7 @@ it('ingests slow outgoing http requests', function () {
         'key' => json_encode(['GET', 'https://laravel.com']),
         'value' => 0,
     ]);
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->orderBy('period')->orderBy('aggregate')->get());
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->orderBy('period')->orderBy('aggregate')->get());
     expect($aggregates)->toHaveCount(8);
     expect($aggregates[0])->toHaveProperties([
         'bucket' => (int) (floor(now()->timestamp / 60) * 60),
@@ -56,14 +56,14 @@ it('ignores fast requests', function () {
 });
 
 it('captures failed requests', function () {
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
     Carbon::setTestNow('2000-01-02 03:04:05');
     Http::fake(['https://laravel.com' => Http::response('error', status: 500)]);
 
     Http::get('https://laravel.com');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -74,14 +74,14 @@ it('captures failed requests', function () {
 });
 
 it('stores the original URI by default', function () {
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
     Carbon::setTestNow('2000-01-02 03:04:05');
     Http::fake(['https://laravel.com*' => Http::response('ok')]);
 
     Http::get('https://laravel.com?foo=123');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -92,17 +92,17 @@ it('stores the original URI by default', function () {
 });
 
 it('can normalize URI', function () {
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
     Carbon::setTestNow('2000-01-02 03:04:05');
     Http::fake(fn () => Http::response('ok'));
 
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.groups', [
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.groups', [
         '#^https://github\.com/([^/]+)/([^/]+)/commits/([^/]+)$#' => 'github.com/{user}/{repo}/commits/{branch}',
     ]);
     Http::get('https://github.com/laravel/pulse/commits/1.x');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -113,17 +113,17 @@ it('can normalize URI', function () {
 });
 
 it('can use back references in normalized URI', function () {
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
     Carbon::setTestNow('2000-01-02 03:04:05');
     Http::fake(fn () => Http::response('ok'));
 
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.groups', [
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.groups', [
         '#^https?://([^/]+).*$#' => '\1/*',
     ]);
     Http::get('https://github.com/laravel/pulse/commits/1.x');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -134,18 +134,18 @@ it('can use back references in normalized URI', function () {
 });
 
 it('can provide regex flags in normalization key', function () {
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
     Carbon::setTestNow('2000-01-02 03:04:05');
     Http::fake(fn () => Http::response('ok'));
 
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.groups', [
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.groups', [
         '/parameter/i' => 'lowercase-parameter',
         '/PARAMETER/i' => 'uppercase-parameter',
     ]);
     Http::get('https://github.com?PARAMETER=123');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -156,9 +156,9 @@ it('can provide regex flags in normalization key', function () {
 });
 
 it('can ignore outgoing requests', function () {
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
     Http::fake(fn () => Http::response('ok'));
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.ignore', [
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.ignore', [
         '#^http://127\.0\.0\.1:13714#', // Inertia SSR
     ]);
 
@@ -168,9 +168,9 @@ it('can ignore outgoing requests', function () {
 });
 
 it('can sample', function () {
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
     Http::fake(fn () => Http::response('ok'));
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.sample_rate', 0.1);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.sample_rate', 0.1);
     Lottery::alwaysWin();
 
     Http::get('http://example.com');
@@ -190,9 +190,9 @@ it('can sample', function () {
 });
 
 it('can sample at zero', function () {
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
     Http::fake(fn () => Http::response('ok'));
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.sample_rate', 0);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.sample_rate', 0);
 
     Http::get('http://example.com');
     Http::get('http://example.com');
@@ -209,9 +209,9 @@ it('can sample at zero', function () {
 });
 
 it('can sample at one', function () {
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.threshold', 0);
     Http::fake(fn () => Http::response('ok'));
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.sample_rate', 1);
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.sample_rate', 1);
 
     Http::get('http://example.com');
     Http::get('http://example.com');
@@ -230,7 +230,7 @@ it('can sample at one', function () {
 it('can configure threshold per url', function () {
     freezeTime();
     Sleep::fake(syncWithCarbon: true);
-    Config::set('pulse.recorders.'.SlowOutgoingRequests::class.'.threshold', [
+    Config::set('pulse-boosted.recorders.'.SlowOutgoingRequests::class.'.threshold', [
         '#one-second-threshold#' => 1_000,
         '#two-second-threshold#' => 2_000,
     ]);
@@ -253,19 +253,19 @@ it('can configure threshold per url', function () {
     Http::get('two-second-threshold')->throw();
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->key)->toBe('["GET","one-second-threshold"]');
     expect($entries[0]->value)->toEqual(1000);
 
-    DB::table('pulse_entries')->delete();
+    DB::table('pulse_boosted_entries')->delete();
 
     $sleepSeconds = 2;
     Http::get('one-second-threshold')->throw();
     Http::get('two-second-threshold')->throw();
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->orderBy('key')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->orderBy('key')->get());
     expect($entries)->toHaveCount(2);
     expect($entries[0]->key)->toBe('["GET","one-second-threshold"]');
     expect($entries[0]->value)->toEqual(2_000);

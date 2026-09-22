@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Recorders\Concerns;
+namespace Elazaroo\PulseBoosted\Recorders\Concerns;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;

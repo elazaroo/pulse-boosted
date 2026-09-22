@@ -1,5 +1,9 @@
 <?php
 
+use Elazaroo\PulseBoosted\Entry;
+use Elazaroo\PulseBoosted\Ingests\RedisIngest;
+use Elazaroo\PulseBoosted\Support\RedisAdapter;
+use Elazaroo\PulseBoosted\Support\RedisServerException;
 use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Config;
@@ -8,10 +12,6 @@ use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
-use Laravel\Pulse\Entry;
-use Laravel\Pulse\Ingests\RedisIngest;
-use Laravel\Pulse\Support\RedisAdapter;
-use Laravel\Pulse\Support\RedisServerException;
 use Tests\StorageFake;
 
 $drivers = ['predis', 'phpredis', 'relay'];
@@ -58,7 +58,7 @@ it('runs the same commands while ingesting entries', function ($driver) {
     // Find the XADD command and verify it targets the correct stream with serialized Entry data
     $xaddCommand = $commands->first(fn ($cmd) => str_starts_with($cmd, '"XADD"'));
     expect($xaddCommand)->not->toBeNull();
-    expect($xaddCommand)->toContain('"XADD" "'.$prefix.'laravel:pulse:ingest" "*" "data"');
+    expect($xaddCommand)->toContain('"XADD" "'.$prefix.'elazaroo:pulse-boosted:ingest" "*" "data"');
 
     // Verify the serialized data can be deserialized back to a matching Entry
     preg_match('/"data" "(.*)"$/', $xaddCommand, $matches);
@@ -80,7 +80,7 @@ it('keeps 7 days of data, by default, when trimming', function ($driver) {
     $commands = captureRedisCommands(fn () => App::make(RedisIngest::class)->trim());
 
     $prefix = Config::get('database.redis.options.prefix');
-    expect($commands)->toContain('"XTRIM" "'.$prefix.'laravel:pulse:ingest" "MINID" "~" "946177445000"');
+    expect($commands)->toContain('"XTRIM" "'.$prefix.'elazaroo:pulse-boosted:ingest" "MINID" "~" "946177445000"');
 })->with($drivers);
 
 it('can configure days of data to keep when trimming', function ($driver) {
@@ -88,12 +88,12 @@ it('can configure days of data to keep when trimming', function ($driver) {
 
     Config::set('database.redis.client', $driver);
     Date::setTestNow(Date::parse('2000-01-02 03:04:05')->startOfSecond());
-    Config::set('pulse.ingest.trim.keep', '1 day');
+    Config::set('pulse-boosted.ingest.trim.keep', '1 day');
 
     $commands = captureRedisCommands(fn () => App::make(RedisIngest::class)->trim());
 
     $prefix = Config::get('database.redis.options.prefix');
-    expect($commands)->toContain('"XTRIM" "'.$prefix.'laravel:pulse:ingest" "MINID" "~" "946695845000"');
+    expect($commands)->toContain('"XTRIM" "'.$prefix.'elazaroo:pulse-boosted:ingest" "MINID" "~" "946695845000"');
 })->with($drivers);
 
 it('can configure the number of entries to keep when trimming', function ($driver) {
@@ -101,19 +101,19 @@ it('can configure the number of entries to keep when trimming', function ($drive
 
     Config::set('database.redis.client', $driver);
     Date::setTestNow(Date::parse('2000-01-02 03:04:05')->startOfSecond());
-    Config::set('pulse.ingest.trim.keep', 54321);
+    Config::set('pulse-boosted.ingest.trim.keep', 54321);
 
     $commands = captureRedisCommands(fn () => App::make(RedisIngest::class)->trim());
 
     $prefix = Config::get('database.redis.options.prefix');
-    expect($commands)->toContain('"XTRIM" "'.$prefix.'laravel:pulse:ingest" "MAXLEN" "~" "54321"');
+    expect($commands)->toContain('"XTRIM" "'.$prefix.'elazaroo:pulse-boosted:ingest" "MAXLEN" "~" "54321"');
 })->with($drivers);
 
 it('runs the same commands while storing', function ($driver) {
     prepareForDriver($driver);
 
     Config::set('database.redis.client', $driver);
-    Config::set('pulse.ingest.redis.chunk', 567);
+    Config::set('pulse-boosted.ingest.redis.chunk', 567);
     Date::setTestNow(Date::parse('2000-01-02 03:04:05')->startOfSecond());
     $prefix = Config::get('database.redis.options.prefix');
     $ingest = App::make(RedisIngest::class);
@@ -122,7 +122,7 @@ it('runs the same commands while storing', function ($driver) {
         new Entry(timestamp: 1700752211, type: 'foo', key: 'baz', value: 456),
     ]));
     $output = Process::timeout(1)
-        ->run('redis-cli -p '.Config::get('database.redis.default.port').' XINFO STREAM '.$prefix.'laravel:pulse:ingest')
+        ->run('redis-cli -p '.Config::get('database.redis.default.port').' XINFO STREAM '.$prefix.'elazaroo:pulse-boosted:ingest')
         ->throw()
         ->output();
     $lines = collect(explode("\n", $output))->map(fn ($line) => trim($line));
@@ -131,8 +131,8 @@ it('runs the same commands while storing', function ($driver) {
 
     $commands = captureRedisCommands(fn () => $ingest->digest(new StorageFake));
 
-    expect($commands)->toContain('"XRANGE" "'.$prefix.'laravel:pulse:ingest" "-" "+" "COUNT" "567"');
-    expect($commands)->toContain('"XDEL" "'.$prefix.'laravel:pulse:ingest" "'.$firstEntryKey.'" "'.$lastEntryKey.'"');
+    expect($commands)->toContain('"XRANGE" "'.$prefix.'elazaroo:pulse-boosted:ingest" "-" "+" "COUNT" "567"');
+    expect($commands)->toContain('"XDEL" "'.$prefix.'elazaroo:pulse-boosted:ingest" "'.$firstEntryKey.'" "'.$lastEntryKey.'"');
 })->with($drivers);
 
 it('has consistent return for xadd', function ($driver) {

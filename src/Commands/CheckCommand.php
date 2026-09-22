@@ -1,18 +1,18 @@
 <?php
 
-namespace Laravel\Pulse\Commands;
+namespace Elazaroo\PulseBoosted\Commands;
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Events\IsolatedBeat;
+use Elazaroo\PulseBoosted\Events\SharedBeat;
+use Elazaroo\PulseBoosted\Pulse;
+use Elazaroo\PulseBoosted\Support\CacheStoreResolver;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Env;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
-use Laravel\Pulse\Events\IsolatedBeat;
-use Laravel\Pulse\Events\SharedBeat;
-use Laravel\Pulse\Pulse;
-use Laravel\Pulse\Support\CacheStoreResolver;
 use Laravel\Telescope\Contracts\EntriesRepository;
 use Laravel\Telescope\Telescope;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -20,7 +20,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 /**
  * @internal
  */
-#[AsCommand(name: 'pulse:check')]
+#[AsCommand(name: 'pulse-boosted:check')]
 class CheckCommand extends Command
 {
     /**
@@ -28,7 +28,7 @@ class CheckCommand extends Command
      *
      * @var string
      */
-    public $signature = 'pulse:check {--once : Take a single snapshot}';
+    public $signature = 'pulse-boosted:check {--once : Take a single snapshot}';
 
     /**
      * The command's description.
@@ -49,14 +49,14 @@ class CheckCommand extends Command
 
         $instance = $isVapor ? 'vapor' : Str::random();
 
-        $lastRestart = $cache->store()->get('laravel:pulse:restart');
+        $lastRestart = $cache->store()->get('elazaroo:pulse-boosted:restart');
 
         $lock = ($store = $cache->store()->getStore()) instanceof LockProvider
-            ? $store->lock('laravel:pulse:check', 1)
+            ? $store->lock('elazaroo:pulse-boosted:check', 1)
             : null;
 
         while (true) {
-            if ($lastRestart !== $cache->store()->get('laravel:pulse:restart')) {
+            if ($lastRestart !== $cache->store()->get('elazaroo:pulse-boosted:restart')) {
                 return self::SUCCESS;
             }
 

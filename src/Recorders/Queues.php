@@ -1,8 +1,9 @@
 <?php
 
-namespace Laravel\Pulse\Recorders;
+namespace Elazaroo\PulseBoosted\Recorders;
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Pulse;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Events\CallQueuedListener;
 use Illuminate\Queue\Events\JobFailed;
@@ -10,7 +11,6 @@ use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\JobQueued;
 use Illuminate\Queue\Events\JobReleasedAfterException;
-use Laravel\Pulse\Pulse;
 use ReflectionClass;
 
 /**

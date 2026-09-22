@@ -1,6 +1,6 @@
 <?php
 
-use Laravel\Pulse\Recorders\SlowOutgoingRequests;
+use Elazaroo\PulseBoosted\Recorders\SlowOutgoingRequests;
 
 it('can normalize URLs', function (string $given, string $expected) {
     expect(SlowOutgoingRequests::normalizeUrl($given))->toBe($expected);

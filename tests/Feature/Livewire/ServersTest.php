@@ -1,14 +1,14 @@
 <?php
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Livewire\Servers;
 use Illuminate\Support\Carbon;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Livewire\Servers;
 use Livewire\Livewire;
 
 it('includes the card on the dashboard', function () {
     $this
-        ->get('/pulse')
+        ->get('/pulse-boosted')
         ->assertSeeLivewire(Servers::class);
 });
 

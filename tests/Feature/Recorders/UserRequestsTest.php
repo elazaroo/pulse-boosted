@@ -1,5 +1,7 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Recorders\UserRequests;
 use Illuminate\Auth\GuardHelpers;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Support\Carbon;
@@ -8,8 +10,6 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Lottery;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Recorders\UserRequests;
 use Tests\User;
 
 use function Pest\Laravel\actingAs;
@@ -22,7 +22,7 @@ it('captures authenticated requests', function () {
 
     actingAs(User::make(['id' => '567']))->get('users');
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => 946782245,
@@ -30,7 +30,7 @@ it('captures authenticated requests', function () {
         'key' => '567',
         'value' => null,
     ]);
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->orderBy('period')->get());
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->orderBy('period')->get());
     expect($aggregates)->toHaveCount(4);
     expect($aggregates)->toContainAggregateForAllPeriods(
         type: 'user_request',
@@ -45,7 +45,7 @@ it('ignores unauthenticated requests', function () {
 
     get('users');
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(0);
 });
 
@@ -54,7 +54,7 @@ it('captures the authenticated user if they login during the request', function 
 
     post('login');
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->key)->toBe('567');
 });
@@ -64,7 +64,7 @@ it('captures the authenticated user if they logout during the request', function
 
     actingAs(User::make(['id' => '567']))->post('logout');
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->key)->toBe('567');
 });
@@ -95,23 +95,23 @@ it('does not trigger an infinite loop when retrieving the authenticated user fro
 
     get('users');
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(0);
 });
 
 it('can ignore requests', function () {
-    Config::set('pulse.recorders.'.UserRequests::class.'.ignore', [
+    Config::set('pulse-boosted.recorders.'.UserRequests::class.'.ignore', [
         '#^/users#',
     ]);
     Route::get('users', fn () => []);
 
     actingAs(User::make(['id' => '567']))->get('users');
 
-    expect(Pulse::ignore(fn () => DB::table('pulse_entries')->count()))->toBe(0);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->count()))->toBe(0);
 });
 
 it('ignores livewire update requests from an ignored path', function () {
-    Config::set('pulse.recorders.'.UserRequests::class.'.ignore', [
+    Config::set('pulse-boosted.recorders.'.UserRequests::class.'.ignore', [
         '#^/users#',
     ]);
     Route::get('users', fn () => []);
@@ -130,11 +130,11 @@ it('ignores livewire update requests from an ignored path', function () {
             ],
         ]);
 
-    expect(Pulse::ignore(fn () => DB::table('pulse_entries')->count()))->toBe(0);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->count()))->toBe(0);
 });
 
 it('can sample', function () {
-    Config::set('pulse.recorders.'.UserRequests::class.'.sample_rate', 0.1);
+    Config::set('pulse-boosted.recorders.'.UserRequests::class.'.sample_rate', 0.1);
     Lottery::alwaysWin();
     Route::get('users', fn () => []);
 
@@ -150,13 +150,13 @@ it('can sample', function () {
     get('users');
     get('users');
 
-    expect(Pulse::ignore(fn () => DB::table('pulse_entries')->where('type', 'user_request')->count()))->toBe(10);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->where('type', 'user_request')->count()))->toBe(10);
 
     Lottery::determineResultNormally();
 });
 
 it('can sample at zero', function () {
-    Config::set('pulse.recorders.'.UserRequests::class.'.sample_rate', 0);
+    Config::set('pulse-boosted.recorders.'.UserRequests::class.'.sample_rate', 0);
     Route::get('users', fn () => []);
 
     actingAs(User::make(['id' => '567']));
@@ -171,11 +171,11 @@ it('can sample at zero', function () {
     get('users');
     get('users');
 
-    expect(Pulse::ignore(fn () => DB::table('pulse_entries')->count()))->toBe(0);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->count()))->toBe(0);
 });
 
 it('can sample at one', function () {
-    Config::set('pulse.recorders.'.UserRequests::class.'.sample_rate', 1);
+    Config::set('pulse-boosted.recorders.'.UserRequests::class.'.sample_rate', 1);
     Route::get('users', fn () => []);
 
     actingAs(User::make(['id' => '567']));
@@ -190,5 +190,5 @@ it('can sample at one', function () {
     get('users');
     get('users');
 
-    expect(Pulse::ignore(fn () => DB::table('pulse_entries')->count()))->toBe(10);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->count()))->toBe(10);
 });

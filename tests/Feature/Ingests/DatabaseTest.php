@@ -1,11 +1,11 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Storage\DatabaseStorage;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Storage\DatabaseStorage;
 
 it('trims values at or past expiry', function () {
     Date::setTestNow('2000-01-01 00:00:04');
@@ -20,7 +20,7 @@ it('trims values at or past expiry', function () {
     Date::setTestNow('2000-01-08 00:00:05');
     App::make(DatabaseStorage::class)->trim();
 
-    expect(DB::table('pulse_values')->pluck('key')->all())->toBe(['baz']);
+    expect(DB::table('pulse_boosted_values')->pluck('key')->all())->toBe(['baz']);
 });
 
 it('trims entries at or after week after timestamp', function () {
@@ -36,112 +36,112 @@ it('trims entries at or after week after timestamp', function () {
     Date::setTestNow('2000-01-08 00:00:05');
     App::make(DatabaseStorage::class)->trim();
 
-    expect(DB::table('pulse_entries')->pluck('type')->all())->toBe(['baz']);
+    expect(DB::table('pulse_boosted_entries')->pluck('type')->all())->toBe(['baz']);
 });
 
 it('trims aggregates once the 1 hour bucket is no longer relevant', function () {
     Date::setTestNow('2000-01-01 00:00:59'); // Bucket: 2000-01-01 00:00:00
     Pulse::record('foo', 'xxxx', 1)->count();
     Pulse::ingest();
-    expect(Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 60)->count()))->toBe(1);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 60)->count()))->toBe(1);
 
     Date::setTestNow('2000-01-01 00:01:00'); // Bucket: 2000-01-01 00:01:00
     Pulse::record('foo', 'xxxx', 1)->count();
     Pulse::ingest();
-    expect(Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 60)->count()))->toBe(2);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 60)->count()))->toBe(2);
 
     Pulse::stopRecording();
     Date::setTestNow('2000-01-01 00:59:59'); // 1 second before the oldest bucket become irrelevant.
     App::make(DatabaseStorage::class)->trim();
-    expect(DB::table('pulse_aggregates')->where('period', 60)->count())->toBe(2);
+    expect(DB::table('pulse_boosted_aggregates')->where('period', 60)->count())->toBe(2);
 
     Date::setTestNow('2000-01-01 01:00:00'); // The second the oldest bucket become irrelevant.
     App::make(DatabaseStorage::class)->trim();
-    expect(DB::table('pulse_aggregates')->where('period', 60)->count())->toBe(1);
+    expect(DB::table('pulse_boosted_aggregates')->where('period', 60)->count())->toBe(1);
 });
 
 it('trims aggregates once the 6 hour bucket is no longer relevant', function () {
     Date::setTestNow('2000-01-01 00:05:59'); // Bucket: 2000-01-01 00:00:00
     Pulse::record('foo', 'xxxx', 1)->count();
     Pulse::ingest();
-    expect(Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 360)->count()))->toBe(1);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 360)->count()))->toBe(1);
 
     Date::setTestNow('2000-01-01 00:06:00'); // Bucket: 2000-01-01 00:06:00
     Pulse::record('foo', 'xxxx', 1)->count();
     Pulse::ingest();
-    expect(Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 360)->count()))->toBe(2);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 360)->count()))->toBe(2);
 
     Pulse::stopRecording();
     Date::setTestNow('2000-01-01 05:59:59'); // 1 second before the oldest bucket become irrelevant.
     App::make(DatabaseStorage::class)->trim();
-    expect(DB::table('pulse_aggregates')->where('period', 360)->count())->toBe(2);
+    expect(DB::table('pulse_boosted_aggregates')->where('period', 360)->count())->toBe(2);
 
     Date::setTestNow('2000-01-01 06:00:00'); // The second the oldest bucket become irrelevant.
     App::make(DatabaseStorage::class)->trim();
-    expect(DB::table('pulse_aggregates')->where('period', 360)->count())->toBe(1);
+    expect(DB::table('pulse_boosted_aggregates')->where('period', 360)->count())->toBe(1);
 });
 
 it('trims aggregates once the 24 hour bucket is no longer relevant', function () {
     Date::setTestNow('2000-01-01 00:23:59'); // Bucket: 2000-01-01 00:00:00
     Pulse::record('foo', 'xxxx', 1)->count();
     Pulse::ingest();
-    expect(Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 1440)->count()))->toBe(1);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 1440)->count()))->toBe(1);
 
     Date::setTestNow('2000-01-01 00:24:00'); // Bucket: 2000-01-01 00:24:00
     Pulse::record('foo', 'xxxx', 1)->count();
     Pulse::ingest();
-    expect(Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 1440)->count()))->toBe(2);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 1440)->count()))->toBe(2);
 
     Pulse::stopRecording();
     Date::setTestNow('2000-01-01 23:35:59'); // 1 second before the oldest bucket become irrelevant.
     App::make(DatabaseStorage::class)->trim();
-    expect(DB::table('pulse_aggregates')->where('period', 1440)->count())->toBe(2);
+    expect(DB::table('pulse_boosted_aggregates')->where('period', 1440)->count())->toBe(2);
 
     Date::setTestNow('2000-01-02 00:00:00'); // The second the oldest bucket become irrelevant.
     App::make(DatabaseStorage::class)->trim();
-    expect(DB::table('pulse_aggregates')->where('period', 1440)->count())->toBe(1);
+    expect(DB::table('pulse_boosted_aggregates')->where('period', 1440)->count())->toBe(1);
 });
 
 it('trims aggregates to the configured storage duration when configured trim is shorter than the bucket period duration', function () {
-    Config::set('pulse.storage.trim.keep', '23 minutes');
+    Config::set('pulse-boosted.storage.trim.keep', '23 minutes');
     Date::setTestNow('2000-01-01 00:00:00'); // Bucket: 2000-01-01 00:00:00
     Pulse::record('foo', 'xxxx', 1)->count();
     Pulse::ingest();
     Pulse::stopRecording();
-    expect(DB::table('pulse_aggregates')->where('period', 1440)->count())->toBe(1);
+    expect(DB::table('pulse_boosted_aggregates')->where('period', 1440)->count())->toBe(1);
 
     Date::setTestNow('2000-01-01 00:22:59');
     App::make(DatabaseStorage::class)->trim();
-    expect(DB::table('pulse_aggregates')->where('period', 1440)->count())->toBe(1);
+    expect(DB::table('pulse_boosted_aggregates')->where('period', 1440)->count())->toBe(1);
 
     Date::setTestNow('2000-01-01 00:23:00');
     Pulse::ignore(fn () => App::make(DatabaseStorage::class)->trim());
-    expect(DB::table('pulse_aggregates')->where('period', 1440)->count())->toBe(0);
+    expect(DB::table('pulse_boosted_aggregates')->where('period', 1440)->count())->toBe(0);
 });
 
 it('trims aggregates once the 7 day bucket is no longer relevant', function () {
     Date::setTestNow('2000-01-01 02:23:59'); // Bucket: 1999-12-31 23:36:00
     Pulse::record('foo', 'xxxx', 1)->count();
     Pulse::ingest();
-    expect(Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 10080)->count()))->toBe(1);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 10080)->count()))->toBe(1);
 
     Date::setTestNow('2000-01-01 02:24:00'); // Bucket: 2000-01-01 02:24:00
     Pulse::record('foo', 'xxxx', 1)->count();
     Pulse::ingest();
-    expect(Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 10080)->count()))->toBe(2);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 10080)->count()))->toBe(2);
 
     Pulse::stopRecording();
     Date::setTestNow('2000-01-07 23:35:59'); // 1 second before the oldest bucket become irrelevant.
     App::make(DatabaseStorage::class)->trim();
-    expect(DB::table('pulse_aggregates')->where('period', 10080)->count())->toBe(2);
+    expect(DB::table('pulse_boosted_aggregates')->where('period', 10080)->count())->toBe(2);
 
     Date::setTestNow('2000-01-07 23:36:00'); // The second the oldest bucket become irrelevant.
     App::make(DatabaseStorage::class)->trim();
-    expect(DB::table('pulse_aggregates')->where('period', 10080)->count())->toBe(1);
+    expect(DB::table('pulse_boosted_aggregates')->where('period', 10080)->count())->toBe(1);
 });
 
 it('can configure days of data to keep when trimming', function () {
-    Config::set('pulse.storage.trim.keep', '2 days');
+    Config::set('pulse-boosted.storage.trim.keep', '2 days');
 
     Date::setTestNow('2000-01-01 00:00:04');
     Pulse::record('foo', 'xxxx', 1)->count();
@@ -158,12 +158,12 @@ it('can configure days of data to keep when trimming', function () {
     Date::setTestNow('2000-01-03 00:00:05');
     App::make(DatabaseStorage::class)->trim();
 
-    expect(DB::table('pulse_entries')->pluck('type')->all())->toBe(['baz']);
-    expect(DB::table('pulse_values')->pluck('key')->all())->toBe(['baz']);
+    expect(DB::table('pulse_boosted_entries')->pluck('type')->all())->toBe(['baz']);
+    expect(DB::table('pulse_boosted_values')->pluck('key')->all())->toBe(['baz']);
 });
 
 it('restricts trim duration to 7 days', function () {
-    Config::set('pulse.storage.trim.keep', '7 days');
+    Config::set('pulse-boosted.storage.trim.keep', '7 days');
 
     Date::setTestNow('2000-01-01 00:00:04');
     Pulse::record('foo', 'xxxx', 1)->count();
@@ -180,6 +180,6 @@ it('restricts trim duration to 7 days', function () {
     Date::setTestNow('2000-01-08 00:00:05');
     App::make(DatabaseStorage::class)->trim();
 
-    expect(DB::table('pulse_entries')->pluck('type')->all())->toBe(['baz']);
-    expect(DB::table('pulse_values')->pluck('key')->all())->toBe(['baz']);
+    expect(DB::table('pulse_boosted_entries')->pluck('type')->all())->toBe(['baz']);
+    expect(DB::table('pulse_boosted_values')->pluck('key')->all())->toBe(['baz']);
 });

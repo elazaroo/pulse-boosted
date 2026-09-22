@@ -1,16 +1,16 @@
 <?php
 
-namespace Laravel\Pulse\Commands;
+namespace Elazaroo\PulseBoosted\Commands;
 
+use Elazaroo\PulseBoosted\Support\CacheStoreResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\InteractsWithTime;
-use Laravel\Pulse\Support\CacheStoreResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 /**
  * @internal
  */
-#[AsCommand(name: 'pulse:restart')]
+#[AsCommand(name: 'pulse-boosted:restart')]
 class RestartCommand extends Command
 {
     use InteractsWithTime;
@@ -20,7 +20,7 @@ class RestartCommand extends Command
      *
      * @var string
      */
-    public $signature = 'pulse:restart';
+    public $signature = 'pulse-boosted:restart';
 
     /**
      * The command's description.
@@ -34,8 +34,8 @@ class RestartCommand extends Command
      */
     public function handle(CacheStoreResolver $cache): void
     {
-        $cache->store()->forever('laravel:pulse:restart', $this->currentTime());
+        $cache->store()->forever('elazaroo:pulse-boosted:restart', $this->currentTime());
 
-        $this->components->info('Broadcasting pulse restart signal.');
+        $this->components->info('Broadcasting Pulse Boosted restart signal.');
     }
 }

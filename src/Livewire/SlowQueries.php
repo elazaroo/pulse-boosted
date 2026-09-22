@@ -1,12 +1,12 @@
 <?php
 
-namespace Laravel\Pulse\Livewire;
+namespace Elazaroo\PulseBoosted\Livewire;
 
+use Elazaroo\PulseBoosted\Recorders\Concerns\Thresholds;
+use Elazaroo\PulseBoosted\Recorders\SlowQueries as SlowQueriesRecorder;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\View;
-use Laravel\Pulse\Recorders\Concerns\Thresholds;
-use Laravel\Pulse\Recorders\SlowQueries as SlowQueriesRecorder;
 use Livewire\Attributes\Lazy;
 use Livewire\Attributes\Url;
 
@@ -65,10 +65,10 @@ class SlowQueries extends Card
             $this->orderBy,
         );
 
-        return View::make('pulse::livewire.slow-queries', [
+        return View::make('pulse-boosted::livewire.slow-queries', [
             'time' => $time,
             'runAt' => $runAt,
-            'config' => Config::get('pulse.recorders.'.SlowQueriesRecorder::class),
+            'config' => Config::get('pulse-boosted.recorders.'.SlowQueriesRecorder::class),
             'slowQueries' => $slowQueries,
         ]);
     }

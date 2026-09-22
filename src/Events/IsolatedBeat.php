@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Events;
+namespace Elazaroo\PulseBoosted\Events;
 
 use Carbon\CarbonImmutable;
 

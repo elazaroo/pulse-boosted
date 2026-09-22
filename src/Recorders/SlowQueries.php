@@ -1,12 +1,12 @@
 <?php
 
-namespace Laravel\Pulse\Recorders;
+namespace Elazaroo\PulseBoosted\Recorders;
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Pulse;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Str;
-use Laravel\Pulse\Pulse;
 
 /**
  * @internal
@@ -41,7 +41,7 @@ class SlowQueries
             CarbonImmutable::now()->getTimestampMs(),
             (int) $event->time,
             $event->sql,
-            $this->config->get('pulse.recorders.'.self::class.'.location')
+            $this->config->get('pulse-boosted.recorders.'.self::class.'.location')
                 ? $this->resolveLocation()
                 : null,
         ];
@@ -55,7 +55,7 @@ class SlowQueries
                 return;
             }
 
-            if ($maxQueryLength = $this->config->get('pulse.recorders.'.self::class.'.max_query_length')) {
+            if ($maxQueryLength = $this->config->get('pulse-boosted.recorders.'.self::class.'.max_query_length')) {
                 $sql = Str::limit($sql, $maxQueryLength);
             }
 
@@ -89,7 +89,7 @@ class SlowQueries
      */
     protected function isInternalFile(string $file): bool
     {
-        return Str::startsWith($file, base_path('vendor'.DIRECTORY_SEPARATOR.'laravel'.DIRECTORY_SEPARATOR.'pulse'))
+        return Str::startsWith($file, base_path('vendor'.DIRECTORY_SEPARATOR.'elazaroo'.DIRECTORY_SEPARATOR.'pulse-boosted'))
             || Str::startsWith($file, base_path('vendor'.DIRECTORY_SEPARATOR.'laravel'.DIRECTORY_SEPARATOR.'framework'))
             || $file === base_path('artisan')
             || $file === public_path('index.php');

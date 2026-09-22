@@ -1,6 +1,7 @@
 <?php
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Facades\Pulse;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
@@ -11,7 +12,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
-use Laravel\Pulse\Facades\Pulse;
 use Livewire\Mechanisms\HandleRequests\EndpointResolver;
 use PHPUnit\Framework\Assert;
 use Ramsey\Uuid\Uuid;
@@ -35,8 +35,8 @@ uses(TestCase::class)
         Http::preventStrayRequests();
         Pulse::flush();
         Pulse::handleExceptionsUsing(fn (Throwable $e) => throw $e);
-        Gate::define('viewPulse', fn ($user = null) => true);
-        Config::set('pulse.ingest.trim.lottery', [1, 1]);
+        Gate::define('viewPulseBoosted', fn ($user = null) => true);
+        Config::set('pulse-boosted.ingest.trim.lottery', [1, 1]);
     })
     ->afterEach(function () {
         Str::createUuidsNormally();

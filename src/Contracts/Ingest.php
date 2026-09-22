@@ -1,9 +1,9 @@
 <?php
 
-namespace Laravel\Pulse\Contracts;
+namespace Elazaroo\PulseBoosted\Contracts;
 
+use Elazaroo\PulseBoosted\Entry;
 use Illuminate\Support\Collection;
-use Laravel\Pulse\Entry;
 
 interface Ingest
 {

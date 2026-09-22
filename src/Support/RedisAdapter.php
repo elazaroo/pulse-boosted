@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Support;
+namespace Elazaroo\PulseBoosted\Support;
 
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Redis\Connections\Connection;

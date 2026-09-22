@@ -1,7 +1,7 @@
 <?php
 
+use Elazaroo\PulseBoosted\Livewire\SlowQueries;
 use Illuminate\Support\Carbon;
-use Laravel\Pulse\Livewire\SlowQueries;
 use Livewire\Livewire;
 
 it('always returns the run at date in UTC time', function () {

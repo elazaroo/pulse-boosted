@@ -1,16 +1,16 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Livewire\Usage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as AuthUser;
 use Illuminate\Support\Carbon;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Livewire\Usage;
 use Livewire\Livewire;
 use Orchestra\Testbench\Factories\UserFactory;
 
 it('includes the card on the dashboard', function () {
     $this
-        ->get('/pulse')
+        ->get('/pulse-boosted')
         ->assertSeeLivewire(Usage::class);
 });
 

@@ -1,10 +1,13 @@
 <?php
 
-namespace Laravel\Pulse\Storage;
+namespace Elazaroo\PulseBoosted\Storage;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
 use Closure;
+use Elazaroo\PulseBoosted\Contracts\Storage;
+use Elazaroo\PulseBoosted\Entry;
+use Elazaroo\PulseBoosted\Value;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
@@ -12,9 +15,6 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
-use Laravel\Pulse\Contracts\Storage;
-use Laravel\Pulse\Entry;
-use Laravel\Pulse\Value;
 use RuntimeException;
 
 /**
@@ -98,7 +98,7 @@ class DatabaseStorage implements Storage
 
         $this->connection()->transaction(function () use ($entryChunks, $countChunks, $minimumChunks, $maximumChunks, $sumChunks, $averageChunks, $valueChunks) {
             $entryChunks->each(fn ($chunk) => $this->connection()
-                ->table('pulse_entries')
+                ->table('pulse_boosted_entries')
                 ->insert($chunk->all()));
 
             $countChunks->each(fn ($chunk) => $this->upsertCount($chunk->all()));
@@ -112,7 +112,7 @@ class DatabaseStorage implements Storage
             $averageChunks->each(fn ($chunk) => $this->upsertAvg($chunk->all()));
 
             $valueChunks->each(fn ($chunk) => $this->connection()
-                ->table('pulse_values')
+                ->table('pulse_boosted_values')
                 ->upsert($chunk->all(), ['type', 'key_hash'], ['timestamp', 'value'])
             );
         }, 3);
@@ -125,7 +125,7 @@ class DatabaseStorage implements Storage
     {
         $now = CarbonImmutable::now();
 
-        $keep = $this->config->get('pulse.storage.trim.keep') ?? '7 days';
+        $keep = $this->config->get('pulse-boosted.storage.trim.keep') ?? '7 days';
 
         $before = $now->subMilliseconds(
             (int) CarbonInterval::fromString($keep)->totalMilliseconds
@@ -136,21 +136,21 @@ class DatabaseStorage implements Storage
         }
 
         $this->connection()
-            ->table('pulse_values')
+            ->table('pulse_boosted_values')
             ->where('timestamp', '<=', $before->getTimestamp())
             ->delete();
 
         $this->connection()
-            ->table('pulse_entries')
+            ->table('pulse_boosted_entries')
             ->where('timestamp', '<=', $before->getTimestamp())
             ->delete();
 
         $this->connection()
-            ->table('pulse_aggregates')
+            ->table('pulse_boosted_aggregates')
             ->distinct()
             ->pluck('period')
             ->each(fn (int $period) => $this->connection()
-                ->table('pulse_aggregates')
+                ->table('pulse_boosted_aggregates')
                 ->where('period', $period)
                 ->where('bucket', '<=', max($now->subMinutes($period)->getTimestamp(), $before->getTimestamp()))
                 ->delete());
@@ -164,16 +164,16 @@ class DatabaseStorage implements Storage
     public function purge(?array $types = null): void
     {
         if ($types === null) {
-            $this->connection()->table('pulse_values')->truncate();
-            $this->connection()->table('pulse_entries')->truncate();
-            $this->connection()->table('pulse_aggregates')->truncate();
+            $this->connection()->table('pulse_boosted_values')->truncate();
+            $this->connection()->table('pulse_boosted_entries')->truncate();
+            $this->connection()->table('pulse_boosted_aggregates')->truncate();
 
             return;
         }
 
-        $this->connection()->table('pulse_values')->whereIn('type', $types)->delete();
-        $this->connection()->table('pulse_entries')->whereIn('type', $types)->delete();
-        $this->connection()->table('pulse_aggregates')->whereIn('type', $types)->delete();
+        $this->connection()->table('pulse_boosted_values')->whereIn('type', $types)->delete();
+        $this->connection()->table('pulse_boosted_entries')->whereIn('type', $types)->delete();
+        $this->connection()->table('pulse_boosted_aggregates')->whereIn('type', $types)->delete();
     }
 
     /**
@@ -185,21 +185,21 @@ class DatabaseStorage implements Storage
     {
         $connection = $this->connection();
 
-        return $connection->table('pulse_aggregates')->upsert(
+        return $connection->table('pulse_boosted_aggregates')->upsert(
             $this->prepareAggregates($values),
             ['bucket', 'period', 'type', 'aggregate', 'key_hash'],
             [
                 'value' => match ($driver = $connection->getDriverName()) {
                     'mariadb', 'mysql' => new Expression(
                         $connection->getConfig('use_upsert_alias')
-                            ? "{$this->wrap('pulse_aggregates.value')} + {$this->wrap('laravel_upsert_alias.value')}"
+                            ? "{$this->wrap('pulse_boosted_aggregates.value')} + {$this->wrap('laravel_upsert_alias.value')}"
                             : '`value` + values(`value`)'
                     ),
                     'pgsql', 'sqlite' => new Expression(<<<SQL
-                        {$this->wrap('pulse_aggregates.value')} + "excluded"."value"
+                        {$this->wrap('pulse_boosted_aggregates.value')} + "excluded"."value"
                         SQL),
                     'sqlsrv' => new Expression(
-                        "{$this->wrap('pulse_aggregates.value')} + {$this->castUpsertValue('laravel_source.value')}"
+                        "{$this->wrap('pulse_boosted_aggregates.value')} + {$this->castUpsertValue('laravel_source.value')}"
                     ),
                     default => throw new RuntimeException("Unsupported database driver [{$driver}]"),
                 },
@@ -216,24 +216,24 @@ class DatabaseStorage implements Storage
     {
         $connection = $this->connection();
 
-        return $connection->table('pulse_aggregates')->upsert(
+        return $connection->table('pulse_boosted_aggregates')->upsert(
             $this->prepareAggregates($values),
             ['bucket', 'period', 'type', 'aggregate', 'key_hash'],
             [
                 'value' => match ($driver = $connection->getDriverName()) {
                     'mariadb', 'mysql' => new Expression(
                         $connection->getConfig('use_upsert_alias')
-                            ? "least({$this->wrap('pulse_aggregates.value')}, {$this->wrap('laravel_upsert_alias.value')})"
+                            ? "least({$this->wrap('pulse_boosted_aggregates.value')}, {$this->wrap('laravel_upsert_alias.value')})"
                             : 'least(`value`, values(`value`))'
                     ),
                     'pgsql' => new Expression(<<<SQL
-                        least({$this->wrap('pulse_aggregates.value')}, "excluded"."value")
+                        least({$this->wrap('pulse_boosted_aggregates.value')}, "excluded"."value")
                         SQL),
                     'sqlite' => new Expression(<<<SQL
-                        min({$this->wrap('pulse_aggregates.value')}, "excluded"."value")
+                        min({$this->wrap('pulse_boosted_aggregates.value')}, "excluded"."value")
                         SQL),
                     'sqlsrv' => new Expression(
-                        "iif({$this->wrap('pulse_aggregates.value')} < {$this->castUpsertValue('laravel_source.value')}, {$this->wrap('pulse_aggregates.value')}, {$this->castUpsertValue('laravel_source.value')})"
+                        "iif({$this->wrap('pulse_boosted_aggregates.value')} < {$this->castUpsertValue('laravel_source.value')}, {$this->wrap('pulse_boosted_aggregates.value')}, {$this->castUpsertValue('laravel_source.value')})"
                     ),
                     default => throw new RuntimeException("Unsupported database driver [{$driver}]"),
                 },
@@ -250,24 +250,24 @@ class DatabaseStorage implements Storage
     {
         $connection = $this->connection();
 
-        return $connection->table('pulse_aggregates')->upsert(
+        return $connection->table('pulse_boosted_aggregates')->upsert(
             $this->prepareAggregates($values),
             ['bucket', 'period', 'type', 'aggregate', 'key_hash'],
             [
                 'value' => match ($driver = $connection->getDriverName()) {
                     'mariadb', 'mysql' => new Expression(
                         $connection->getConfig('use_upsert_alias')
-                            ? "greatest({$this->wrap('pulse_aggregates.value')}, {$this->wrap('laravel_upsert_alias.value')})"
+                            ? "greatest({$this->wrap('pulse_boosted_aggregates.value')}, {$this->wrap('laravel_upsert_alias.value')})"
                             : 'greatest(`value`, values(`value`))'
                     ),
                     'pgsql' => new Expression(<<<SQL
-                        greatest({$this->wrap('pulse_aggregates.value')}, "excluded"."value")
+                        greatest({$this->wrap('pulse_boosted_aggregates.value')}, "excluded"."value")
                         SQL),
                     'sqlite' => new Expression(<<<SQL
-                        max({$this->wrap('pulse_aggregates.value')}, "excluded"."value")
+                        max({$this->wrap('pulse_boosted_aggregates.value')}, "excluded"."value")
                         SQL),
                     'sqlsrv' => new Expression(
-                        "iif({$this->wrap('pulse_aggregates.value')} > {$this->castUpsertValue('laravel_source.value')}, {$this->wrap('pulse_aggregates.value')}, {$this->castUpsertValue('laravel_source.value')})"
+                        "iif({$this->wrap('pulse_boosted_aggregates.value')} > {$this->castUpsertValue('laravel_source.value')}, {$this->wrap('pulse_boosted_aggregates.value')}, {$this->castUpsertValue('laravel_source.value')})"
                     ),
                     default => throw new RuntimeException("Unsupported database driver [{$driver}]"),
                 },
@@ -284,21 +284,21 @@ class DatabaseStorage implements Storage
     {
         $connection = $this->connection();
 
-        return $connection->table('pulse_aggregates')->upsert(
+        return $connection->table('pulse_boosted_aggregates')->upsert(
             $this->prepareAggregates($values),
             ['bucket', 'period', 'type', 'aggregate', 'key_hash'],
             [
                 'value' => match ($driver = $connection->getDriverName()) {
                     'mariadb', 'mysql' => new Expression(
                         $connection->getConfig('use_upsert_alias')
-                            ? "{$this->wrap('pulse_aggregates.value')} + {$this->wrap('laravel_upsert_alias.value')}"
+                            ? "{$this->wrap('pulse_boosted_aggregates.value')} + {$this->wrap('laravel_upsert_alias.value')}"
                             : '`value` + values(`value`)'
                     ),
                     'pgsql', 'sqlite' => new Expression(<<<SQL
-                        {$this->wrap('pulse_aggregates.value')} + "excluded"."value"
+                        {$this->wrap('pulse_boosted_aggregates.value')} + "excluded"."value"
                         SQL),
                     'sqlsrv' => new Expression(
-                        "{$this->wrap('pulse_aggregates.value')} + {$this->castUpsertValue('laravel_source.value')}"
+                        "{$this->wrap('pulse_boosted_aggregates.value')} + {$this->castUpsertValue('laravel_source.value')}"
                     ),
                     default => throw new RuntimeException("Unsupported database driver [{$driver}]"),
                 },
@@ -315,16 +315,16 @@ class DatabaseStorage implements Storage
     {
         $connection = $this->connection();
 
-        return $connection->table('pulse_aggregates')->upsert(
+        return $connection->table('pulse_boosted_aggregates')->upsert(
             $this->prepareAggregates($values),
             ['bucket', 'period', 'type', 'aggregate', 'key_hash'],
             match ($driver = $connection->getDriverName()) {
                 'mariadb', 'mysql' => $connection->getConfig('use_upsert_alias') ? [
                     'value' => new Expression(
-                        "({$this->wrap('pulse_aggregates.value')} * {$this->wrap('pulse_aggregates.count')} + ({$this->wrap('laravel_upsert_alias.value')} * {$this->wrap('laravel_upsert_alias.count')})) / ({$this->wrap('pulse_aggregates.count')} + {$this->wrap('laravel_upsert_alias.count')})"
+                        "({$this->wrap('pulse_boosted_aggregates.value')} * {$this->wrap('pulse_boosted_aggregates.count')} + ({$this->wrap('laravel_upsert_alias.value')} * {$this->wrap('laravel_upsert_alias.count')})) / ({$this->wrap('pulse_boosted_aggregates.count')} + {$this->wrap('laravel_upsert_alias.count')})"
                     ),
                     'count' => new Expression(
-                        "{$this->wrap('pulse_aggregates.count')} + {$this->wrap('laravel_upsert_alias.count')}"
+                        "{$this->wrap('pulse_boosted_aggregates.count')} + {$this->wrap('laravel_upsert_alias.count')}"
                     ),
                 ] : [
                     'value' => new Expression('(`value` * `count` + (values(`value`) * values(`count`))) / (`count` + values(`count`))'),
@@ -332,18 +332,18 @@ class DatabaseStorage implements Storage
                 ],
                 'pgsql', 'sqlite' => [
                     'value' => new Expression(<<<SQL
-                        ({$this->wrap('pulse_aggregates.value')} * {$this->wrap('pulse_aggregates.count')} + ("excluded"."value" * "excluded"."count")) / ({$this->wrap('pulse_aggregates.count')} + "excluded"."count")
+                        ({$this->wrap('pulse_boosted_aggregates.value')} * {$this->wrap('pulse_boosted_aggregates.count')} + ("excluded"."value" * "excluded"."count")) / ({$this->wrap('pulse_boosted_aggregates.count')} + "excluded"."count")
                         SQL),
                     'count' => new Expression(<<<SQL
-                        {$this->wrap('pulse_aggregates.count')} + "excluded"."count"
+                        {$this->wrap('pulse_boosted_aggregates.count')} + "excluded"."count"
                         SQL),
                 ],
                 'sqlsrv' => [
                     'value' => new Expression(
-                        "({$this->wrap('pulse_aggregates.value')} * {$this->wrap('pulse_aggregates.count')} + ({$this->castUpsertValue('laravel_source.value')} * {$this->castUpsertCount('laravel_source.count')})) / ({$this->wrap('pulse_aggregates.count')} + {$this->castUpsertCount('laravel_source.count')})"
+                        "({$this->wrap('pulse_boosted_aggregates.value')} * {$this->wrap('pulse_boosted_aggregates.count')} + ({$this->castUpsertValue('laravel_source.value')} * {$this->castUpsertCount('laravel_source.count')})) / ({$this->wrap('pulse_boosted_aggregates.count')} + {$this->castUpsertCount('laravel_source.count')})"
                     ),
                     'count' => new Expression(
-                        "{$this->wrap('pulse_aggregates.count')} + {$this->castUpsertCount('laravel_source.count')}"
+                        "{$this->wrap('pulse_boosted_aggregates.count')} + {$this->castUpsertCount('laravel_source.count')}"
                     ),
                 ],
                 default => throw new RuntimeException("Unsupported database driver [{$driver}]"),
@@ -509,7 +509,7 @@ class DatabaseStorage implements Storage
     public function values(string $type, ?array $keys = null): Collection
     {
         return $this->connection()
-            ->table('pulse_values')
+            ->table('pulse_boosted_values')
             ->select('timestamp', 'key', 'value')
             ->where('type', $type)
             ->when($keys, fn ($query) => $query->whereIn('key', $keys))
@@ -543,7 +543,7 @@ class DatabaseStorage implements Storage
 
         $structure = collect($types)->mapWithKeys(fn ($type) => [$type => $padding]);
 
-        return $this->connection()->table('pulse_aggregates')
+        return $this->connection()->table('pulse_boosted_aggregates')
             ->select(['bucket', 'type', 'key', 'value'])
             ->whereIn('type', $types)
             ->where('aggregate', $aggregate)
@@ -597,7 +597,7 @@ class DatabaseStorage implements Storage
             ->select([
                 'key' => fn (Builder $query) => $query
                     ->select('key')
-                    ->from('pulse_entries', as: 'keys')
+                    ->from('pulse_boosted_entries', as: 'keys')
                     ->whereColumn('keys.key_hash', 'aggregated.key_hash')
                     ->limit(1),
                 ...$aggregates,
@@ -636,7 +636,7 @@ class DatabaseStorage implements Storage
                     }
 
                     $query
-                        ->from('pulse_entries')
+                        ->from('pulse_boosted_entries')
                         ->where('type', $type)
                         ->where('timestamp', '>=', $windowStart)
                         ->where('timestamp', '<=', $oldestBucket - 1)
@@ -662,7 +662,7 @@ class DatabaseStorage implements Storage
                             }
 
                             $query
-                                ->from('pulse_aggregates')
+                                ->from('pulse_boosted_aggregates')
                                 ->where('period', $period)
                                 ->where('type', $type)
                                 ->where('aggregate', $currentAggregate)
@@ -705,7 +705,7 @@ class DatabaseStorage implements Storage
             ->select([
                 'key' => fn (Builder $query) => $query
                     ->select('key')
-                    ->from('pulse_entries', as: 'keys')
+                    ->from('pulse_boosted_entries', as: 'keys')
                     ->whereColumn('keys.key_hash', 'aggregated.key_hash')
                     ->limit(1),
                 ...$types,
@@ -744,7 +744,7 @@ class DatabaseStorage implements Storage
                     }
 
                     $query
-                        ->from('pulse_entries')
+                        ->from('pulse_boosted_entries')
                         ->whereIn('type', $types)
                         ->where('timestamp', '>=', $windowStart)
                         ->where('timestamp', '<=', $oldestBucket - 1)
@@ -765,7 +765,7 @@ class DatabaseStorage implements Storage
                         }
 
                         $query
-                            ->from('pulse_aggregates')
+                            ->from('pulse_boosted_aggregates')
                             ->where('period', $period)
                             ->whereIn('type', $types)
                             ->where('aggregate', $aggregate)
@@ -823,7 +823,7 @@ class DatabaseStorage implements Storage
                     'sum' => "sum({$this->wrap('value')})",
                     'avg' => "avg({$this->wrap('value')})",
                 }." as {$this->wrap($aggregate)}")
-                ->from('pulse_entries')
+                ->from('pulse_boosted_entries')
                 ->when(
                     is_array($types),
                     fn ($query) => $query->whereIn('type', $types),
@@ -842,7 +842,7 @@ class DatabaseStorage implements Storage
                         'sum' => "sum({$this->wrap('value')})",
                         'avg' => "avg({$this->wrap('value')})",
                     }." as {$this->wrap($aggregate)}")
-                    ->from('pulse_aggregates')
+                    ->from('pulse_boosted_aggregates')
                     ->where('period', $period)
                     ->when(
                         is_array($types),
@@ -867,7 +867,7 @@ class DatabaseStorage implements Storage
      */
     protected function connection(): Connection
     {
-        return $this->db->connection($this->config->get('pulse.storage.database.connection'));
+        return $this->db->connection($this->config->get('pulse-boosted.storage.database.connection'));
     }
 
     /**
@@ -892,7 +892,7 @@ class DatabaseStorage implements Storage
      */
     protected function chunk(Collection $rows): Collection
     {
-        $size = $this->config->get('pulse.storage.database.chunk');
+        $size = $this->config->get('pulse-boosted.storage.database.chunk');
 
         if ($rows->isNotEmpty() && $this->connection()->getDriverName() === 'sqlsrv') {
             $size = min($size, intdiv(2000, count($rows->first())));

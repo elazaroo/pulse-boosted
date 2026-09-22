@@ -1,13 +1,13 @@
 <?php
 
-namespace Laravel\Pulse\Recorders;
+namespace Elazaroo\PulseBoosted\Recorders;
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Concerns\ConfiguresAfterResolving;
+use Elazaroo\PulseBoosted\Pulse;
 use GuzzleHttp\Promise\RejectedPromise;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory;
-use Laravel\Pulse\Concerns\ConfiguresAfterResolving;
-use Laravel\Pulse\Pulse;
 use League\Uri\Uri;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;

@@ -1,12 +1,12 @@
 <?php
 
-namespace Laravel\Pulse\Commands;
+namespace Elazaroo\PulseBoosted\Commands;
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Pulse;
+use Elazaroo\PulseBoosted\Support\CacheStoreResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Sleep;
-use Laravel\Pulse\Pulse;
-use Laravel\Pulse\Support\CacheStoreResolver;
 use Laravel\Telescope\Contracts\EntriesRepository;
 use Laravel\Telescope\Telescope;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -14,7 +14,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 /**
  * @internal
  */
-#[AsCommand(name: 'pulse:work')]
+#[AsCommand(name: 'pulse-boosted:work')]
 class WorkCommand extends Command
 {
     /**
@@ -22,7 +22,7 @@ class WorkCommand extends Command
      *
      * @var string
      */
-    public $signature = 'pulse:work {--stop-when-empty : Stop when the stream is empty}';
+    public $signature = 'pulse-boosted:work {--stop-when-empty : Stop when the stream is empty}';
 
     /**
      * The command's description.
@@ -38,14 +38,14 @@ class WorkCommand extends Command
         Pulse $pulse,
         CacheStoreResolver $cache,
     ): int {
-        $lastRestart = $cache->store()->get('laravel:pulse:restart');
+        $lastRestart = $cache->store()->get('elazaroo:pulse-boosted:restart');
 
         $lastTrimmedStorageAt = CarbonImmutable::now()->startOfMinute();
 
         while (true) {
             $now = CarbonImmutable::now();
 
-            if ($lastRestart !== $cache->store()->get('laravel:pulse:restart')) {
+            if ($lastRestart !== $cache->store()->get('elazaroo:pulse-boosted:restart')) {
                 return self::SUCCESS;
             }
 

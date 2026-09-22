@@ -1,12 +1,12 @@
 <?php
 
-namespace Laravel\Pulse\Livewire;
+namespace Elazaroo\PulseBoosted\Livewire;
 
+use Elazaroo\PulseBoosted\Recorders\Concerns\Thresholds;
+use Elazaroo\PulseBoosted\Recorders\SlowRequests as SlowRequestsRecorder;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\View;
-use Laravel\Pulse\Recorders\Concerns\Thresholds;
-use Laravel\Pulse\Recorders\SlowRequests as SlowRequestsRecorder;
 use Livewire\Attributes\Lazy;
 use Livewire\Attributes\Url;
 
@@ -54,13 +54,13 @@ class SlowRequests extends Card
             $this->orderBy,
         );
 
-        return View::make('pulse::livewire.slow-requests', [
+        return View::make('pulse-boosted::livewire.slow-requests', [
             'time' => $time,
             'runAt' => $runAt,
             'slowRequests' => $slowRequests,
             'config' => [
-                'threshold' => Config::get('pulse.recorders.'.SlowRequestsRecorder::class.'.threshold'),
-                'sample_rate' => Config::get('pulse.recorders.'.SlowRequestsRecorder::class.'.sample_rate'),
+                'threshold' => Config::get('pulse-boosted.recorders.'.SlowRequestsRecorder::class.'.threshold'),
+                'sample_rate' => Config::get('pulse-boosted.recorders.'.SlowRequestsRecorder::class.'.sample_rate'),
             ],
         ]);
     }

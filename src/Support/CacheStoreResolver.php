@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Support;
+namespace Elazaroo\PulseBoosted\Support;
 
 use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
@@ -23,6 +23,6 @@ class CacheStoreResolver
      */
     public function store(): CacheRepository
     {
-        return $this->cache->store($this->config->get('pulse.cache'));
+        return $this->cache->store($this->config->get('pulse-boosted.cache'));
     }
 }

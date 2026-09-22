@@ -1,4 +1,4 @@
-@use('Laravel\Pulse\Facades\Pulse')
+@use('Elazaroo\PulseBoosted\Facades\Pulse')
 @props(['cols' => 12, 'fullWidth' => false])
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -37,8 +37,8 @@
                             <span class="ml-2 text-lg sm:text-2xl text-gray-700 dark:text-gray-300 font-medium"><b class="font-bold">Laravel</b> Pulse</span>
                         </div>
                         <div class="flex items-center gap-3 sm:gap-6">
-                            <livewire:pulse.period-selector />
-                            <x-pulse::theme-switcher />
+                            <livewire:pulse-boosted.period-selector />
+                            <x-pulse-boosted::theme-switcher />
                         </div>
                     </div>
                 </div>

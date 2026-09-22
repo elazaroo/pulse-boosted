@@ -1,13 +1,13 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Livewire\SlowOutgoingRequests;
 use Illuminate\Support\Carbon;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Livewire\SlowOutgoingRequests;
 use Livewire\Livewire;
 
 it('includes the card on the dashboard', function () {
     $this
-        ->get('/pulse')
+        ->get('/pulse-boosted')
         ->assertSeeLivewire(SlowOutgoingRequests::class);
 });
 

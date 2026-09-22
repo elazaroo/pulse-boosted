@@ -1,16 +1,16 @@
 <?php
 
-namespace Laravel\Pulse\Commands;
+namespace Elazaroo\PulseBoosted\Commands;
 
+use Elazaroo\PulseBoosted\Pulse;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
-use Laravel\Pulse\Pulse;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 /**
  * @internal
  */
-#[AsCommand(name: 'pulse:clear', aliases: ['pulse:purge'])]
+#[AsCommand(name: 'pulse-boosted:clear', aliases: ['pulse-boosted:purge'])]
 class ClearCommand extends Command
 {
     use ConfirmableTrait;
@@ -20,7 +20,7 @@ class ClearCommand extends Command
      *
      * @var string
      */
-    public $signature = 'pulse:clear {--type=* : Only clear the specified type(s)}
+    public $signature = 'pulse-boosted:clear {--type=* : Only clear the specified type(s)}
                                      {--force : Force the operation to run when in production}';
 
     /**
@@ -35,7 +35,7 @@ class ClearCommand extends Command
      *
      * @var array<int, string>
      */
-    protected $aliases = ['pulse:purge'];
+    protected $aliases = ['pulse-boosted:purge'];
 
     /**
      * Handle the command.

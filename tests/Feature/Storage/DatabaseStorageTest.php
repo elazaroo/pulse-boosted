@@ -1,10 +1,10 @@
 <?php
 
 use Carbon\CarbonInterval;
+use Elazaroo\PulseBoosted\Facades\Pulse;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Laravel\Pulse\Facades\Pulse;
 
 test('aggregation', function () {
     Pulse::record('type', 'key1', 200)->count()->min()->max()->sum()->avg();
@@ -12,13 +12,13 @@ test('aggregation', function () {
     Pulse::record('type', 'key2', 400)->count()->min()->max()->sum()->avg();
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->orderBy('id')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->orderBy('id')->get());
     expect($entries)->toHaveCount(3);
     expect($entries[0])->toHaveProperties(['type' => 'type', 'key' => 'key1', 'value' => 200]);
     expect($entries[1])->toHaveProperties(['type' => 'type', 'key' => 'key1', 'value' => 100]);
     expect($entries[2])->toHaveProperties(['type' => 'type', 'key' => 'key2', 'value' => 400]);
 
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->orderBy('period')->orderBy('aggregate')->orderBy('key')->get());
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->orderBy('period')->orderBy('aggregate')->orderBy('key')->get());
     expect($aggregates)->toHaveCount(40); // 2 entries * 5 aggregates * 4 periods
     expect($aggregates[0])->toHaveProperties(['type' => 'type', 'period' => 60, 'aggregate' => 'avg', 'key' => 'key1', 'value' => 150]);
     expect($aggregates[1])->toHaveProperties(['type' => 'type', 'period' => 60, 'aggregate' => 'avg', 'key' => 'key2', 'value' => 400]);
@@ -67,14 +67,14 @@ test('aggregation', function () {
     Pulse::record('type', 'key1', 600)->count()->min()->max()->sum()->avg();
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->orderBy('id')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->orderBy('id')->get());
     expect($entries)->toHaveCount(4);
     expect($entries[0])->toHaveProperties(['type' => 'type', 'key' => 'key1', 'value' => 200]);
     expect($entries[1])->toHaveProperties(['type' => 'type', 'key' => 'key1', 'value' => 100]);
     expect($entries[2])->toHaveProperties(['type' => 'type', 'key' => 'key2', 'value' => 400]);
     expect($entries[3])->toHaveProperties(['type' => 'type', 'key' => 'key1', 'value' => 600]);
 
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->orderBy('period')->orderBy('aggregate')->orderBy('key')->get());
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->orderBy('period')->orderBy('aggregate')->orderBy('key')->get());
     expect($aggregates)->toHaveCount(40); // 2 entries * 5 aggregates * 4 periods
     expect($aggregates[0])->toHaveProperties(['type' => 'type', 'period' => 60, 'aggregate' => 'avg', 'key' => 'key1', 'value' => 300]);
     expect($aggregates[1])->toHaveProperties(['type' => 'type', 'period' => 60, 'aggregate' => 'avg', 'key' => 'key2', 'value' => 400]);
@@ -136,8 +136,8 @@ it('combines duplicate count aggregates before upserting', function () {
     Pulse::ingest();
 
     expect($queries)->toHaveCount(2);
-    expect($queries[0]->sql)->toContain('pulse_entries');
-    expect($queries[1]->sql)->toContain('pulse_aggregates');
+    expect($queries[0]->sql)->toContain('pulse_boosted_entries');
+    expect($queries[1]->sql)->toContain('pulse_boosted_aggregates');
     if (in_array(DB::connection()->getDriverName(), ['sqlite', 'sqlsrv'])) {
         expect($queries[0]->bindings)->toHaveCount(4 * 5); // 4 entries, 5 columns each
         expect($queries[1]->bindings)->toHaveCount(2 * 7 * 4); // 2 entries, 7 columns each, 4 periods
@@ -146,7 +146,7 @@ it('combines duplicate count aggregates before upserting', function () {
         expect($queries[1]->bindings)->toHaveCount(2 * 6 * 4); // 2 entries, 6 columns each, 4 periods
     }
 
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 60)->orderBy('key')->pluck('value', 'key'));
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 60)->orderBy('key')->pluck('value', 'key'));
     expect($aggregates['key1'])->toEqual(3);
     expect($aggregates['key2'])->toEqual(1);
 });
@@ -166,8 +166,8 @@ it('combines duplicate min aggregates before upserting', function () {
     Pulse::ingest();
 
     expect($queries)->toHaveCount(2);
-    expect($queries[0]->sql)->toContain('pulse_entries');
-    expect($queries[1]->sql)->toContain('pulse_aggregates');
+    expect($queries[0]->sql)->toContain('pulse_boosted_entries');
+    expect($queries[1]->sql)->toContain('pulse_boosted_aggregates');
     if (in_array(DB::connection()->getDriverName(), ['sqlite', 'sqlsrv'])) {
         expect($queries[0]->bindings)->toHaveCount(4 * 5); // 4 entries, 5 columns each
         expect($queries[1]->bindings)->toHaveCount(2 * 7 * 4); // 2 entries, 7 columns each, 4 periods
@@ -176,7 +176,7 @@ it('combines duplicate min aggregates before upserting', function () {
         expect($queries[1]->bindings)->toHaveCount(2 * 6 * 4); // 2 entries, 6 columns each, 4 periods
     }
 
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 60)->orderBy('key')->pluck('value', 'key'));
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 60)->orderBy('key')->pluck('value', 'key'));
     expect($aggregates['key1'])->toEqual(100);
     expect($aggregates['key2'])->toEqual(100);
 });
@@ -196,8 +196,8 @@ it('combines duplicate max aggregates before upserting', function () {
     Pulse::ingest();
 
     expect($queries)->toHaveCount(2);
-    expect($queries[0]->sql)->toContain('pulse_entries');
-    expect($queries[1]->sql)->toContain('pulse_aggregates');
+    expect($queries[0]->sql)->toContain('pulse_boosted_entries');
+    expect($queries[1]->sql)->toContain('pulse_boosted_aggregates');
     if (in_array(DB::connection()->getDriverName(), ['sqlite', 'sqlsrv'])) {
         expect($queries[0]->bindings)->toHaveCount(4 * 5); // 4 entries, 5 columns each
         expect($queries[1]->bindings)->toHaveCount(2 * 7 * 4); // 2 entries, 7 columns each, 4 periods
@@ -206,7 +206,7 @@ it('combines duplicate max aggregates before upserting', function () {
         expect($queries[1]->bindings)->toHaveCount(2 * 6 * 4); // 2 entries, 6 columns each, 4 periods
     }
 
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 60)->orderBy('key')->pluck('value', 'key'));
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 60)->orderBy('key')->pluck('value', 'key'));
     expect($aggregates['key1'])->toEqual(300);
     expect($aggregates['key2'])->toEqual(100);
 });
@@ -226,8 +226,8 @@ it('combines duplicate sum aggregates before upserting', function () {
     Pulse::ingest();
 
     expect($queries)->toHaveCount(2);
-    expect($queries[0]->sql)->toContain('pulse_entries');
-    expect($queries[1]->sql)->toContain('pulse_aggregates');
+    expect($queries[0]->sql)->toContain('pulse_boosted_entries');
+    expect($queries[1]->sql)->toContain('pulse_boosted_aggregates');
     if (in_array(DB::connection()->getDriverName(), ['sqlite', 'sqlsrv'])) {
         expect($queries[0]->bindings)->toHaveCount(4 * 5); // 4 entries, 5 columns each
         expect($queries[1]->bindings)->toHaveCount(2 * 7 * 4); // 2 entries, 7 columns each, 4 periods
@@ -236,7 +236,7 @@ it('combines duplicate sum aggregates before upserting', function () {
         expect($queries[1]->bindings)->toHaveCount(2 * 6 * 4); // 2 entries, 6 columns each, 4 periods
     }
 
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 60)->orderBy('key')->pluck('value', 'key'));
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 60)->orderBy('key')->pluck('value', 'key'));
     expect($aggregates['key1'])->toEqual(600);
     expect($aggregates['key2'])->toEqual(100);
 });
@@ -256,8 +256,8 @@ it('combines duplicate average aggregates before upserting', function () {
     Pulse::ingest();
 
     expect($queries)->toHaveCount(2);
-    expect($queries[0]->sql)->toContain('pulse_entries');
-    expect($queries[1]->sql)->toContain('pulse_aggregates');
+    expect($queries[0]->sql)->toContain('pulse_boosted_entries');
+    expect($queries[1]->sql)->toContain('pulse_boosted_aggregates');
     if (in_array(DB::connection()->getDriverName(), ['sqlite', 'sqlsrv'])) {
         expect($queries[0]->bindings)->toHaveCount(4 * 5); // 4 entries, 5 columns each
         expect($queries[1]->bindings)->toHaveCount(2 * 8 * 4); // 2 entries, 8 columns each, 4 periods
@@ -266,7 +266,7 @@ it('combines duplicate average aggregates before upserting', function () {
         expect($queries[1]->bindings)->toHaveCount(2 * 7 * 4); // 2 entries, 7 columns each, 4 periods
     }
 
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 60)->orderBy('key')->get())->keyBy('key');
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 60)->orderBy('key')->get())->keyBy('key');
     expect($aggregates['key1']->value)->toEqual(200);
     expect($aggregates['key2']->value)->toEqual(100);
     expect($aggregates['key1']->count)->toEqual(3);
@@ -276,7 +276,7 @@ it('combines duplicate average aggregates before upserting', function () {
     Pulse::record('type', 'key1', 400)->avg();
     Pulse::record('type', 'key1', 400)->avg();
     Pulse::ingest();
-    $aggregate = Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('period', 60)->where('key', 'key1')->first());
+    $aggregate = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('period', 60)->where('key', 'key1')->first());
     expect($aggregate->count)->toEqual(6);
     expect($aggregate->value)->toEqual(300);
 });
@@ -493,7 +493,7 @@ it('collapses values with the same key into a single upsert', function () {
     expect($bindings)->not->toContain(123);
     expect($bindings)->not->toContain(234);
     expect($bindings)->toContain('345');
-    $values = Pulse::ignore(fn () => DB::table('pulse_values')->get());
+    $values = Pulse::ignore(fn () => DB::table('pulse_boosted_values')->get());
     expect($values)->toHaveCount(1);
     expect($values[0]->value)->toBe('345');
 });
@@ -508,7 +508,7 @@ it('stores more records than fit in a single statement', function () {
 
     Pulse::ingest();
 
-    expect(Pulse::ignore(fn () => DB::table('pulse_entries')->count()))->toBe(1_000);
-    expect(Pulse::ignore(fn () => DB::table('pulse_aggregates')->count()))->toBe(1_000 * 5 * 4); // 5 aggregates, 4 periods
-    expect(Pulse::ignore(fn () => DB::table('pulse_values')->count()))->toBe(1_000);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->count()))->toBe(1_000);
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->count()))->toBe(1_000 * 5 * 4); // 5 aggregates, 4 periods
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_values')->count()))->toBe(1_000);
 });

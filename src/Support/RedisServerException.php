@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Support;
+namespace Elazaroo\PulseBoosted\Support;
 
 use RuntimeException;
 use Throwable;

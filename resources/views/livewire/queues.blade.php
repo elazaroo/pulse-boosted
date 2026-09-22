@@ -1,12 +1,12 @@
 @use('Illuminate\Support\Str')
-<x-pulse::card :cols="$cols" :rows="$rows" :class="$class">
-    <x-pulse::card-header
+<x-pulse-boosted::card :cols="$cols" :rows="$rows" :class="$class">
+    <x-pulse-boosted::card-header
         name="Queues"
         x-bind:title="`Time: {{ number_format($time) }}ms; Run at: ${formatDate('{{ $runAt }}')};`"
         details="past {{ $this->periodForHumans() }}"
     >
         <x-slot:icon>
-            <x-pulse::icons.queue-list />
+            <x-pulse-boosted::icons.queue-list />
         </x-slot:icon>
         <x-slot:actions>
             <div class="flex flex-wrap gap-4">
@@ -32,11 +32,11 @@
                 </div>
             </div>
         </x-slot:actions>
-    </x-pulse::card-header>
+    </x-pulse-boosted::card-header>
 
-    <x-pulse::scroll :expand="$expand" wire:poll.5s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s="">
         @if ($queues->isEmpty())
-            <x-pulse::no-results />
+            <x-pulse-boosted::no-results />
         @else
             <div class="grid gap-3 mx-px mb-px">
                 @foreach ($queues as $queue => $readings)
@@ -77,8 +77,8 @@
                 @endforeach
             </div>
         @endif
-    </x-pulse::scroll>
-</x-pulse::card>
+    </x-pulse-boosted::scroll>
+</x-pulse-boosted::card>
 
 @script
 <script>

@@ -1,6 +1,6 @@
 ---
 name: pulse-development
-description: "Handles Laravel Pulse setup, configuration, and custom card development. Activates when installing Pulse; configuring the dashboard or authorization gate; setting up recorders and filtering; building custom Livewire cards; optimizing with Redis ingest or sampling; or when the user mentions /pulse, pulse:check, pulse:work, Pulse::record(), or application monitoring."
+description: "Handles Laravel Pulse setup, configuration, and custom card development. Activates when installing Pulse; configuring the dashboard or authorization gate; setting up recorders and filtering; building custom Livewire cards; optimizing with Redis ingest or sampling; or when the user mentions /pulse, pulse-boosted:check, pulse-boosted:work, Pulse::record(), or application monitoring."
 license: MIT
 metadata:
   author: laravel
@@ -20,7 +20,7 @@ Pulse stores data in your application's database. The current package supports M
 
 ```bash
 composer require laravel/pulse
-{{ $assist->artisanCommand('vendor:publish --provider="Laravel\Pulse\PulseServiceProvider"') }}
+{{ $assist->artisanCommand('vendor:publish --provider="Elazaroo\PulseBoosted\PulseServiceProvider"') }}
 {{ $assist->artisanCommand('migrate') }}
 ```
 
@@ -28,13 +28,13 @@ The dashboard is available at `/pulse`.
 
 ## Dashboard Authorization
 
-Define the `viewPulse` gate in `AppServiceProvider::boot()` to enable production access:
+Define the `viewPulseBoosted` gate in `AppServiceProvider::boot()` to enable production access:
 
 @boostsnippet("Pulse Dashboard Authorization", "php")
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 
-Gate::define('viewPulse', function (User $user) {
+Gate::define('viewPulseBoosted', function (User $user) {
     return $user->isAdmin();
 });
 @endboostsnippet
@@ -43,7 +43,7 @@ Without this gate, the dashboard is inaccessible in all non-local environments.
 
 ## Recorders
 
-All 10 built-in recorders are configurable in `config/pulse.php`:
+All 10 built-in recorders are configurable in `config/pulse-boosted.php`:
 
 | Recorder | Key Config Options |
 |---|---|
@@ -54,7 +54,7 @@ All 10 built-in recorders are configurable in `config/pulse.php`:
 | `SlowOutgoingRequests` | `threshold` (ms, per-URL regex map), `sample_rate`, `ignore`, `groups` |
 | `SlowQueries` | `threshold` (ms, per-query regex map), `sample_rate`, `ignore`, `location` |
 | `SlowRequests` | `threshold` (ms, per-route regex map), `sample_rate`, `ignore` |
-| `Servers` | `PULSE_SERVER_NAME` env var, monitored disk paths |
+| `Servers` | `PULSE_BOOSTED_SERVER_NAME` env var, monitored disk paths |
 | `UserJobs` | `sample_rate`, `ignore` |
 | `UserRequests` | `sample_rate`, `ignore` |
 
@@ -64,21 +64,21 @@ Per-route and per-job threshold overrides use a regex-keyed map with a `default`
 Recorders\SlowRequests::class => [
     'threshold' => [
         '#^/api/reports#' => 5000,
-        'default'         => env('PULSE_SLOW_REQUESTS_THRESHOLD', 1000),
+        'default'         => env('PULSE_BOOSTED_SLOW_REQUESTS_THRESHOLD', 1000),
     ],
 ],
 @endboostsnippet
 
-The `Servers` recorder requires `pulse:check` running as a persistent daemon (Supervisor recommended).
+The `Servers` recorder requires `pulse-boosted:check` running as a persistent daemon (Supervisor recommended).
 
 ### Filtering Entries
 
 Use `Pulse::filter()` in `AppServiceProvider::boot()` to exclude entries globally. Return `true` to record, `false` to skip:
 
 @boostsnippet("Pulse Entry Filter", "php")
-use Laravel\Pulse\Entry;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Value;
+use Elazaroo\PulseBoosted\Entry;
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Value;
 use Illuminate\Support\Facades\Auth;
 
 Pulse::filter(function (Entry|Value $entry) {
@@ -93,20 +93,20 @@ Pulse::filter(function (Entry|Value $entry) {
 Offload entry writes from the request cycle to a Redis stream (requires Redis 6.2+ and `phpredis` or `predis`):
 
 ```ini
-PULSE_INGEST_DRIVER=redis
-PULSE_REDIS_CONNECTION=pulse
+PULSE_BOOSTED_INGEST_DRIVER=redis
+PULSE_BOOSTED_REDIS_CONNECTION=pulse
 ```
 
 Run a worker to drain the Redis stream into the database:
 
 ```bash
-{{ $assist->artisanCommand('pulse:work') }}
+{{ $assist->artisanCommand('pulse-boosted:work') }}
 ```
 
 Signal a graceful restart during deployment (requires a working cache driver):
 
 ```bash
-{{ $assist->artisanCommand('pulse:restart') }}
+{{ $assist->artisanCommand('pulse-boosted:restart') }}
 ```
 
 ## Custom Cards
@@ -118,7 +118,7 @@ Custom cards are Livewire components extending Pulse's base `Card` class.
 Call `Pulse::record()` from a recorder, listener, or observer. Chain aggregation methods (`avg`, `count`, `max`, `min`, `sum`) in a single call:
 
 @boostsnippet("Record Pulse Entry", "php")
-use Laravel\Pulse\Facades\Pulse;
+use Elazaroo\PulseBoosted\Facades\Pulse;
 
 Pulse::record('user_sale', $user->id, $sale->amount)
     ->sum()
@@ -132,8 +132,8 @@ When the entry is tied to the authenticated user, use `Pulse::resolveAuthenticat
 @boostsnippet("Custom Pulse Card", "php")
 namespace App\Livewire\Pulse;
 
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Livewire\Card;
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Livewire\Card;
 use Livewire\Attributes\Lazy;
 
 #[Lazy]
@@ -170,29 +170,29 @@ class SaleRecorder
 
     public function record(\App\Events\SaleCompleted $event): void
     {
-        \Laravel\Pulse\Facades\Pulse::record('user_sale', $event->user->id, $event->sale->amount)
+        \Elazaroo\PulseBoosted\Facades\Pulse::record('user_sale', $event->user->id, $event->sale->amount)
             ->sum()
             ->count();
     }
 }
 @endboostsnippet
 
-Register the recorder in the `recorders` array in `config/pulse.php`.
+Register the recorder in the `recorders` array in `config/pulse-boosted.php`.
 
 ## Verification
 
 1. Run migrations and confirm `/pulse` is accessible in local
-2. Define `viewPulse` gate and verify production access
-3. Confirm `pulse:check` is running for the Servers card
-4. If using Redis ingest, confirm `pulse:work` is running
+2. Define `viewPulseBoosted` gate and verify production access
+3. Confirm `pulse-boosted:check` is running for the Servers card
+4. If using Redis ingest, confirm `pulse-boosted:work` is running
 
 ## Common Pitfalls
 
 - An empty dashboard or database errors usually mean the Pulse tables have not been published and migrated yet.
-- The dashboard is local-only by default. Define the `viewPulse` gate to enable production access.
-- The Servers card shows no data unless `pulse:check` runs as a persistent process. Supervisor is recommended.
-- Redis ingest silently queues data. The dashboard appears empty if `pulse:work` is not running.
-- `pulse:restart` requires a working cache driver. Without it, the signal is never received.
+- The dashboard is local-only by default. Define the `viewPulseBoosted` gate to enable production access.
+- The Servers card shows no data unless `pulse-boosted:check` runs as a persistent process. Supervisor is recommended.
+- Redis ingest silently queues data. The dashboard appears empty if `pulse-boosted:work` is not running.
+- `pulse-boosted:restart` requires a working cache driver. Without it, the signal is never received.
 - Pulse exceptions fail silently. Use `Pulse::handleExceptionsUsing()` to surface errors during development.
 - Multiple `Authenticatable` models can cause incorrect user tracking. Use `Pulse::resolveAuthenticatedUserId()` when recording user-keyed entries.
 - SQS queues may appear duplicated in the Queue card. Use `ignore` regex patterns to suppress them.

@@ -1,17 +1,17 @@
 <?php
 
-namespace Laravel\Pulse\Recorders;
+namespace Elazaroo\PulseBoosted\Recorders;
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Concerns\ConfiguresAfterResolving;
+use Elazaroo\PulseBoosted\Events\ExceptionReported;
+use Elazaroo\PulseBoosted\Pulse;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Str;
 use Illuminate\View\ViewException;
-use Laravel\Pulse\Concerns\ConfiguresAfterResolving;
-use Laravel\Pulse\Events\ExceptionReported;
-use Laravel\Pulse\Pulse;
 use Throwable;
 
 /**
@@ -55,7 +55,7 @@ class Exceptions
                 return;
             }
 
-            $location = $this->config->get('pulse.recorders.'.self::class.'.location')
+            $location = $this->config->get('pulse-boosted.recorders.'.self::class.'.location')
                 ? $this->resolveLocation($e)
                 : null;
 

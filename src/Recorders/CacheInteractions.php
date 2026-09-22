@@ -1,11 +1,11 @@
 <?php
 
-namespace Laravel\Pulse\Recorders;
+namespace Elazaroo\PulseBoosted\Recorders;
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Pulse;
 use Illuminate\Cache\Events\CacheHit;
 use Illuminate\Cache\Events\CacheMissed;
-use Laravel\Pulse\Pulse;
 
 /**
  * @internal

@@ -1,12 +1,12 @@
 @use('Illuminate\Support\Str')
-<x-pulse::card :cols="$cols" :rows="$rows" :class="$class">
-    <x-pulse::card-header
+<x-pulse-boosted::card :cols="$cols" :rows="$rows" :class="$class">
+    <x-pulse-boosted::card-header
         name="Cache"
         x-bind:title="`Global Time: {{ number_format($allTime) }}ms; Global run at: ${formatDate('{{ $allRunAt }}')}; Key Time: {{ number_format($keyTime) }}ms; Key run at: ${formatDate('{{ $keyRunAt }}')};`"
         details="past {{ $this->periodForHumans() }}"
     >
         <x-slot:icon>
-            <x-pulse::icons.rocket-launch />
+            <x-pulse-boosted::icons.rocket-launch />
         </x-slot:icon>
         <x-slot:actions>
             @php
@@ -19,14 +19,14 @@
                 );
             @endphp
             <button title="{{ $message }}" @click="alert(@js($message))">
-                <x-pulse::icons.information-circle class="w-5 h-5 stroke-gray-400 dark:stroke-gray-600" />
+                <x-pulse-boosted::icons.information-circle class="w-5 h-5 stroke-gray-400 dark:stroke-gray-600" />
             </button>
         </x-slot:actions>
-    </x-pulse::card-header>
+    </x-pulse-boosted::card-header>
 
-    <x-pulse::scroll :expand="$expand" wire:poll.5s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s="">
         @if ($allCacheInteractions->hits === 0 && $allCacheInteractions->misses === 0)
-            <x-pulse::no-results />
+            <x-pulse-boosted::no-results />
         @else
             <div class="flex flex-col gap-6">
                 <div class="grid grid-cols-3 gap-3 text-center">
@@ -64,51 +64,51 @@
                     </div>
                 </div>
                 <div>
-                    <x-pulse::table>
+                    <x-pulse-boosted::table>
                         <colgroup>
                             <col width="100%" />
                             <col width="0%" />
                             <col width="0%" />
                             <col width="0%" />
                         </colgroup>
-                        <x-pulse::thead>
+                        <x-pulse-boosted::thead>
                             <tr>
-                                <x-pulse::th>Key</x-pulse::th>
-                                <x-pulse::th class="text-right">Hits</x-pulse::th>
-                                <x-pulse::th class="text-right">Misses</x-pulse::th>
-                                <x-pulse::th class="text-right whitespace-nowrap">Hit Rate</x-pulse::th>
+                                <x-pulse-boosted::th>Key</x-pulse-boosted::th>
+                                <x-pulse-boosted::th class="text-right">Hits</x-pulse-boosted::th>
+                                <x-pulse-boosted::th class="text-right">Misses</x-pulse-boosted::th>
+                                <x-pulse-boosted::th class="text-right whitespace-nowrap">Hit Rate</x-pulse-boosted::th>
                             </tr>
-                        </x-pulse::thead>
+                        </x-pulse-boosted::thead>
                         <tbody>
                             @foreach ($cacheKeyInteractions->take(100) as $interaction)
                                 <tr wire:key="{{ $interaction->key }}-spacer" class="h-2 first:h-0"></tr>
                                 <tr wire:key="{{ $interaction->key }}-row">
-                                    <x-pulse::td class="max-w-[1px]">
+                                    <x-pulse-boosted::td class="max-w-[1px]">
                                         <code class="block text-xs text-gray-900 dark:text-gray-100 truncate" title="{{ $interaction->key }}">
                                             {{ $interaction->key }}
                                         </code>
-                                    </x-pulse::td>
-                                    <x-pulse::td numeric class="text-gray-700 dark:text-gray-300 font-bold">
+                                    </x-pulse-boosted::td>
+                                    <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 font-bold">
                                         @if ($config['sample_rate'] < 1)
                                             <span title="Sample rate: {{ $config['sample_rate'] }}, Raw value: {{ number_format($interaction->hits) }}">~{{ number_format($interaction->hits * (1 / $config['sample_rate'])) }}</span>
                                         @else
                                             {{ number_format($interaction->hits) }}
                                         @endif
-                                    </x-pulse::td>
-                                    <x-pulse::td numeric class="text-gray-700 dark:text-gray-300 font-bold">
+                                    </x-pulse-boosted::td>
+                                    <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 font-bold">
                                         @if ($config['sample_rate'] < 1)
                                             <span title="Sample rate: {{ $config['sample_rate'] }}, Raw value: {{ number_format($interaction->misses) }}">~{{ number_format($interaction->misses * (1 / $config['sample_rate'])) }}</span>
                                         @else
                                             {{ number_format($interaction->misses) }}
                                         @endif
-                                    </x-pulse::td>
-                                    <x-pulse::td numeric class="text-gray-700 dark:text-gray-300 font-bold">
+                                    </x-pulse-boosted::td>
+                                    <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 font-bold">
                                         {{ ((int) ($interaction->hits / ($interaction->hits + $interaction->misses) * 10000)) / 100 }}%
-                                    </x-pulse::td>
+                                    </x-pulse-boosted::td>
                                 </tr>
                             @endforeach
                         </tbody>
-                    </x-pulse::table>
+                    </x-pulse-boosted::table>
 
                     @if ($cacheKeyInteractions->count() > 100)
                         <div class="mt-2 text-xs text-gray-400 text-center">Limited to 100 entries</div>
@@ -116,5 +116,5 @@
                 </div>
             </div>
         @endif
-    </x-pulse::scroll>
-</x-pulse::card>
+    </x-pulse-boosted::scroll>
+</x-pulse-boosted::card>

@@ -1,11 +1,11 @@
 <?php
 
-namespace Laravel\Pulse\Livewire;
+namespace Elazaroo\PulseBoosted\Livewire;
 
+use Elazaroo\PulseBoosted\Recorders\CacheInteractions as CacheInteractionsRecorder;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\View;
-use Laravel\Pulse\Recorders\CacheInteractions as CacheInteractionsRecorder;
 use Livewire\Attributes\Lazy;
 
 /**
@@ -44,14 +44,14 @@ class Cache extends Card
             'keys'
         );
 
-        return View::make('pulse::livewire.cache', [
+        return View::make('pulse-boosted::livewire.cache', [
             'allTime' => $allTime,
             'allRunAt' => $allRunAt,
             'allCacheInteractions' => $cacheInteractions,
             'keyTime' => $keyTime,
             'keyRunAt' => $keyRunAt,
             'cacheKeyInteractions' => $cacheKeyInteractions,
-            'config' => Config::get('pulse.recorders.'.CacheInteractionsRecorder::class),
+            'config' => Config::get('pulse-boosted.recorders.'.CacheInteractionsRecorder::class),
         ]);
     }
 }

@@ -1,13 +1,13 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Recorders\CacheInteractions;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Lottery;
 use Illuminate\Support\Str;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Recorders\CacheInteractions;
 
 it('ingests cache interactions', function () {
     Carbon::setTestNow('2000-01-02 03:04:05');
@@ -17,7 +17,7 @@ it('ingests cache interactions', function () {
     Cache::get('miss-key');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(2);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -31,7 +31,7 @@ it('ingests cache interactions', function () {
         'key' => 'miss-key',
         'value' => null,
     ]);
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->orderBy('period')->get());
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->orderBy('period')->get());
     expect($aggregates)->toHaveCount(8);
     expect($aggregates[0])->toHaveProperties([
         'bucket' => (int) (floor(now()->timestamp / 60) * 60),
@@ -58,7 +58,7 @@ it('ignores internal illuminate cache interactions', function () {
 });
 
 it('ignores internal pulse cache interactions', function () {
-    Cache::get('laravel:pulse:');
+    Cache::get('elazaroo:pulse-boosted:');
 
     expect(Pulse::ingest())->toBe(0);
 });
@@ -69,7 +69,7 @@ it('stores the original keys by default', function () {
     Cache::get('users:1234:profile');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -82,13 +82,13 @@ it('stores the original keys by default', function () {
 it('can normalize cache keys', function () {
     Carbon::setTestNow('2000-01-02 03:04:05');
 
-    Config::set('pulse.recorders.'.CacheInteractions::class.'.groups', [
+    Config::set('pulse-boosted.recorders.'.CacheInteractions::class.'.groups', [
         '/users:\d+:profile/' => 'users:{user}:profile',
     ]);
     Cache::get('users:1234:profile');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -101,13 +101,13 @@ it('can normalize cache keys', function () {
 it('can use back references in normalized cache keys', function () {
     Carbon::setTestNow('2000-01-02 03:04:05');
 
-    Config::set('pulse.recorders.'.CacheInteractions::class.'.groups', [
+    Config::set('pulse-boosted.recorders.'.CacheInteractions::class.'.groups', [
         '/^([^:]+):([^:]+):baz/' => '\2:\1',
     ]);
     Cache::get('foo:bar:baz');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -120,13 +120,13 @@ it('can use back references in normalized cache keys', function () {
 it('uses the original key if no matching pattern is found', function () {
     Carbon::setTestNow('2000-01-02 03:04:05');
 
-    Config::set('pulse.recorders.'.CacheInteractions::class.'.groups', [
+    Config::set('pulse-boosted.recorders.'.CacheInteractions::class.'.groups', [
         '/\d/' => 'foo',
     ]);
     Cache::get('actual-key');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -139,14 +139,14 @@ it('uses the original key if no matching pattern is found', function () {
 it('can provide regex flags in normalization key', function () {
     Carbon::setTestNow('2000-01-02 03:04:05');
 
-    Config::set('pulse.recorders.'.CacheInteractions::class.'.groups', [
+    Config::set('pulse-boosted.recorders.'.CacheInteractions::class.'.groups', [
         '/foo/i' => 'lowercase-key',
         '/FOO/i' => 'uppercase-key',
     ]);
     Cache::get('FOO');
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0])->toHaveProperties([
         'timestamp' => now()->timestamp,
@@ -157,17 +157,17 @@ it('can provide regex flags in normalization key', function () {
 });
 
 it('can ignore keys', function () {
-    Config::set('pulse.recorders.'.CacheInteractions::class.'.ignore', [
-        '/^laravel:pulse:/', // Pulse keys
+    Config::set('pulse-boosted.recorders.'.CacheInteractions::class.'.ignore', [
+        '/^elazaroo:pulse-boosted:/', // Pulse keys
     ]);
 
-    Cache::get('laravel:pulse:foo:bar');
+    Cache::get('elazaroo:pulse-boosted:foo:bar');
 
     expect(Pulse::ingest())->toBe(0);
 });
 
 it('can sample', function () {
-    Config::set('pulse.recorders.'.CacheInteractions::class.'.sample_rate', 0.1);
+    Config::set('pulse-boosted.recorders.'.CacheInteractions::class.'.sample_rate', 0.1);
     Lottery::alwaysWin();
 
     Cache::get('foo');
@@ -191,7 +191,7 @@ it('groups job exception keys', function () {
 
     Pulse::ingest();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->key)->toBe('job-exceptions:*');
 });

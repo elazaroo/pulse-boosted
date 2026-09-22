@@ -1,9 +1,9 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Livewire\Card;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\HtmlString;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Livewire\Card;
 use Livewire\Livewire;
 
 it('loads custom css using a path', function () {

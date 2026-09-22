@@ -1,9 +1,13 @@
 <?php
 
-namespace Laravel\Pulse;
+namespace Elazaroo\PulseBoosted;
 
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
+use Elazaroo\PulseBoosted\Contracts\Ingest;
+use Elazaroo\PulseBoosted\Contracts\ResolvesUsers;
+use Elazaroo\PulseBoosted\Contracts\Storage;
+use Elazaroo\PulseBoosted\Events\ExceptionReported;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
@@ -13,10 +17,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Lottery;
 use Illuminate\Support\Str;
 use Illuminate\Support\Traits\ForwardsCalls;
-use Laravel\Pulse\Contracts\Ingest;
-use Laravel\Pulse\Contracts\ResolvesUsers;
-use Laravel\Pulse\Contracts\Storage;
-use Laravel\Pulse\Events\ExceptionReported;
 use RuntimeException;
 use Throwable;
 use UnitEnum;
@@ -85,7 +85,7 @@ class Pulse
      *
      * @var list<string|Htmlable>
      */
-    protected $css = [__DIR__.'/../dist/pulse.css'];
+    protected $css = [__DIR__.'/../dist/pulse-boosted.css'];
 
     /**
      * Indicates that Pulse is currently evaluating the buffer.
@@ -310,7 +310,7 @@ class Pulse
                 return $entries->count();
             }) ?? 0;
 
-            $odds = $this->app->make('config')->get('pulse.ingest.trim.lottery') ?? $this->app->make('config')->get('pulse.ingest.trim_lottery');
+            $odds = $this->app->make('config')->get('pulse-boosted.ingest.trim.lottery') ?? $this->app->make('config')->get('pulse-boosted.ingest.trim_lottery');
 
             Lottery::odds(...$odds)
                 ->winner(fn () => $this->rescue($ingest->trim(...)))
@@ -352,7 +352,7 @@ class Pulse
             return;
         }
 
-        $buffer = $this->app->make('config')->get('pulse.ingest.buffer') ?? 5_000;
+        $buffer = $this->app->make('config')->get('pulse-boosted.ingest.buffer') ?? 5_000;
 
         if (($this->entries->count() + $this->lazy->count()) > $buffer) {
             $this->evaluatingBuffer = true;
@@ -527,7 +527,7 @@ class Pulse
             throw new RuntimeException('Unable to load the Livewire JavaScript.');
         }
 
-        if (($pulse = @file_get_contents(__DIR__.'/../dist/pulse.js')) === false) {
+        if (($pulse = @file_get_contents(__DIR__.'/../dist/pulse-boosted.js')) === false) {
             throw new RuntimeException('Unable to load the Pulse dashboard JavaScript.');
         }
 
@@ -546,7 +546,7 @@ class Pulse
             '/^.+@.+\|(?:(?:\d+\.\d+\.\d+\.\d+)|[0-9a-fA-F:]+)(?::timer)?$/', // Breeze / Jetstream keys...
             '/^[a-zA-Z0-9]{40}$/', // Session IDs...
             '/^illuminate:/', // Laravel keys...
-            '/^laravel:pulse:/', // Pulse keys...
+            '/^elazaroo:pulse-boosted:/', // Pulse keys...
             '/^laravel:reverb:/', // Reverb keys...
             '/^nova/', // Nova keys...
             '/^telescope:/', // Telescope keys...

@@ -1,17 +1,17 @@
 <?php
 
-namespace Laravel\Pulse\Ingests;
+namespace Elazaroo\PulseBoosted\Ingests;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
+use Elazaroo\PulseBoosted\Contracts\Ingest;
+use Elazaroo\PulseBoosted\Contracts\Storage;
+use Elazaroo\PulseBoosted\Entry;
+use Elazaroo\PulseBoosted\Support\RedisAdapter;
+use Elazaroo\PulseBoosted\Value;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Redis\RedisManager;
 use Illuminate\Support\Collection;
-use Laravel\Pulse\Contracts\Ingest;
-use Laravel\Pulse\Contracts\Storage;
-use Laravel\Pulse\Entry;
-use Laravel\Pulse\Support\RedisAdapter;
-use Laravel\Pulse\Value;
 
 /**
  * @internal
@@ -21,7 +21,7 @@ class RedisIngest implements Ingest
     /**
      * The redis stream.
      */
-    protected string $stream = 'laravel:pulse:ingest';
+    protected string $stream = 'elazaroo:pulse-boosted:ingest';
 
     /**
      * Create a new Redis Ingest instance.
@@ -56,7 +56,7 @@ class RedisIngest implements Ingest
      */
     public function trim(): void
     {
-        $keep = $this->config->get('pulse.ingest.trim.keep');
+        $keep = $this->config->get('pulse-boosted.ingest.trim.keep');
 
         $this->connection()->xtrim(
             $this->stream,
@@ -82,7 +82,7 @@ class RedisIngest implements Ingest
                 $this->stream,
                 '-',
                 '+',
-                $chunk = $this->config->get('pulse.ingest.redis.chunk')
+                $chunk = $this->config->get('pulse-boosted.ingest.redis.chunk')
             ));
 
             if ($entries->isEmpty()) {
@@ -111,7 +111,7 @@ class RedisIngest implements Ingest
     protected function connection(): RedisAdapter
     {
         return new RedisAdapter($this->redis->connection(
-            $this->config->get('pulse.ingest.redis.connection')
+            $this->config->get('pulse-boosted.ingest.redis.connection')
         ), $this->config);
     }
 }

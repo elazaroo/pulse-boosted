@@ -1,5 +1,5 @@
-<x-pulse::card :cols="$cols" :rows="$rows" :class="$class">
-    <x-pulse::card-header
+<x-pulse-boosted::card :cols="$cols" :rows="$rows" :class="$class">
+    <x-pulse-boosted::card-header
         :name="match ($this->type) {
             'requests' => 'Top 10 Users Making Requests',
             'slow_requests' => 'Top 10 Users Experiencing Slow Endpoints',
@@ -10,7 +10,7 @@
         details="{{ $this->usage === 'slow_requests' ? (is_array($slowRequestsConfig['threshold']) ? '' : $slowRequestsConfig['threshold'].'ms threshold, ') : '' }}past {{ $this->periodForHumans() }}"
     >
         <x-slot:icon>
-            <x-dynamic-component :component="'pulse::icons.' . match ($this->type) {
+            <x-dynamic-component :component="'pulse-boosted::icons.' . match ($this->type) {
                 'requests' => 'arrow-trending-up',
                 'slow_requests' => 'clock',
                 'jobs' => 'scale',
@@ -19,7 +19,7 @@
         </x-slot:icon>
         <x-slot:actions>
             @if (! $this->type)
-                <x-pulse::select
+                <x-pulse-boosted::select
                     wire:model.live="usage"
                     id="select-usage-by"
                     label="Top 10 users"
@@ -37,15 +37,15 @@
                     $message = 'You have per-route thresholds configured.';
                 @endphp
                 <button title="{{ $message }}" @click="alert(@js($message))">
-                    <x-pulse::icons.information-circle class="w-5 h-5 stroke-gray-400 dark:stroke-gray-600" />
+                    <x-pulse-boosted::icons.information-circle class="w-5 h-5 stroke-gray-400 dark:stroke-gray-600" />
                 </button>
             @endif
         </x-slot:actions>
-    </x-pulse::card-header>
+    </x-pulse-boosted::card-header>
 
-    <x-pulse::scroll :expand="$expand" wire:poll.5s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s="">
         @if ($userRequestCounts->isEmpty())
-            <x-pulse::no-results />
+            <x-pulse-boosted::no-results />
         @else
             <div class="grid grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 @6xl:grid-cols-4 gap-2">
                 @php
@@ -57,7 +57,7 @@
                 @endphp
 
                 @foreach ($userRequestCounts as $userRequestCount)
-                    <x-pulse::user-card wire:key="{{ $userRequestCount->key }}" :user="$userRequestCount->user">
+                    <x-pulse-boosted::user-card wire:key="{{ $userRequestCount->key }}" :user="$userRequestCount->user">
                         <x-slot:stats>
                             @if ($sampleRate < 1)
                                 <span title="Sample rate: {{ $sampleRate }}, Raw value: {{ number_format($userRequestCount->count) }}">~{{ number_format($userRequestCount->count * (1 / $sampleRate)) }}</span>
@@ -65,9 +65,9 @@
                                 {{ number_format($userRequestCount->count) }}
                             @endif
                         </x-slot:stats>
-                    </x-pulse::user-card>
+                    </x-pulse-boosted::user-card>
                 @endforeach
             </div>
         @endif
-    </x-pulse::scroll>
-</x-pulse::card>
+    </x-pulse-boosted::scroll>
+</x-pulse-boosted::card>

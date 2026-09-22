@@ -3,7 +3,7 @@ export default {
     build: {
         assetsDir: "",
         rollupOptions: {
-            input: ["resources/js/pulse.js", "resources/css/pulse.css"],
+            input: ["resources/js/pulse-boosted.js", "resources/css/pulse-boosted.css"],
             output: {
                 assetFileNames: "[name][extname]",
                 entryFileNames: "[name].js",

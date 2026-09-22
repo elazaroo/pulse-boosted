@@ -1,11 +1,11 @@
 providers:
-  - Laravel\Pulse\PulseServiceProvider
+  - Elazaroo\PulseBoosted\PulseServiceProvider
 
 migrations:
   - database/migrations
 
 workbench:
-  start: '/pulse'
+  start: '/pulse-boosted'
   install: true
   welcome: false
   build:

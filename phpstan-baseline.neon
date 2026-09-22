@@ -1,31 +1,31 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Call to an undefined method Laravel\\Pulse\\Entry\|Laravel\\Pulse\\Value\:\:aggregations\(\)\.$#'
+			message: '#^Call to an undefined method Elazaroo\\PulseBoosted\\Entry\|Elazaroo\\PulseBoosted\\Value\:\:aggregations\(\)\.$#'
 			identifier: method.notFound
 			count: 1
 			path: src/Storage/DatabaseStorage.php
 
 		-
-			message: '#^Cannot call method pipe\(\) on array\<string, mixed\>\|Illuminate\\Support\\Collection\<int, array\<string, mixed\>\>\|Illuminate\\Support\\Collection\<int, Laravel\\Pulse\\Value\>\.$#'
+			message: '#^Cannot call method pipe\(\) on array\<string, mixed\>\|Illuminate\\Support\\Collection\<int, array\<string, mixed\>\>\|Illuminate\\Support\\Collection\<int, Elazaroo\\PulseBoosted\\Value\>\.$#'
 			identifier: method.nonObject
 			count: 1
 			path: src/Storage/DatabaseStorage.php
 
 		-
-			message: '#^Method Laravel\\Pulse\\Storage\\DatabaseStorage\:\:aggregate\(\) should return Illuminate\\Support\\Collection\<int, object\{key\: string, min\?\: int, max\?\: int, sum\?\: int, avg\?\: int, count\?\: int\}\> but returns Illuminate\\Support\\Collection\<int, stdClass\>\.$#'
+			message: '#^Method Elazaroo\\PulseBoosted\\Storage\\DatabaseStorage\:\:aggregate\(\) should return Illuminate\\Support\\Collection\<int, object\{key\: string, min\?\: int, max\?\: int, sum\?\: int, avg\?\: int, count\?\: int\}\> but returns Illuminate\\Support\\Collection\<int, stdClass\>\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Storage/DatabaseStorage.php
 
 		-
-			message: '#^Method Laravel\\Pulse\\Storage\\DatabaseStorage\:\:aggregateTotal\(\) should return float\|Illuminate\\Support\\Collection\<string, int\> but returns float\|Illuminate\\Database\\Query\\Builder\|Illuminate\\Support\\Collection\<\(int\|string\), mixed\>\.$#'
+			message: '#^Method Elazaroo\\PulseBoosted\\Storage\\DatabaseStorage\:\:aggregateTotal\(\) should return float\|Illuminate\\Support\\Collection\<string, int\> but returns float\|Illuminate\\Database\\Query\\Builder\|Illuminate\\Support\\Collection\<\(int\|string\), mixed\>\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Storage/DatabaseStorage.php
 
 		-
-			message: '#^Method Laravel\\Pulse\\Storage\\DatabaseStorage\:\:values\(\) should return Illuminate\\Support\\Collection\<string, object\{timestamp\: int, key\: string, value\: string\}\> but returns Illuminate\\Support\\Collection\<\(int\|string\), stdClass\>\.$#'
+			message: '#^Method Elazaroo\\PulseBoosted\\Storage\\DatabaseStorage\:\:values\(\) should return Illuminate\\Support\\Collection\<string, object\{timestamp\: int, key\: string, value\: string\}\> but returns Illuminate\\Support\\Collection\<\(int\|string\), stdClass\>\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Storage/DatabaseStorage.php
@@ -49,37 +49,37 @@ parameters:
 			path: src/Storage/DatabaseStorage.php
 
 		-
-			message: '#^Parameter \#1 \$values of method Laravel\\Pulse\\Storage\\DatabaseStorage\:\:collapseValues\(\) expects Illuminate\\Support\\Collection\<int, Laravel\\Pulse\\Value\>, Illuminate\\Support\\Collection\<int, Laravel\\Pulse\\Entry\|Laravel\\Pulse\\Value\> given\.$#'
+			message: '#^Parameter \#1 \$values of method Elazaroo\\PulseBoosted\\Storage\\DatabaseStorage\:\:collapseValues\(\) expects Illuminate\\Support\\Collection\<int, Elazaroo\\PulseBoosted\\Value\>, Illuminate\\Support\\Collection\<int, Elazaroo\\PulseBoosted\\Entry\|Elazaroo\\PulseBoosted\\Value\> given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Storage/DatabaseStorage.php
 
 		-
-			message: '#^Parameter \#1 \$values of method Laravel\\Pulse\\Storage\\DatabaseStorage\:\:upsertAvg\(\) expects list\<array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\>, array\<int, array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\> given\.$#'
+			message: '#^Parameter \#1 \$values of method Elazaroo\\PulseBoosted\\Storage\\DatabaseStorage\:\:upsertAvg\(\) expects list\<array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\>, array\<int, array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\> given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Storage/DatabaseStorage.php
 
 		-
-			message: '#^Parameter \#1 \$values of method Laravel\\Pulse\\Storage\\DatabaseStorage\:\:upsertCount\(\) expects list\<array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\>, array\<int, array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\> given\.$#'
+			message: '#^Parameter \#1 \$values of method Elazaroo\\PulseBoosted\\Storage\\DatabaseStorage\:\:upsertCount\(\) expects list\<array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\>, array\<int, array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\> given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Storage/DatabaseStorage.php
 
 		-
-			message: '#^Parameter \#1 \$values of method Laravel\\Pulse\\Storage\\DatabaseStorage\:\:upsertMax\(\) expects list\<array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\>, array\<int, array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\> given\.$#'
+			message: '#^Parameter \#1 \$values of method Elazaroo\\PulseBoosted\\Storage\\DatabaseStorage\:\:upsertMax\(\) expects list\<array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\>, array\<int, array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\> given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Storage/DatabaseStorage.php
 
 		-
-			message: '#^Parameter \#1 \$values of method Laravel\\Pulse\\Storage\\DatabaseStorage\:\:upsertMin\(\) expects list\<array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\>, array\<int, array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\> given\.$#'
+			message: '#^Parameter \#1 \$values of method Elazaroo\\PulseBoosted\\Storage\\DatabaseStorage\:\:upsertMin\(\) expects list\<array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\>, array\<int, array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\> given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Storage/DatabaseStorage.php
 
 		-
-			message: '#^Parameter \#1 \$values of method Laravel\\Pulse\\Storage\\DatabaseStorage\:\:upsertSum\(\) expects list\<array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\>, array\<int, array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\> given\.$#'
+			message: '#^Parameter \#1 \$values of method Elazaroo\\PulseBoosted\\Storage\\DatabaseStorage\:\:upsertSum\(\) expects list\<array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\>, array\<int, array\{bucket\: int, period\: int, type\: string, aggregate\: string, key\: string, value\: float\|int, count\?\: int\}\> given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Storage/DatabaseStorage.php

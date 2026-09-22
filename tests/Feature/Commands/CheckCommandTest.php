@@ -1,14 +1,14 @@
 <?php
 
 use Carbon\CarbonInterval;
+use Elazaroo\PulseBoosted\Events\IsolatedBeat;
+use Elazaroo\PulseBoosted\Events\SharedBeat;
+use Elazaroo\PulseBoosted\Recorders\Concerns\Throttling;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Sleep;
-use Laravel\Pulse\Events\IsolatedBeat;
-use Laravel\Pulse\Events\SharedBeat;
-use Laravel\Pulse\Recorders\Concerns\Throttling;
 
 beforeEach(function () {
     Carbon::setTestNow(now()->startOfDay());
@@ -27,7 +27,7 @@ it('loops when not on vapor', function () {
     });
 
     try {
-        Artisan::call('pulse:check');
+        Artisan::call('pulse-boosted:check');
     } catch (RuntimeException $e) {
         if ($e->getMessage() !== 'bail') {
             throw $e;
@@ -52,7 +52,7 @@ it('can run the check command once', function () {
         $called++;
     });
 
-    Artisan::call('pulse:check', ['--once' => true]);
+    Artisan::call('pulse-boosted:check', ['--once' => true]);
 
     expect($called)->toBe(1);
     Sleep::assertNeverSlept();
@@ -66,7 +66,7 @@ it('exists instead of looping when on vapor', function () {
         $called++;
     });
 
-    Artisan::call('pulse:check');
+    Artisan::call('pulse-boosted:check');
 
     expect($called)->toBe(1);
     Sleep::assertNeverSlept();
@@ -96,7 +96,7 @@ it('can throttle shared beat listeners', function () {
     });
 
     try {
-        Artisan::call('pulse:check');
+        Artisan::call('pulse-boosted:check');
     } catch (RuntimeException $e) {
         if ($e->getMessage() !== 'bail') {
             throw $e;
@@ -126,7 +126,7 @@ it('can throttle isolated beat listeners', function () {
     });
 
     try {
-        Artisan::call('pulse:check');
+        Artisan::call('pulse-boosted:check');
     } catch (RuntimeException $e) {
         if ($e->getMessage() !== 'bail') {
             throw $e;
@@ -139,9 +139,9 @@ it('can throttle isolated beat listeners', function () {
 it('does not share throttle locks across check command instances for shared beats', function () {
     Event::listen(SharedBeat::class, $listener = new ThrottledBeatListener(3));
 
-    Artisan::call('pulse:check', ['--once' => true]);
+    Artisan::call('pulse-boosted:check', ['--once' => true]);
     expect($listener->runs)->toBe(1);
-    Artisan::call('pulse:check', ['--once' => true]);
+    Artisan::call('pulse-boosted:check', ['--once' => true]);
     expect($listener->runs)->toBe(2);
 });
 
@@ -149,9 +149,9 @@ it('does share throttle locks across check command instances for shared beats wh
     Env::getRepository()->set('VAPOR_SSM_PATH', 1);
     Event::listen(SharedBeat::class, $listener = new ThrottledBeatListener(3));
 
-    Artisan::call('pulse:check', ['--once' => true]);
+    Artisan::call('pulse-boosted:check', ['--once' => true]);
     expect($listener->runs)->toBe(1);
-    Artisan::call('pulse:check', ['--once' => true]);
+    Artisan::call('pulse-boosted:check', ['--once' => true]);
     expect($listener->runs)->toBe(1);
 
     Env::getRepository()->clear('VAPOR_SSM_PATH');
@@ -160,9 +160,9 @@ it('does share throttle locks across check command instances for shared beats wh
 it('does share throttle locks across instances for IsolatedBeats', function () {
     Event::listen(IsolatedBeat::class, $listener = new ThrottledBeatListener(3));
 
-    Artisan::call('pulse:check', ['--once' => true]);
+    Artisan::call('pulse-boosted:check', ['--once' => true]);
     expect($listener->runs)->toBe(1);
-    Artisan::call('pulse:check', ['--once' => true]);
+    Artisan::call('pulse-boosted:check', ['--once' => true]);
     expect($listener->runs)->toBe(1);
 });
 
@@ -172,13 +172,13 @@ it('only fires isolated beats once per second across check command instances', f
         $called++;
     });
 
-    Artisan::call('pulse:check', ['--once' => true]);
+    Artisan::call('pulse-boosted:check', ['--once' => true]);
     expect($called)->toBe(1);
     Carbon::setTestNow(now()->endOfSecond());
-    Artisan::call('pulse:check', ['--once' => true]);
+    Artisan::call('pulse-boosted:check', ['--once' => true]);
     expect($called)->toBe(1);
     Carbon::setTestNow(now()->addMillisecond(1));
-    Artisan::call('pulse:check', ['--once' => true]);
+    Artisan::call('pulse-boosted:check', ['--once' => true]);
     expect($called)->toBe(2);
 });
 

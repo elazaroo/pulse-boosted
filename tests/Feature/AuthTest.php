@@ -4,24 +4,24 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Gate;
 
 it('authorizes dashboard access', function ($environment, $status) {
-    Gate::define('viewPulse', fn ($user = null) => $this->app->environment('local'));
+    Gate::define('viewPulseBoosted', fn ($user = null) => $this->app->environment('local'));
 
     $this->app['env'] = $environment;
 
-    $this->get('/pulse')->assertStatus($status);
+    $this->get('/pulse-boosted')->assertStatus($status);
 })->with([
     'local' => ['local', 200],
     'other' => ['other', 403],
 ]);
 
 it('authorizes dashboard access with a callback', function ($email, $status) {
-    Gate::define('viewPulse', function ($user) {
+    Gate::define('viewPulseBoosted', function ($user) {
         return $user->email === 'taylor@laravel.com';
     });
 
     $this
         ->actingAs(User::make(['email' => $email]))
-        ->get('/pulse')
+        ->get('/pulse-boosted')
         ->assertStatus($status);
 })->with([
     'allowed' => ['taylor@laravel.com', 200],
@@ -31,14 +31,14 @@ it('authorizes dashboard access with a callback', function ($email, $status) {
 it('requires authentication on livewire requests', function () {
     $authCount = 0;
 
-    Gate::define('viewPulse', function ($user = null) use (&$authCount) {
+    Gate::define('viewPulseBoosted', function ($user = null) use (&$authCount) {
         $authCount++;
 
         return true;
     });
 
     $response = $this
-        ->get('/pulse')
+        ->get('/pulse-boosted')
         ->assertOk();
 
     $this->assertSame(1, $authCount);
@@ -46,7 +46,7 @@ it('requires authentication on livewire requests', function () {
     preg_match_all('/wire:snapshot="([^"]+)"/', $response->content(), $matches);
     $component = collect($matches[1])
         ->map(fn ($match) => json_decode(html_entity_decode($match)))
-        ->first(fn ($component) => $component->memo->name === 'pulse.servers');
+        ->first(fn ($component) => $component->memo->name === 'pulse-boosted.servers');
 
     $this
         ->postJson(livewireUpdateEndpoint(), [
@@ -65,7 +65,7 @@ it('requires authentication on livewire requests', function () {
 });
 
 it('doesnt use pulse middleware on other livewire requests', function () {
-    Gate::define('viewPulse', fn ($user = null) => false);
+    Gate::define('viewPulseBoosted', fn ($user = null) => false);
 
     $response = $this
         ->postJson(livewireUpdateEndpoint(), [

@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Support;
+namespace Elazaroo\PulseBoosted\Support;
 
 use Illuminate\Database\Connection;
 use Illuminate\Database\Migrations\Migration;
@@ -16,7 +16,7 @@ class PulseMigration extends Migration
      */
     public function getConnection(): ?string
     {
-        return Config::get('pulse.storage.database.connection');
+        return Config::get('pulse-boosted.storage.database.connection');
     }
 
     /**
@@ -32,8 +32,8 @@ class PulseMigration extends Migration
             throw new RuntimeException("Pulse does not support the [{$this->driver()}] database driver.");
         }
 
-        if (Config::get('pulse.enabled')) {
-            throw new RuntimeException("Pulse does not support the [{$this->driver()}] database driver. You can disable Pulse in your testsuite by adding `<env name=\"PULSE_ENABLED\" value=\"false\"/>` to your project's `phpunit.xml` file.");
+        if (Config::get('pulse-boosted.enabled')) {
+            throw new RuntimeException("Pulse does not support the [{$this->driver()}] database driver. You can disable Pulse in your testsuite by adding `<env name=\"PULSE_BOOSTED_ENABLED\" value=\"false\"/>` to your project's `phpunit.xml` file.");
         }
 
         return false;

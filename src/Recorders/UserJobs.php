@@ -1,10 +1,10 @@
 <?php
 
-namespace Laravel\Pulse\Recorders;
+namespace Elazaroo\PulseBoosted\Recorders;
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Pulse;
 use Illuminate\Queue\Events\JobQueued;
-use Laravel\Pulse\Pulse;
 
 /**
  * @internal

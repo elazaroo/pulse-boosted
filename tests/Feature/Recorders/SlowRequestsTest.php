@@ -1,5 +1,7 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Recorders\SlowRequests;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Facades\Config;
@@ -8,8 +10,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Lottery;
 use Illuminate\Support\Sleep;
-use Laravel\Pulse\Facades\Pulse;
-use Laravel\Pulse\Recorders\SlowRequests;
 use Tests\User;
 
 use function Pest\Laravel\actingAs;
@@ -18,14 +18,14 @@ use function Pest\Laravel\post;
 
 it('captures requests over the threshold', function () {
     Date::setTestNow('2000-01-02 03:04:05');
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
     Route::get('test-route', function () {
         Date::setTestNow('2000-01-02 03:04:09');
     });
 
     get('test-route');
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->timestamp)->toBe(946782245);
     expect($entries[0]->type)->toBe('slow_request');
@@ -33,7 +33,7 @@ it('captures requests over the threshold', function () {
     expect($entries[0]->key_hash)->toBe(keyHash(json_encode(['GET', '/test-route', 'Closure'])));
     expect($entries[0]->value)->toEqual(4000);
 
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->orderBy('type')->orderBy('period')->orderBy('aggregate')->get());
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->orderBy('type')->orderBy('period')->orderBy('aggregate')->get());
     expect($aggregates)->toHaveCount(8);
 
     expect($aggregates[0]->bucket)->toBe(946782240);
@@ -98,13 +98,13 @@ it('captures requests over the threshold', function () {
     expect($aggregates[7]->key_hash)->toBe(keyHash(json_encode(['GET', '/test-route', 'Closure'])));
     expect($aggregates[7]->value)->toEqual(4000);
 
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('can configure threshold per route', function () {
     Date::setTestNow('2000-01-02 03:04:05');
     Sleep::fake(syncWithCarbon: true);
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', [
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', [
         '#^/one-second-threshold#' => 1_000,
         '#^/two-second-threshold#' => 2_000,
     ]);
@@ -122,21 +122,21 @@ it('can configure threshold per route', function () {
     get('two-second-threshold')->assertOk();
     get('default-threshold')->assertOk();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->type)->toBe('slow_request');
     expect($entries[0]->key)->toBe(json_encode(['GET', '/one-second-threshold', 'Closure']));
     expect($entries[0]->key_hash)->toBe(keyHash(json_encode(['GET', '/one-second-threshold', 'Closure'])));
     expect($entries[0]->value)->toEqual(1000);
 
-    DB::table('pulse_entries')->delete();
+    DB::table('pulse_boosted_entries')->delete();
 
     $sleepSeconds = 2;
     get('one-second-threshold')->assertOk();
     get('two-second-threshold')->assertOk();
     get('default-threshold')->assertOk();
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->orderBy('key')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->orderBy('key')->get());
     expect($entries)->toHaveCount(2);
     expect($entries[0]->type)->toBe('slow_request');
     expect($entries[0]->key)->toBe(json_encode(['GET', '/one-second-threshold', 'Closure']));
@@ -150,7 +150,7 @@ it('can configure threshold per route', function () {
 
 it('captures slow requests per user', function () {
     Date::setTestNow('2000-01-02 03:04:05');
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
     Route::get('test-route', function () {
         Date::setTestNow('2000-01-02 03:04:09');
     });
@@ -158,7 +158,7 @@ it('captures slow requests per user', function () {
 
     actingAs($user)->get('test-route');
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->where('type', 'slow_user_request')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->where('type', 'slow_user_request')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->timestamp)->toBe(946782245);
     expect($entries[0]->type)->toBe('slow_user_request');
@@ -166,7 +166,7 @@ it('captures slow requests per user', function () {
     expect($entries[0]->key_hash)->toBe(keyHash('4321'));
     expect($entries[0]->value)->toBeNull();
 
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->where('type', 'slow_user_request')->orderBy('period')->orderBy('aggregate')->get());
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->where('type', 'slow_user_request')->orderBy('period')->orderBy('aggregate')->get());
     expect($aggregates)->toHaveCount(4);
 
     expect($aggregates[0]->bucket)->toBe(946782240);
@@ -200,11 +200,11 @@ it('captures slow requests per user', function () {
     expect($aggregates[3]->key_hash)->toBe(keyHash('4321'));
     expect($aggregates[3]->value)->toEqual(1);
 
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('captures requests equal to the threshold', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 1001);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 1001);
     Date::setTestNow('2000-01-02 03:04:05');
     Route::get('test-route', function () {
         Date::setTestNow('2000-01-02 03:04:06.001');
@@ -212,13 +212,13 @@ it('captures requests equal to the threshold', function () {
 
     get('test-route');
 
-    Pulse::ignore(fn () => expect(DB::table('pulse_entries')->get())->toHaveCount(1));
-    Pulse::ignore(fn () => expect(DB::table('pulse_aggregates')->get())->toHaveCount(8));
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_entries')->get())->toHaveCount(1));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_aggregates')->get())->toHaveCount(8));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('ignores requests under the threshold', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 1001);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 1001);
     Date::setTestNow('2000-01-02 03:04:05');
     Route::get('test-route', function () {
         Date::setTestNow('2000-01-02 03:04:06.000');
@@ -226,14 +226,14 @@ it('ignores requests under the threshold', function () {
 
     get('test-route');
 
-    Pulse::ignore(fn () => expect(DB::table('pulse_entries')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_aggregates')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_entries')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_aggregates')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('can ignore requests based on config', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
-    Config::set('pulse.recorders.'.SlowRequests::class.'.ignore', [
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.ignore', [
         '#^/test-route#',
     ]);
     Date::setTestNow('2000-01-02 03:04:05');
@@ -243,13 +243,13 @@ it('can ignore requests based on config', function () {
 
     get('test-route');
 
-    Pulse::ignore(fn () => expect(DB::table('pulse_entries')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_aggregates')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_entries')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_aggregates')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('quietly fails if an exception is thrown while preparing the entry payload', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
     Date::setTestNow('2000-01-02 03:04:05');
     Pulse::register([ExceptionThrowingRecorder::class => []]);
     $exceptions = [];
@@ -261,18 +261,18 @@ it('quietly fails if an exception is thrown while preparing the entry payload', 
 
     expect($exceptions)->toHaveCount(1);
     expect($exceptions[0]->getMessage())->toBe('Opps!');
-    Pulse::ignore(fn () => expect(DB::table('pulse_entries')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_aggregates')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_entries')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_aggregates')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('ignores livewire update requests from an ignored path', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
     Date::setTestNow('2000-01-02 03:04:05');
     Route::post(livewireUpdateEndpoint(), function () {
         Date::setTestNow('2000-01-02 03:04:09');
     })->name('livewire.update');
-    Config::set('pulse.recorders.'.SlowRequests::class.'.ignore', [
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.ignore', [
         '#^/test-route#',
     ]);
 
@@ -288,13 +288,13 @@ it('ignores livewire update requests from an ignored path', function () {
         ],
     ]);
 
-    Pulse::ignore(fn () => expect(DB::table('pulse_entries')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_aggregates')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_entries')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_aggregates')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('captures the requests "via" route when using livewire', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
     Date::setTestNow('2000-01-02 03:04:05');
     Route::post(livewireUpdateEndpoint(), function () {
         Date::setTestNow('2000-01-02 03:04:09');
@@ -312,7 +312,7 @@ it('captures the requests "via" route when using livewire', function () {
         ],
     ]);
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->timestamp)->toBe(946782245);
     expect($entries[0]->type)->toBe('slow_request');
@@ -320,7 +320,7 @@ it('captures the requests "via" route when using livewire', function () {
     expect($entries[0]->key_hash)->toBe(keyHash(json_encode(['POST', '/test-route', 'via '.livewireUpdateEndpoint()])));
     expect($entries[0]->value)->toEqual(4000);
 
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_aggregates')->orderBy('type')->orderBy('period')->orderBy('aggregate')->get());
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->orderBy('type')->orderBy('period')->orderBy('aggregate')->get());
     expect($aggregates)->toHaveCount(8);
 
     expect($aggregates[0]->bucket)->toBe(946782240);
@@ -387,22 +387,22 @@ it('captures the requests "via" route when using livewire', function () {
     expect($aggregates[7]->key_hash)->toBe(keyHash(json_encode(['POST', '/test-route', 'via '.livewireUpdateEndpoint()])));
     expect($aggregates[7]->value)->toEqual(4000);
 
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('only records known routes', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
     Date::setTestNow('2000-01-02 03:04:05');
 
     get('some-route-that-does-not-exit')->assertNotFound();
 
-    Pulse::ignore(fn () => expect(DB::table('pulse_entries')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_aggregates')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_entries')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_aggregates')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('handles routes with domains', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
     Date::setTestNow('2000-01-02 03:04:05');
     Route::domain('{account}.example.com')->get('users', fn () => 'account users');
     Route::get('users', fn () => 'global users');
@@ -410,18 +410,18 @@ it('handles routes with domains', function () {
     get('http://foo.example.com/users')->assertContent('account users');
     get('http://example.com/users')->assertContent('global users');
 
-    $entries = Pulse::ignore(fn () => DB::table('pulse_entries')->get());
+    $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(2);
 
     expect($entries[0]->key)->toBe(json_encode(['GET', '{account}.example.com/users', 'Closure']));
     expect($entries[1]->key)->toBe(json_encode(['GET', '/users', 'Closure']));
-    Pulse::ignore(fn () => expect(DB::table('pulse_aggregates')->count())->toBe(16));
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_aggregates')->count())->toBe(16));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('can sample', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
-    Config::set('pulse.recorders.'.SlowRequests::class.'.sample_rate', 0.1);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.sample_rate', 0.1);
     Lottery::alwaysWin();
     Date::setTestNow('2000-01-02 03:04:05');
     Route::get('test-route', function () {
@@ -439,14 +439,14 @@ it('can sample', function () {
     get('test-route');
     get('test-route');
 
-    Pulse::ignore(fn () => expect(DB::table('pulse_entries')->where('type', 'slow_request')->count())->toBe(10));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_entries')->where('type', 'slow_request')->count())->toBe(10));
 
     Lottery::determineResultNormally();
 });
 
 it('can sample at zero', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
-    Config::set('pulse.recorders.'.SlowRequests::class.'.sample_rate', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.sample_rate', 0);
     Date::setTestNow('2000-01-02 03:04:05');
     Route::get('test-route', function () {
         Date::setTestNow('2000-01-02 03:04:09');
@@ -463,14 +463,14 @@ it('can sample at zero', function () {
     get('test-route');
     get('test-route');
 
-    Pulse::ignore(fn () => expect(DB::table('pulse_entries')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_aggregates')->count())->toBe(0));
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_entries')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_aggregates')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('can sample at one', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
-    Config::set('pulse.recorders.'.SlowRequests::class.'.sample_rate', 1);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.sample_rate', 1);
     Date::setTestNow('2000-01-02 03:04:05');
     Route::get('test-route', function () {
         Date::setTestNow('2000-01-02 03:04:09');
@@ -487,13 +487,13 @@ it('can sample at one', function () {
     get('test-route');
     get('test-route');
 
-    Pulse::ignore(fn () => expect(DB::table('pulse_entries')->count())->toBe(10));
-    Pulse::ignore(fn () => expect(DB::table('pulse_aggregates')->count())->toBe(8));
-    Pulse::ignore(fn () => expect(DB::table('pulse_values')->count())->toBe(0));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_entries')->count())->toBe(10));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_aggregates')->count())->toBe(8));
+    Pulse::ignore(fn () => expect(DB::table('pulse_boosted_values')->count())->toBe(0));
 });
 
 it('handles controller nested route groups', function () {
-    Config::set('pulse.recorders.'.SlowRequests::class.'.threshold', 0);
+    Config::set('pulse-boosted.recorders.'.SlowRequests::class.'.threshold', 0);
 
     Route::controller(MyController::class)->group(function () {
         Route::get('index', 'index')->name('test')->withoutMiddleware('auth:admin');
@@ -503,7 +503,7 @@ it('handles controller nested route groups', function () {
     Pulse::stopRecording();
 
     $response->assertContent('ok');
-    $entries = DB::table('pulse_entries')->get();
+    $entries = DB::table('pulse_boosted_entries')->get();
     expect($entries)->toHaveCount(1);
     expect($entries[0]->key)->toBe(json_encode(['GET', '/index', 'MyController@index']));
 });

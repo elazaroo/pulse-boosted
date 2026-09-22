@@ -1,14 +1,14 @@
 <?php
 
-namespace Laravel\Pulse\Recorders\Concerns;
+namespace Elazaroo\PulseBoosted\Recorders\Concerns;
 
 use Carbon\CarbonImmutable;
 use DateInterval;
+use Elazaroo\PulseBoosted\Events\IsolatedBeat;
+use Elazaroo\PulseBoosted\Events\SharedBeat;
+use Elazaroo\PulseBoosted\Support\CacheStoreResolver;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\InteractsWithTime;
-use Laravel\Pulse\Events\IsolatedBeat;
-use Laravel\Pulse\Events\SharedBeat;
-use Laravel\Pulse\Support\CacheStoreResolver;
 
 trait Throttling
 {
@@ -27,7 +27,7 @@ trait Throttling
 
         $cache = App::make(CacheStoreResolver::class);
 
-        $key = 'laravel:pulse:throttle:'.$key;
+        $key = 'elazaroo:pulse-boosted:throttle:'.$key;
 
         $lastRunAt = $cache->store()->get($key);
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\Pulse\Contracts;
+namespace Elazaroo\PulseBoosted\Contracts;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
