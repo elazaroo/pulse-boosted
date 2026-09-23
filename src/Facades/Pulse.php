@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Elazaroo\PulseBoosted\Pulse startRecording()
  * @method static \Elazaroo\PulseBoosted\Pulse stopRecording()
  * @method static mixed ignore(callable $callback)
+ * @method static bool recording()
  * @method static \Elazaroo\PulseBoosted\Pulse flush()
  * @method static \Elazaroo\PulseBoosted\Pulse filter(callable $filter)
  * @method static int ingest()
