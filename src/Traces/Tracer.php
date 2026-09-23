@@ -77,7 +77,7 @@ class Tracer
      */
     public function start(string $type, string $name, array $meta = []): void
     {
-        if ($this->paused || ! $this->enabled() || $this->current !== null) {
+        if ($this->paused || ! $this->pulse->recording() || ! $this->enabled() || $this->current !== null) {
             return;
         }
 
@@ -104,7 +104,9 @@ class Tracer
      */
     public function event(string $type, string $label, ?float $durationMs = null, array $meta = [], ?string $level = null): void
     {
-        if ($this->paused || $this->current === null) {
+        // Pulse::ignore() means "this is the dashboard's own work"; a trace
+        // full of Pulse's inserts is noise in someone else's timeline.
+        if ($this->paused || $this->current === null || ! $this->pulse->recording()) {
             return;
         }
 

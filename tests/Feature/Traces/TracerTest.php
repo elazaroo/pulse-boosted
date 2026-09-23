@@ -284,3 +284,38 @@ class ExplodingSidecarJob implements ShouldQueue
         throw new RuntimeException('Sidecar exploded');
     }
 }
+
+it('measures elapsed time in milliseconds', function () {
+    $tracer = app(Tracer::class);
+    $tracer->start('command', 'timed');
+
+    // Two events either side of a real pause, so the offsets have to differ.
+    $tracer->event('query', 'first');
+    usleep(60_000);
+    $tracer->event('query', 'second');
+
+    $tracer->finish();
+    $tracer->flush();
+
+    $events = Pulse::ignore(fn () => DB::table('pulse_boosted_trace_events')->orderBy('id')->get());
+    $trace = Pulse::ignore(fn () => DB::table('pulse_boosted_traces')->first());
+
+    expect((int) $events[0]->offset_ms)->toBeLessThan(50);
+    expect((int) $events[1]->offset_ms)->toBeGreaterThanOrEqual(50);
+    expect((int) $trace->duration_ms)->toBeGreaterThanOrEqual(50);
+
+    Pulse::flush();
+});
+
+it('marks a request that returned a server error as failed', function () {
+    Route::get('exploding', fn () => throw new RuntimeException('Nope'))->middleware('web');
+
+    $this->get('exploding')->assertStatus(500);
+
+    $trace = Pulse::ignore(fn () => DB::table('pulse_boosted_traces')->where('type', 'request')->first());
+
+    expect($trace->status)->toBe('failed');
+    expect(json_decode($trace->meta, true)['status'])->toBe(500);
+
+    Pulse::flush();
+});

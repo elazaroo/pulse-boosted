@@ -261,6 +261,18 @@ class Pulse
     }
 
     /**
+     * Determine whether Pulse is currently recording.
+     *
+     * False inside `ignore()`, which is how Pulse keeps its own queries out of
+     * its own metrics. Anything else that observes the application should
+     * check this for the same reason.
+     */
+    public function recording(): bool
+    {
+        return $this->shouldRecord;
+    }
+
+    /**
      * Flush the queue.
      */
     public function flush(): self

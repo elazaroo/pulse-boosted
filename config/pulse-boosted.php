@@ -310,7 +310,15 @@ return [
 
         Recorders\Traces::class => [
             'enabled' => env('PULSE_BOOSTED_TRACES_ENABLED', true),
+
+            /*
+             * Routes whose traces are not worth keeping. Livewire's update
+             * endpoint is here because the dashboard polls it every few
+             * seconds; remove it if you want traces of your own Livewire
+             * components. The dashboard's own routes are always excluded.
+             */
             'ignore' => [
+                '#livewire[^/]*/update$#',
                 // '#^health$#',
             ],
         ],

@@ -47,7 +47,9 @@ class Trace
      */
     public function elapsedMs(): float
     {
-        return (CarbonImmutable::now()->getPreciseTimestamp(3) - $this->startedAt->getPreciseTimestamp(3)) / 1000;
+        // getPreciseTimestamp(3) is already milliseconds, so the difference
+        // is too; dividing again turned every duration and offset into zero.
+        return CarbonImmutable::now()->getPreciseTimestamp(3) - $this->startedAt->getPreciseTimestamp(3);
     }
 
     /**

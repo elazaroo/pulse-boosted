@@ -28,6 +28,9 @@ class WorkbenchServiceProvider extends ServiceProvider
         // tried out in the demo.
         Gate::define(QueueActions::GATE, fn ($user = null) => $this->app->environment('local'));
 
+        // Demo routes, so there is something to trace besides the dashboard.
+        $this->loadRoutesFrom(__DIR__.'/../../routes/web.php');
+
         if ($this->app->runningInConsole()) {
             $this->commands([SeedQueueCommand::class]);
         }

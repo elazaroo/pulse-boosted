@@ -92,12 +92,17 @@ class QueueStatus extends Card
                 // every refresh.
                 $counts = $inspector->allCounts($queues);
 
-                return $queues->map(fn (string $queue) => [
-                    'connection' => $connection,
-                    'queue' => $queue,
-                    'counts' => $counts->get($queue) ?? $inspector->counts($queue),
-                    'paused' => $actions->paused($connection, $queue),
-                ]);
+                return $queues
+                    ->map(fn (string $queue) => [
+                        'connection' => $connection,
+                        'queue' => $queue,
+                        'counts' => $counts->get($queue) ?? $inspector->counts($queue),
+                        'paused' => $actions->paused($connection, $queue),
+                    ])
+                    // A connection that is configured but not reachable — Redis
+                    // with no server behind it, say — answers every count with
+                    // a dash. A row of dashes is worse than no row.
+                    ->filter(fn (array $row) => $row['counts']->known());
             })
             ->take(self::MAX_QUEUES)
             ->values();

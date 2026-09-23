@@ -14,6 +14,7 @@ use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Http\Client\Events\ConnectionFailed;
 use Illuminate\Http\Client\Events\ResponseReceived;
 use Illuminate\Log\Events\MessageLogged;
@@ -53,6 +54,7 @@ class Traces
     public array $listen = [
         // Contexts that open and close a trace.
         RouteMatched::class,
+        RequestHandled::class,
         CommandStarting::class,
         CommandFinished::class,
         ScheduledTaskStarting::class,
@@ -93,6 +95,7 @@ class Traces
         match (true) {
             // Opening and closing contexts.
             $event instanceof RouteMatched => $this->startRequest($event),
+            $event instanceof RequestHandled => $this->finishRequest($event),
             $event instanceof CommandStarting => $this->startCommand($event),
             $event instanceof CommandFinished => $this->tracer->finish($event->exitCode === 0 ? 'ok' : 'failed', ['exit_code' => $event->exitCode]),
             $event instanceof ScheduledTaskStarting => $this->tracer->start('schedule', $this->taskName($event->task)),
@@ -124,7 +127,7 @@ class Traces
     {
         $name = $event->route->uri();
 
-        if ($this->shouldIgnore($name)) {
+        if ($this->isOwnTraffic($name) || $this->shouldIgnore($name)) {
             return;
         }
 
@@ -133,6 +136,34 @@ class Traces
             'uri' => $event->request->path(),
             'route' => $event->route->getName(),
         ]);
+    }
+
+    /**
+     * Whether this request is the dashboard watching itself.
+     *
+     * The dashboard polls every few seconds, and each poll queries the very
+     * tables it is displaying. Left alone it becomes the busiest thing in the
+     * application and buries the traces you came to look at.
+     */
+    protected function isOwnTraffic(string $uri): bool
+    {
+        $path = trim((string) $this->config->get('pulse-boosted.path', 'pulse-boosted'), '/');
+        $uri = trim($uri, '/');
+
+        return $uri === $path || str_starts_with($uri, $path.'/');
+    }
+
+    /**
+     * Close a request's trace with what actually came back.
+     *
+     * Without this every request reads as successful, because nothing else
+     * tells the tracer the response was a 500.
+     */
+    protected function finishRequest(RequestHandled $event): void
+    {
+        $status = $event->response->getStatusCode();
+
+        $this->tracer->finish($status >= 500 ? 'failed' : 'ok', ['status' => $status]);
     }
 
     /**
