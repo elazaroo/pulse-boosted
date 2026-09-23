@@ -6,6 +6,7 @@ use Elazaroo\PulseBoosted\Events\IssueOpened;
 use Elazaroo\PulseBoosted\Events\IssueRegressed;
 use Elazaroo\PulseBoosted\Pulse;
 use Elazaroo\PulseBoosted\Recorders\Issues;
+use Elazaroo\PulseBoosted\Support\People;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Mail\Factory as Mailer;
@@ -26,6 +27,7 @@ class SendIssueMail
         protected Mailer $mail,
         protected Pulse $pulse,
         protected Tracer $tracer,
+        protected People $people,
     ) {
         //
     }
@@ -33,6 +35,16 @@ class SendIssueMail
     public function __invoke(IssueOpened|IssueRegressed $event): void
     {
         $recipients = $this->recipients();
+
+        // Whoever is responsible for an issue hears about it coming back,
+        // whether or not they are on the list.
+        if ($event instanceof IssueRegressed && ($event->issue->assignee ?? null) !== null && $this->config->get('pulse-boosted.issues.notify.assignee', true)) {
+            $email = $this->people->one($event->issue->assignee)?->email;
+
+            if ($email !== null && ! in_array($email, $recipients, true)) {
+                $recipients[] = $email;
+            }
+        }
 
         if ($recipients === []) {
             return;
@@ -42,7 +54,7 @@ class SendIssueMail
             return;
         }
 
-        if (($event->issue->kind ?? null) === 'log' && ! $this->severeEnoughToMail((string) ($event->issue->level ?? ''))) {
+        if (($event->issue->kind ?? null) === 'log' && ! self::severeEnough((string) ($event->issue->level ?? ''), $this->config)) {
             return;
         }
 
@@ -61,14 +73,15 @@ class SendIssueMail
     }
 
     /**
-     * Whether a log issue's level is worth an email.
+     * Whether a log issue's level is worth telling anyone about, by email or
+     * any other way.
      */
-    protected function severeEnoughToMail(string $level): bool
+    public static function severeEnough(string $level, Repository $config): bool
     {
         $levels = Issues::LEVELS;
 
         $at = array_search($level, $levels, true);
-        $limit = array_search((string) $this->config->get('pulse-boosted.issues.notify.log_level', 'error'), $levels, true);
+        $limit = array_search((string) $config->get('pulse-boosted.issues.notify.log_level', 'error'), $levels, true);
 
         return $at !== false && $limit !== false && $at <= $limit;
     }

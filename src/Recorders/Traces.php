@@ -4,6 +4,7 @@ namespace Elazaroo\PulseBoosted\Recorders;
 
 use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Events\ExceptionReported;
+use Elazaroo\PulseBoosted\Schedule\ScheduleMonitor;
 use Elazaroo\PulseBoosted\Traces\MarksControllerStage;
 use Elazaroo\PulseBoosted\Traces\QueryOrigin;
 use Elazaroo\PulseBoosted\Traces\RequestSnapshot;
@@ -21,6 +22,7 @@ use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Events\ScheduledTaskStarting;
+use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Events\Terminating;
@@ -607,14 +609,6 @@ class Traces
      */
     protected function taskName(object $task): string
     {
-        $description = $task->description ?? null;
-
-        if (is_string($description) && $description !== '') {
-            return $description;
-        }
-
-        $command = $task->command ?? null;
-
-        return is_string($command) && $command !== '' ? $command : 'Closure';
+        return $task instanceof Event ? ScheduleMonitor::name($task) : 'Closure';
     }
 }

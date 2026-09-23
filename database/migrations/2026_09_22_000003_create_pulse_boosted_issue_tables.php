@@ -65,7 +65,12 @@ return new class extends PulseMigration
             // be called a regression rather than just another occurrence.
             $table->unsignedInteger('resolved_at')->nullable();
 
+            // The user responsible for it, when somebody is. What happened
+            // to it, and who said what, is in pulse_boosted_issue_activity.
+            $table->string('assignee')->nullable();
+
             $table->index('status');
+            $table->index('assignee');
             $table->index('kind');
             $table->index('last_seen_at');
             $table->index('class');

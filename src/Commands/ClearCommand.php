@@ -7,6 +7,7 @@ use Elazaroo\PulseBoosted\Deployments\Deployments;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Elazaroo\PulseBoosted\Pulse;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
+use Elazaroo\PulseBoosted\Schedule\ScheduleMonitor;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
@@ -45,7 +46,7 @@ class ClearCommand extends Command
     /**
      * Handle the command.
      */
-    public function handle(Pulse $pulse, JobRepository $jobs, Tracer $tracer, IssueRepository $issues, AlertManager $alerts, Deployments $deployments): int
+    public function handle(Pulse $pulse, JobRepository $jobs, Tracer $tracer, IssueRepository $issues, AlertManager $alerts, Deployments $deployments, ScheduleMonitor $schedule): int
     {
         if (! $this->confirmToProceed()) {
             return Command::FAILURE;
@@ -87,6 +88,11 @@ class ClearCommand extends Command
             $this->components->task(
                 'Purging deployments',
                 fn () => $deployments->purge(),
+            );
+
+            $this->components->task(
+                'Purging scheduled tasks',
+                fn () => $schedule->purge(),
             );
         }
 

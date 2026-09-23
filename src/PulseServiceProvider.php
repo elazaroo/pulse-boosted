@@ -9,9 +9,13 @@ use Elazaroo\PulseBoosted\Contracts\Ingest;
 use Elazaroo\PulseBoosted\Contracts\ResolvesUsers;
 use Elazaroo\PulseBoosted\Contracts\Storage;
 use Elazaroo\PulseBoosted\Deployments\Deployments;
+use Elazaroo\PulseBoosted\Events\AlertResolved;
+use Elazaroo\PulseBoosted\Events\AlertTriggered;
 use Elazaroo\PulseBoosted\Events\IsolatedBeat;
+use Elazaroo\PulseBoosted\Events\IssueAssigned;
 use Elazaroo\PulseBoosted\Events\IssueOpened;
 use Elazaroo\PulseBoosted\Events\IssueRegressed;
+use Elazaroo\PulseBoosted\Events\ScheduledTaskMissed;
 use Elazaroo\PulseBoosted\Ingests\NullIngest;
 use Elazaroo\PulseBoosted\Ingests\RedisIngest;
 use Elazaroo\PulseBoosted\Ingests\StorageIngest;
@@ -19,15 +23,22 @@ use Elazaroo\PulseBoosted\Issues\AutoResolveIssues;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Elazaroo\PulseBoosted\Issues\PerformanceThresholds;
 use Elazaroo\PulseBoosted\Issues\SendIssueMail;
+use Elazaroo\PulseBoosted\Notify\NotifyWebhooks;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\DatabaseJobRepository;
 use Elazaroo\PulseBoosted\Queues\InspectorManager;
 use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Elazaroo\PulseBoosted\Recorders\Traces as TracesRecorder;
+use Elazaroo\PulseBoosted\Schedule\WatchSchedule;
 use Elazaroo\PulseBoosted\Storage\DatabaseStorage;
 use Elazaroo\PulseBoosted\Traces\Trace;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Auth\Events\Logout;
+use Illuminate\Console\Events\CommandFinished;
+use Illuminate\Console\Events\ScheduledTaskFailed;
+use Illuminate\Console\Events\ScheduledTaskFinished;
+use Illuminate\Console\Events\ScheduledTaskSkipped;
+use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Contracts\Debug\ExceptionHandler;
@@ -266,7 +277,25 @@ class PulseServiceProvider extends ServiceProvider
         $this->callAfterResolving(Dispatcher::class, function (Dispatcher $event, Application $app) {
             $event->listen(IsolatedBeat::class, EvaluateAlerts::class);
             $event->listen([IssueOpened::class, IssueRegressed::class], SendIssueMail::class);
+            $event->listen([
+                IssueOpened::class,
+                IssueRegressed::class,
+                IssueAssigned::class,
+                AlertTriggered::class,
+                AlertResolved::class,
+                ScheduledTaskMissed::class,
+            ], NotifyWebhooks::class);
             $event->listen(IsolatedBeat::class, AutoResolveIssues::class);
+
+            if ($app->make('config')->get('pulse-boosted.schedule.monitor', true)) {
+                $event->listen([
+                    ScheduledTaskStarting::class,
+                    ScheduledTaskFinished::class,
+                    ScheduledTaskFailed::class,
+                    ScheduledTaskSkipped::class,
+                    CommandFinished::class,
+                ], WatchSchedule::class);
+            }
         });
 
         $this->callAfterResolving(Dispatcher::class, function (Dispatcher $event, Application $app) {

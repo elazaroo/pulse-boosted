@@ -6,8 +6,10 @@ use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Deployments\Deployments;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Elazaroo\PulseBoosted\Logging\LogStream;
+use Elazaroo\PulseBoosted\Pulse;
 use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Elazaroo\PulseBoosted\Support\Location;
+use Elazaroo\PulseBoosted\Support\People;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\View;
 use Livewire\Attributes\Lazy;
@@ -83,8 +85,21 @@ class Issues extends Card
     #[Url(as: 'issue_sort')]
     public string $orderBy = 'latest';
 
+    /**
+     * Anyone, the person looking, or nobody.
+     *
+     * @var ''|'me'|'none'
+     */
+    #[Url(as: 'issue_assignee')]
+    public string $assignee = '';
+
     #[Url(as: 'issue')]
     public ?string $selected = null;
+
+    /**
+     * What is being written in the open issue's comment box.
+     */
+    public string $comment = '';
 
     public int $page = 1;
 
@@ -112,6 +127,7 @@ class Issues extends Card
     public function select(string $fingerprint): void
     {
         $this->selected = $fingerprint;
+        $this->comment = '';
     }
 
     /**
@@ -130,7 +146,7 @@ class Issues extends Card
     {
         $this->ensureAllowed($actions);
 
-        $issues->setStatus($fingerprint, 'resolved');
+        $issues->setStatus($fingerprint, 'resolved', $this->me());
     }
 
     /**
@@ -140,7 +156,7 @@ class Issues extends Card
     {
         $this->ensureAllowed($actions);
 
-        $issues->setStatus($fingerprint, 'ignored');
+        $issues->setStatus($fingerprint, 'ignored', $this->me());
     }
 
     /**
@@ -150,29 +166,83 @@ class Issues extends Card
     {
         $this->ensureAllowed($actions);
 
-        $issues->setStatus($fingerprint, 'open');
+        $issues->setStatus($fingerprint, 'open', $this->me());
+    }
+
+    /**
+     * Make somebody responsible for an issue, or nobody.
+     */
+    public function assign(string $fingerprint, ?string $assignee, IssueRepository $issues, QueueActions $actions): void
+    {
+        $this->ensureAllowed($actions);
+
+        $issues->assign($fingerprint, $assignee, $this->me());
+    }
+
+    /**
+     * Take an issue on.
+     */
+    public function assignToMe(string $fingerprint, IssueRepository $issues, QueueActions $actions): void
+    {
+        $this->ensureAllowed($actions);
+
+        if (($me = $this->me()) !== null) {
+            $issues->assign($fingerprint, $me, $me);
+        }
+    }
+
+    /**
+     * Write something about the open issue. Anyone who can see the dashboard
+     * can: saying what you found changes nothing.
+     */
+    public function addComment(string $fingerprint, IssueRepository $issues): void
+    {
+        $this->validate(['comment' => ['required', 'string', 'max:5000']]);
+
+        $issues->comment($fingerprint, $this->comment, $this->me());
+
+        $this->comment = '';
+    }
+
+    /**
+     * The person looking at the dashboard, as the application knows them.
+     */
+    protected function me(): ?string
+    {
+        $id = app(Pulse::class)->resolveAuthenticatedUserId();
+
+        return $id === null ? null : (string) $id;
     }
 
     /**
      * Render the component.
      */
-    public function render(IssueRepository $issues, QueueActions $actions, Deployments $deployments, LogStream $stream): Renderable
+    public function render(IssueRepository $issues, QueueActions $actions, Deployments $deployments, LogStream $stream, People $people): Renderable
     {
         $filters = array_filter([
             'status' => $this->status ?: null,
             'kind' => $this->kind ?: null,
             'handled' => $this->handled ?: null,
+            'assignee' => match ($this->assignee) {
+                'me' => $this->me() ?? 'none',
+                'none' => 'none',
+                default => null,
+            },
             'user' => $this->user ?: null,
             'search' => $this->search ?: null,
         ], fn ($value) => $value !== null);
 
+        $list = $issues->issues($filters, self::PER_PAGE, ($this->page - 1) * self::PER_PAGE, $this->orderBy);
+
         return View::make('pulse-boosted::livewire.issues', [
             'enabled' => $issues->enabled(),
-            'issues' => $issues->issues($filters, self::PER_PAGE, ($this->page - 1) * self::PER_PAGE, $this->orderBy),
+            'issues' => $list,
+            'assignees' => $people->resolve($list->pluck('assignee')),
+            'me' => $this->me(),
             'total' => $issues->count($filters),
             'statusCounts' => $issues->countsByStatus(),
             'kindCounts' => $issues->countsByKind($filters),
-            'detail' => $this->detail($issues),
+            'detail' => $this->detail($issues, $people),
             'canManage' => $actions->allowed(),
             // "New" only means something once there is an earlier deploy to
             // be new since.
@@ -189,7 +259,7 @@ class Issues extends Card
      *
      * @return array<string, mixed>|null
      */
-    protected function detail(IssueRepository $issues): ?array
+    protected function detail(IssueRepository $issues, People $people): ?array
     {
         if ($this->selected === null) {
             return null;
@@ -210,8 +280,41 @@ class Issues extends Card
             'missing' => false,
             'issue' => $issue,
             'users' => $issues->affectedUsers($this->selected),
-            'occurrences' => $issues->recentOccurrences($this->selected),
+            'occurrences' => $occurrences = $issues->recentOccurrences($this->selected),
+            'activity' => $activity = $issues->activity($this->selected),
+            // Everyone worth offering as an assignee, and everyone named in
+            // the history, resolved in one go.
+            'people' => $people->resolve([
+                ...$issues->people(),
+                ...$this->configuredAssignees(),
+                $this->me(),
+                $issue->assignee,
+                ...$activity->pluck('user_id'),
+                ...$activity->where('type', 'assigned')->pluck('body'),
+                ...$occurrences->pluck('user_id'),
+            ]),
+            'candidates' => array_values(array_unique(array_filter([
+                ...$issues->people(),
+                ...$this->configuredAssignees(),
+                $this->me(),
+            ]))),
         ];
+    }
+
+    /**
+     * The users the application listed as people issues can be given to.
+     *
+     * @return list<string>
+     */
+    protected function configuredAssignees(): array
+    {
+        $ids = config('pulse-boosted.issues.assignees', []);
+
+        if (is_string($ids)) {
+            $ids = explode(',', $ids);
+        }
+
+        return array_values(array_filter(array_map(fn ($id) => trim((string) $id), (array) $ids)));
     }
 
     /**

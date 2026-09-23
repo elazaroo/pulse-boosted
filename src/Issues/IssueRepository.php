@@ -4,6 +4,7 @@ namespace Elazaroo\PulseBoosted\Issues;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
+use Elazaroo\PulseBoosted\Events\IssueAssigned;
 use Elazaroo\PulseBoosted\Events\IssueOpened;
 use Elazaroo\PulseBoosted\Events\IssueRegressed;
 use Elazaroo\PulseBoosted\Pulse;
@@ -44,7 +45,8 @@ use Throwable;
  *     first_seen_at: int,
  *     last_seen_at: int,
  *     occurrences: int,
- *     resolved_at: ?int
+ *     resolved_at: ?int,
+ *     assignee: ?string
  * }
  *
  * @internal
@@ -271,6 +273,10 @@ class IssueRepository
             ]);
 
             $event = $existing->status === 'resolved' ? IssueRegressed::class : null;
+
+            if ($event !== null) {
+                $this->note($fingerprint, 'regressed');
+            }
         }
 
         $occurrences = is_array($issue['occurrences']) ? $issue['occurrences'] : [];
@@ -417,16 +423,123 @@ class IssueRepository
     }
 
     /**
-     * Move an issue to a state.
+     * Move an issue to a state, noting who did it.
      */
-    public function setStatus(string $fingerprint, string $status): void
+    public function setStatus(string $fingerprint, string $status, string|int|null $by = null): void
     {
-        $this->pulse->ignore(fn () => $this->table()
+        $this->pulse->ignore(function () use ($fingerprint, $status, $by) {
+            $current = $this->table()->where('fingerprint', $fingerprint)->value('status');
+
+            if ($current === null) {
+                return;
+            }
+
+            $this->table()
+                ->where('fingerprint', $fingerprint)
+                ->update([
+                    'status' => $status,
+                    'resolved_at' => $status === 'resolved' ? CarbonImmutable::now()->getTimestamp() : null,
+                ]);
+
+            if ($current !== $status) {
+                $this->note($fingerprint, $status === 'open' ? 'reopened' : $status, $by);
+            }
+        });
+    }
+
+    /**
+     * Make somebody responsible for an issue, or nobody.
+     */
+    public function assign(string $fingerprint, string|int|null $assignee, string|int|null $by = null): void
+    {
+        $assignee = $assignee === null || $assignee === '' ? null : (string) $assignee;
+
+        $issue = $this->pulse->ignore(function () use ($fingerprint, $assignee, $by) {
+            $current = $this->table()->where('fingerprint', $fingerprint)->first();
+
+            if ($current === null || $current->assignee === $assignee) {
+                return null;
+            }
+
+            $this->table()->where('fingerprint', $fingerprint)->update(['assignee' => $assignee]);
+
+            $this->note($fingerprint, $assignee === null ? 'unassigned' : 'assigned', $by, $assignee);
+
+            return $this->table()->where('fingerprint', $fingerprint)->first();
+        });
+
+        if ($issue !== null) {
+            $this->container->make('events')->dispatch(new IssueAssigned($issue, $assignee, $by === null ? null : (string) $by));
+        }
+    }
+
+    /**
+     * Write something about an issue.
+     */
+    public function comment(string $fingerprint, string $body, string|int|null $by = null): void
+    {
+        $body = trim($body);
+
+        if ($body === '') {
+            return;
+        }
+
+        $this->pulse->ignore(function () use ($fingerprint, $body, $by) {
+            if ($this->table()->where('fingerprint', $fingerprint)->exists()) {
+                $this->note($fingerprint, 'comment', $by, Str::limit($body, 5000, '…'));
+            }
+        });
+    }
+
+    /**
+     * What happened to an issue, oldest first.
+     *
+     * @return Collection<int, \stdClass>
+     */
+    public function activity(string $fingerprint, int $limit = 100): Collection
+    {
+        return $this->pulse->ignore(fn () => $this->activityTable()
             ->where('fingerprint', $fingerprint)
-            ->update([
-                'status' => $status,
-                'resolved_at' => $status === 'resolved' ? CarbonImmutable::now()->getTimestamp() : null,
-            ]));
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get()
+            ->reverse()
+            ->values());
+    }
+
+    /**
+     * Everybody who has been responsible for an issue or done anything to
+     * one, so there is someone to pick from without listing every user the
+     * application has.
+     *
+     * @return array<int, string>
+     */
+    public function people(): array
+    {
+        return $this->pulse->ignore(fn () => $this->table()
+            ->whereNotNull('assignee')
+            ->distinct()
+            ->pluck('assignee')
+            ->merge($this->activityTable()->whereNotNull('user_id')->orderByDesc('id')->limit(500)->pluck('user_id'))
+            ->merge($this->activityTable()->whereIn('type', ['assigned'])->whereNotNull('body')->orderByDesc('id')->limit(200)->pluck('body'))
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values()
+            ->all());
+    }
+
+    /**
+     * Add a line to an issue's history.
+     */
+    protected function note(string $fingerprint, string $type, string|int|null $by = null, ?string $body = null): void
+    {
+        $this->activityTable()->insert([
+            'fingerprint' => $fingerprint,
+            'type' => $type,
+            'user_id' => $by === null || $by === '' ? null : (string) $by,
+            'body' => $body,
+            'created_at' => CarbonImmutable::now()->getTimestamp(),
+        ]);
     }
 
     /**
@@ -439,13 +552,29 @@ class IssueRepository
         $now = CarbonImmutable::now();
         $before = $now->sub(CarbonInterval::fromString($interval))->getTimestamp();
 
-        return $this->pulse->ignore(fn () => $this->table()
-            ->where('status', 'open')
-            ->where('last_seen_at', '<=', $before)
-            ->update([
-                'status' => 'resolved',
-                'resolved_at' => $now->getTimestamp(),
-            ]));
+        return $this->pulse->ignore(function () use ($before, $now, $interval) {
+            $quiet = $this->table()
+                ->where('status', 'open')
+                ->where('last_seen_at', '<=', $before)
+                ->pluck('fingerprint');
+
+            foreach ($quiet->chunk(200) as $chunk) {
+                $this->table()->whereIn('fingerprint', $chunk->all())->update([
+                    'status' => 'resolved',
+                    'resolved_at' => $now->getTimestamp(),
+                ]);
+
+                $this->activityTable()->insert($chunk->map(fn (string $fingerprint) => [
+                    'fingerprint' => $fingerprint,
+                    'type' => 'resolved',
+                    'user_id' => null,
+                    'body' => "Not seen for {$interval}",
+                    'created_at' => $now->getTimestamp(),
+                ])->values()->all());
+            }
+
+            return $quiet->count();
+        });
     }
 
     /**
@@ -467,6 +596,11 @@ class IssueRepository
                 ->where('last_seen_at', '<=', $before)
                 ->whereIn('status', ['resolved', 'ignored'])
                 ->delete();
+
+            // An issue's history goes with it.
+            $this->activityTable()
+                ->whereNotIn('fingerprint', $this->table()->select('fingerprint'))
+                ->delete();
         });
     }
 
@@ -477,6 +611,7 @@ class IssueRepository
     {
         $this->pulse->ignore(function () {
             $this->occurrences()->delete();
+            $this->activityTable()->delete();
             $this->table()->delete();
         });
     }
@@ -500,6 +635,10 @@ class IssueRepository
             $query->where('handled', $handled === 'handled');
         }
 
+        if (($assignee = $filters['assignee'] ?? null) !== null && $assignee !== '') {
+            $assignee === 'none' ? $query->whereNull('assignee') : $query->where('assignee', $assignee);
+        }
+
         // Issues this user ran into, going by the occurrences still kept.
         if (($user = $filters['user'] ?? null) !== null && $user !== '') {
             $query->whereIn('fingerprint', $this->occurrences()->select('fingerprint')->where('user_id', $user));
@@ -519,6 +658,11 @@ class IssueRepository
     protected function table(): Builder
     {
         return $this->connection()->table('pulse_boosted_issues');
+    }
+
+    protected function activityTable(): Builder
+    {
+        return $this->connection()->table('pulse_boosted_issue_activity');
     }
 
     protected function occurrences(): Builder

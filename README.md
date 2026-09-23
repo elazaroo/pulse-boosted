@@ -255,7 +255,7 @@ since, and issues first seen in the latest deploy are marked *New*.
 
 ## On the dashboard
 
-The dashboard is split into sections — Overview, Servers, Queues & jobs,
+The dashboard is split into sections — Overview (with Servers), Queues & jobs,
 Traces, Errors & logs, Performance, Mail & notifications, Users — and shows one
 at a time, picked from the sidebar, or from a strip of tabs on a narrow screen.
 The section is in the address (`/pulse-boosted#errors`), so it can be linked to

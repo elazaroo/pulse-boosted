@@ -111,7 +111,7 @@ it('shows the numbers on the card', function () {
 it('says so when nothing has run', function () {
     Livewire::test(ScheduledTasks::class, ['lazy' => false])
         ->assertSee('Nothing recorded')
-        ->assertSee('the scheduler is not running');
+        ->assertSee('The schedule is written down the first time', false);
 });
 
 it('opens the most recent run of a name', function () {

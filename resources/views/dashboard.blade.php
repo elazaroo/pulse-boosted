@@ -8,8 +8,6 @@
     <x-pulse-boosted::section id="overview" title="Overview" />
     <livewire:pulse-boosted.overview />
     <livewire:pulse-boosted.alerts cols="full" expand />
-
-    <x-pulse-boosted::section id="servers" title="Servers" />
     <livewire:pulse-boosted.servers cols="full" />
 
     <x-pulse-boosted::section id="queues" title="Queues & jobs" />

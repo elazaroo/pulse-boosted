@@ -198,6 +198,13 @@ return [
          */
         'log_level' => env('PULSE_BOOSTED_ISSUES_LOG_LEVEL', 'warning'),
 
+        /*
+         * User ids offered when assigning an issue, as a list or comma-
+         * separated. Anyone who has assigned, commented on or changed an
+         * issue before is offered too, as is whoever is looking.
+         */
+        'assignees' => env('PULSE_BOOSTED_ISSUES_ASSIGNEES', ''),
+
         'thresholds' => [
             'request' => [],
             'job' => [],
@@ -209,6 +216,10 @@ return [
             'mail' => env('PULSE_BOOSTED_ISSUES_MAIL', ''),
             'mailer' => env('PULSE_BOOSTED_ISSUES_MAILER'),
             'regressions' => env('PULSE_BOOSTED_ISSUES_NOTIFY_REGRESSIONS', true),
+
+            // Whether the person an issue is assigned to is emailed when it
+            // comes back, on top of the addresses above.
+            'assignee' => env('PULSE_BOOSTED_ISSUES_NOTIFY_ASSIGNEE', true),
 
             // Issues made from log lines are emailed only at this level or
             // above; a new warning is rarely worth an email.
@@ -399,6 +410,57 @@ return [
     | counting, since listing is the more expensive of the two.
     |
     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Scheduled Tasks
+    |--------------------------------------------------------------------------
+    |
+    | Each time the scheduler runs, the whole schedule is written down, so a
+    | task that should have started and did not is shown as missed, and
+    | announced once with ScheduledTaskMissed. A scheduler that has stopped
+    | running altogether is shown too.
+    |
+    */
+
+    'schedule' => [
+        'monitor' => env('PULSE_BOOSTED_SCHEDULE_MONITOR', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Webhooks
+    |--------------------------------------------------------------------------
+    |
+    | Where to post what happens, besides the issue email: Slack incoming
+    | webhook URLs get a message they can show, any other URL gets the event
+    | as JSON. Both take a comma-separated list.
+    |
+    | A plain webhook is signed with the secret, when there is one, in the
+    | X-Pulse-Boosted-Signature header: "sha256=" and the HMAC of the body.
+    |
+    */
+
+    'webhooks' => [
+        'urls' => env('PULSE_BOOSTED_WEBHOOKS', ''),
+        'slack' => env('PULSE_BOOSTED_SLACK_WEBHOOK', ''),
+        'secret' => env('PULSE_BOOSTED_WEBHOOK_SECRET'),
+
+        /*
+         * Which events to send: issue.opened, issue.regressed,
+         * issue.assigned, alert.triggered, alert.resolved and
+         * schedule.missed. Null sends them all.
+         */
+        'events' => null,
+
+        /*
+         * Sent straight away with a short timeout, unless a queue connection
+         * is named here: then from a worker, and retried if the receiver is
+         * down.
+         */
+        'queue' => env('PULSE_BOOSTED_WEBHOOK_QUEUE'),
+        'timeout' => 5,
+    ],
 
     'queues' => [
         'enabled' => env('PULSE_BOOSTED_QUEUE_INSPECTION_ENABLED', true),

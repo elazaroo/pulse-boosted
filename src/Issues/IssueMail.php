@@ -2,11 +2,11 @@
 
 namespace Elazaroo\PulseBoosted\Issues;
 
+use Elazaroo\PulseBoosted\Support\DashboardUrl;
 use Elazaroo\PulseBoosted\Support\Location;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use stdClass;
 
@@ -53,10 +53,6 @@ class IssueMail extends Mailable
      */
     protected function url(): string
     {
-        $base = Route::has('pulse-boosted')
-            ? route('pulse-boosted')
-            : url((string) config('pulse-boosted.path', 'pulse-boosted'));
-
-        return $base.'?issue='.$this->issue->fingerprint.'#errors';
+        return DashboardUrl::to(['issue' => $this->issue->fingerprint], 'errors');
     }
 }

@@ -86,6 +86,18 @@
                 <option value="handled">Handled</option>
             </select>
 
+            <select
+                wire:model.live="assignee"
+                aria-label="Assigned to"
+                class="rounded-md border border-gray-200 dark:border-gray-700 pl-2 pr-7 py-1 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs shadow-none focus:ring-0"
+            >
+                <option value="">Anyone's</option>
+                @if ($me !== null)
+                    <option value="me">Assigned to me</option>
+                @endif
+                <option value="none">Unassigned</option>
+            </select>
+
             <input
                 type="search"
                 wire:model.live.debounce.400ms="search"
@@ -149,6 +161,15 @@
                                     @else
                                         <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" title="Caught and passed to report()">Handled</span>
                                     @endif
+                                @if ($issue->assignee && isset($assignees[$issue->assignee]))
+                                    @php($person = $assignees[$issue->assignee])
+                                    <span class="shrink-0 ml-auto flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400" title="Assigned to {{ $person->name }}">
+                                        @if ($person->avatar)
+                                            <img src="{{ $person->avatar }}" alt="" class="w-4 h-4 rounded-full" loading="lazy">
+                                        @endif
+                                        <span class="hidden md:inline truncate max-w-[8rem]">{{ $person->name }}</span>
+                                    </span>
+                                @endif
                                 </div>
                                 @unless (($issue->kind ?? '') === 'log' && $issue->message === $issue->class)
                                     <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300 truncate" title="{{ $issue->message }}">
@@ -239,6 +260,42 @@
                             </div>
                         @endforeach
                     </dl>
+
+                    @php($assigned = $issue->assignee ? ($detail['people'][$issue->assignee] ?? null) : null)
+                    <div class="flex flex-wrap items-center gap-3 rounded-md border border-gray-200 dark:border-gray-800 px-3 py-2">
+                        <span class="text-xs text-gray-500 uppercase">Assignee</span>
+                        @if ($assigned)
+                            <span class="flex items-center gap-1.5 text-sm font-medium text-gray-900 dark:text-gray-100">
+                                @if ($assigned->avatar)
+                                    <img src="{{ $assigned->avatar }}" alt="" class="w-5 h-5 rounded-full" loading="lazy">
+                                @endif
+                                {{ $assigned->name }}
+                            </span>
+                        @else
+                            <span class="text-sm text-gray-500 dark:text-gray-400">Nobody</span>
+                        @endif
+                        @if ($canManage)
+                            <div class="ml-auto flex items-center gap-2">
+                                @if ($me !== null && $issue->assignee !== $me)
+                                    <button type="button" wire:click="assignToMe('{{ $issue->fingerprint }}')"
+                                        class="px-2 py-1 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">Assign to me</button>
+                                @endif
+                                <select
+                                    aria-label="Assign to"
+                                    x-on:change="$wire.assign('{{ $issue->fingerprint }}', $event.target.value || null)"
+                                    class="rounded-md border border-gray-200 dark:border-gray-700 pl-2 pr-7 py-1 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs shadow-none focus:ring-0"
+                                >
+                                    <option value="" @selected($issue->assignee === null)>Nobody</option>
+                                    @foreach ($detail['candidates'] as $candidate)
+                                        <option value="{{ $candidate }}" @selected($issue->assignee === $candidate)>{{ $detail['people'][$candidate]->name ?? "User {$candidate}" }}</option>
+                                    @endforeach
+                                    @if ($issue->assignee !== null && ! in_array($issue->assignee, $detail['candidates'], true))
+                                        <option value="{{ $issue->assignee }}" selected>{{ $assigned->name ?? "User {$issue->assignee}" }}</option>
+                                    @endif
+                                </select>
+                            </div>
+                        @endif
+                    </div>
 
                     @if ($issue->message)
                         <div>
@@ -338,6 +395,68 @@
                             </ul>
                         </div>
                     @endif
+
+                    <div>
+                        <h3 class="text-xs text-gray-500 uppercase mb-2">Activity</h3>
+                        <ol class="space-y-3">
+                            <li class="flex gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                <span class="mt-1 w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>
+                                <span>First seen <span class="tabular-nums">{{ CarbonImmutable::createFromTimestamp($issue->first_seen_at)->diffForHumans() }}</span>@if ($issue->first_seen_deploy ?? null), in {{ \Illuminate\Support\Str::limit($issue->first_seen_deploy, 16) }}@endif</span>
+                            </li>
+                            @foreach ($detail['activity'] as $entry)
+                                @php($who = $entry->user_id !== null ? ($detail['people'][$entry->user_id]->name ?? "User {$entry->user_id}") : null)
+                                @php($to = $entry->type === 'assigned' && $entry->body !== null ? ($detail['people'][$entry->body]->name ?? "User {$entry->body}") : null)
+                                <li wire:key="activity-{{ $entry->id }}" class="flex gap-2 text-xs">
+                                    <span @class([
+                                        'mt-1 w-1.5 h-1.5 rounded-full shrink-0',
+                                        'bg-accent-500' => $entry->type === 'comment',
+                                        'bg-green-500' => $entry->type === 'resolved',
+                                        'bg-red-500' => in_array($entry->type, ['regressed', 'reopened'], true),
+                                        'bg-gray-400' => in_array($entry->type, ['ignored', 'assigned', 'unassigned'], true),
+                                    ])></span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-gray-600 dark:text-gray-300">
+                                            <span class="font-medium text-gray-900 dark:text-gray-100">{{ $who ?? ($entry->type === 'regressed' ? 'It' : 'Pulse Boosted') }}</span>
+                                            {{ match ($entry->type) {
+                                                'comment' => 'wrote',
+                                                'resolved' => 'resolved it',
+                                                'ignored' => 'ignored it',
+                                                'reopened' => 'reopened it',
+                                                'regressed' => 'happened again after being resolved',
+                                                'assigned' => $entry->user_id === $entry->body ? 'took it on' : 'assigned it to '.$to,
+                                                'unassigned' => 'left it with nobody',
+                                                default => $entry->type,
+                                            } }}
+                                            @if ($entry->type === 'resolved' && $entry->body)
+                                                <span class="text-gray-400">— {{ $entry->body }}</span>
+                                            @endif
+                                            <span class="text-gray-400 tabular-nums" title="{{ CarbonImmutable::createFromTimestamp($entry->created_at)->toDateTimeString() }}">&middot; {{ CarbonImmutable::createFromTimestamp($entry->created_at)->diffForHumans() }}</span>
+                                        </p>
+                                        @if ($entry->type === 'comment')
+                                            <p class="mt-1 rounded-md bg-gray-50 dark:bg-gray-800/60 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line break-words">{{ $entry->body }}</p>
+                                        @endif
+                                    </div>
+                                </li>
+                            @endforeach
+                        </ol>
+
+                        <form wire:submit="addComment('{{ $issue->fingerprint }}')" class="mt-3 space-y-2">
+                            <textarea
+                                wire:model="comment"
+                                rows="2"
+                                placeholder="What did you find? Who is looking at it?"
+                                class="w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:ring-0 focus:border-accent-500"
+                                x-on:keydown.ctrl.enter.prevent="$el.form.requestSubmit()"
+                                x-on:keydown.meta.enter.prevent="$el.form.requestSubmit()"
+                            ></textarea>
+                            @error('comment')
+                                <p class="text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                            <div class="flex justify-end">
+                                <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-md bg-accent-500 text-white hover:bg-accent-600 disabled:opacity-50" wire:loading.attr="disabled" wire:target="addComment">Comment</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             @endif
         </aside>
