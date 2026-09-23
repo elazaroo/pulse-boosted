@@ -49,7 +49,10 @@ it('renders top 10 users making requests', function (string $query, string $type
             (object) ['key' => $users[0]->id, 'count' => 6, 'user' => (object) ['name' => $users[0]->name, 'extra' => $users[0]->email, 'avatar' => avatar($users[0]->email)]],
             (object) ['key' => $users[1]->id, 'count' => 4, 'user' => (object) ['name' => $users[1]->name, 'extra' => $users[1]->email, 'avatar' => avatar($users[1]->email)]],
             (object) ['key' => $users[2]->id, 'count' => 2, 'user' => (object) ['name' => $users[2]->name, 'extra' => $users[2]->email, 'avatar' => avatar($users[2]->email)]],
-        ]));
+        ]))
+        // Opening a user is a script the browser has to be able to read.
+        ->assertSeeHtml("\$dispatch('open-person', { id: '{$users[0]->id}' })")
+        ->assertDontSeeHtml('@js(');
 })->with([
     ['requests', 'user_request'],
     ['slow_requests', 'slow_user_request'],
