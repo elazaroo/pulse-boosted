@@ -19,7 +19,7 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 
 ### Changed
 
-- Renamed throughout to `elazaroo/pulse-boosted` and the `Elazaroo\PulseBoosted\` namespace, so the package is independent of `laravel/pulse` rather than a replacement for it. See [UPGRADE.md](UPGRADE.md).
+- Renamed throughout to `elazaroo/pulse-boosted` and the `Elazaroo\PulseBoosted\` namespace, so the package is independent of `laravel/pulse` rather than a replacement for it. See [Moving from Laravel Pulse](README.md#moving-from-laravel-pulse).
 - Line endings pinned to LF.
 - The test suite runs against an in-memory database, so it no longer shares one with the demo application.
 

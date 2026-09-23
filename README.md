@@ -346,6 +346,31 @@ Listing never pops: the database inspector runs a `SELECT` and the Redis one use
 | `pulse-boosted:clear` | Purge stored data |
 | `pulse-boosted:alerts` | Check the alert rules and show what each one reads |
 
+## Moving from Laravel Pulse
+
+Pulse Boosted is not a drop-in replacement. Everything it owns is named after
+itself, so it can run next to `laravel/pulse` while you compare the two: they
+share no tables, routes, config, commands or gates. Moving across is a rename.
+
+| Laravel Pulse | Pulse Boosted |
+| --- | --- |
+| `Laravel\Pulse\` | `Elazaroo\PulseBoosted\` |
+| `config/pulse.php`, `config('pulse.…')` | `config/pulse-boosted.php`, `config('pulse-boosted.…')` |
+| `PULSE_*` | `PULSE_BOOSTED_*` |
+| `viewPulse` gate | `viewPulseBoosted` gate |
+| `/pulse` | `/pulse-boosted` |
+| `pulse:work`, `pulse:check`, … | `pulse-boosted:work`, `pulse-boosted:check`, … |
+| `resources/views/vendor/pulse/` | `resources/views/vendor/pulse-boosted/` |
+| `<x-pulse::card>`, `<livewire:pulse.queues />` | `<x-pulse-boosted::card>`, `<livewire:pulse-boosted.queues />` |
+
+Custom recorders and cards extend the same classes under the new namespace and
+need nothing else.
+
+Recorded metrics are not migrated. They only live for a week, so the simplest
+path is to run both dashboards side by side for a week and then drop the old
+`pulse_*` tables. The aggregate schemas are identical if you would rather copy
+them across; list the columns explicitly and leave out the generated `key_hash`.
+
 ## Relationship to Laravel Pulse
 
 This fork keeps Laravel Pulse's architecture: recorders write entries, an ingest buffers them, a storage driver aggregates them into buckets, and Livewire cards read the aggregates. New functionality lives in its own directories rather than being woven into the upstream files.
@@ -358,4 +383,5 @@ Pulse Boosted is derived from [Laravel Pulse](https://github.com/laravel/pulse) 
 
 ## Licence
 
-MIT. See [LICENSE.md](LICENSE.md).
+MIT. See [LICENSE.md](LICENSE.md). The original Laravel Pulse copyright notice
+stays alongside this project's own, as the MIT licence requires of derived work.

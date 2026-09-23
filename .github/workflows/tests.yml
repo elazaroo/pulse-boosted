@@ -1,18 +1,48 @@
 name: tests
 
+# Pull requests only. The code that reaches main has already passed here, so
+# merging does not run everything a second time, and nothing runs on a timer.
 on:
-  push:
-    branches:
-      - main
-      - "*.x"
   pull_request:
-  schedule:
-    - cron: "0 0 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# A new push to the same pull request makes the run in progress pointless.
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  style:
+    runs-on: ubuntu-22.04
+
+    name: Code style and static analysis
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: 8.3
+          extensions: dom, curl, libxml, mbstring, redis, pcntl, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Check code style
+        run: vendor/bin/pint --test
+
+      - name: Run static analysis
+        run: vendor/bin/phpstan analyse --no-progress
+
   mysql_57:
     runs-on: ubuntu-22.04
 
