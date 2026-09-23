@@ -52,6 +52,11 @@ class Tracer
     protected bool $paused = false;
 
     /**
+     * When the application finished booting, for a request's bootstrap stage.
+     */
+    protected ?float $bootedAt = null;
+
+    /**
      * Create a new tracer.
      */
     public function __construct(
@@ -75,7 +80,7 @@ class Tracer
      *
      * @param  array<string, mixed>  $meta
      */
-    public function start(string $type, string $name, array $meta = []): void
+    public function start(string $type, string $name, array $meta = [], ?float $startedAt = null): void
     {
         if ($this->paused || ! $this->pulse->recording() || ! $this->enabled() || $this->current !== null) {
             return;
@@ -96,7 +101,7 @@ class Tracer
             parentId: $this->inheritedParent,
             type: $type,
             name: $name,
-            startedAt: CarbonImmutable::now(),
+            startedAt: $startedAt === null ? CarbonImmutable::now() : CarbonImmutable::createFromTimestampMs((int) round($startedAt * 1000)),
             meta: $meta,
             sampled: $sampled,
         );
@@ -121,6 +126,13 @@ class Tracer
             $this->current->keep('exception');
         }
 
+        // Which stage it happened in, noted now rather than worked out later
+        // from its offset: two things a fraction of a millisecond apart round
+        // to the same millisecond, and could then land in the wrong stage.
+        if (($stage = $this->current->currentStage()) !== null) {
+            $meta['stage'] = $stage;
+        }
+
         $this->current->add(new TraceEvent(
             type: $type,
             label: Str::limit($label, 1_000),
@@ -136,19 +148,69 @@ class Tracer
      *
      * @param  array<string, mixed>  $meta
      */
-    public function finish(string $status = 'ok', array $meta = []): void
+    public function finish(?string $status = null, array $meta = []): void
     {
         if ($this->current === null) {
             return;
         }
 
-        $trace = $this->current->finish($status, $meta);
+        // A request settles its status when the response goes out, and is
+        // closed only after its terminating callbacks have run.
+        [$settledStatus, $settledMeta] = $this->current->settled() ?? ['ok', []];
+
+        $trace = $this->current->finish($status ?? $settledStatus, [...$settledMeta, ...$meta]);
 
         $this->current = null;
 
         if ($trace->worthKeeping($this->keepRules())) {
             $this->buffer[] = $trace;
         }
+    }
+
+    /**
+     * Note that the current execution has moved into a lifecycle stage.
+     */
+    public function stage(string $stage, ?float $atMs = null): void
+    {
+        if ($this->paused) {
+            return;
+        }
+
+        $this->current?->stage($stage, $atMs);
+    }
+
+    /**
+     * The stage the current execution is in.
+     */
+    public function currentStage(): ?string
+    {
+        return $this->current?->currentStage();
+    }
+
+    /**
+     * Record how the current execution ended, to be applied when it closes.
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    public function settle(string $status, array $meta = []): void
+    {
+        $this->current?->settle($status, $meta);
+    }
+
+    /**
+     * Note that the application has finished booting.
+     */
+    public function markBooted(?float $at = null): void
+    {
+        $this->bootedAt = $at ?? microtime(true);
+    }
+
+    /**
+     * When the application finished booting, if it has.
+     */
+    public function bootedAt(): ?float
+    {
+        return $this->bootedAt;
     }
 
     /**

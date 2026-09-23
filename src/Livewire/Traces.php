@@ -2,6 +2,7 @@
 
 namespace Elazaroo\PulseBoosted\Livewire;
 
+use Elazaroo\PulseBoosted\Traces\Stage;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Elazaroo\PulseBoosted\Traces\TraceRepository;
 use Illuminate\Contracts\Support\Renderable;
@@ -135,12 +136,18 @@ class Traces extends Card
 
         unset($meta['context']);
 
+        // Drawn as the timeline, so not repeated in the raw metadata below it.
+        $stages = $meta['stages'] ?? [];
+
+        unset($meta['stages']);
+
         return [
             'missing' => false,
             'trace' => $trace,
             'meta' => $meta,
             'context' => is_array($context) ? $context : [],
-            'events' => $this->withShares($events, (int) ($trace->duration_ms ?: 0)),
+            'events' => $shared = $this->withShares($events, (int) ($trace->duration_ms ?: 0)),
+            'stages' => $this->stages($stages, $shared, (int) ($trace->duration_ms ?: 0)),
             'children' => $traces->children($trace->trace_id),
             'parent' => $trace->parent_trace_id === null ? null : $traces->find($trace->parent_trace_id),
             'summary' => $this->summarise($events),
@@ -176,6 +183,55 @@ class Traces extends Card
                 'width' => min(100, max(0.5, $duration / $total * 100)),
             ];
         });
+    }
+
+    /**
+     * The lifecycle stages, each holding the events that happened inside it.
+     *
+     * Events are placed by their offset, so a query run from a terminating
+     * callback sits under Terminating and one run from middleware sits
+     * under Middleware, which is the whole point of drawing it this way.
+     *
+     * @param  Collection<int, array<string, mixed>>  $events
+     * @return list<array<string, mixed>>
+     */
+    protected function stages(mixed $stages, Collection $events, int $totalMs): array
+    {
+        if (! is_array($stages) || $stages === []) {
+            return [];
+        }
+
+        $total = max($totalMs, 1);
+        $count = count($stages);
+        $result = [];
+
+        foreach (array_values($stages) as $i => $stage) {
+            $start = (int) ($stage['start'] ?? 0);
+            $duration = (int) ($stage['duration'] ?? 0);
+            $last = $i === $count - 1;
+
+            $result[] = [
+                'name' => (string) ($stage['name'] ?? ''),
+                'label' => Stage::label((string) ($stage['name'] ?? '')),
+                'startMs' => $start,
+                'durationMs' => $duration,
+                'left' => min(100, max(0, $start / $total * 100)),
+                'width' => min(100, max(0.5, $duration / $total * 100)),
+                'events' => $events
+                    ->filter(fn (array $event) => isset($event['meta']['stage'])
+                        ? $event['meta']['stage'] === ($stage['name'] ?? null)
+                        : $event['offsetMs'] >= $start && ($last || $event['offsetMs'] < $start + $duration))
+                    ->values()
+                    ->all(),
+            ];
+        }
+
+        // Anything recorded before the first stage began belongs to it.
+        $first = $result[0]['startMs'];
+        $early = $events->filter(fn (array $event) => ! isset($event['meta']['stage']) && $event['offsetMs'] < $first)->values()->all();
+        $result[0]['events'] = [...$early, ...$result[0]['events']];
+
+        return $result;
     }
 
     /**

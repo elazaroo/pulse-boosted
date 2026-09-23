@@ -40,6 +40,22 @@ class Trace
     protected ?string $keepBecause = null;
 
     /**
+     * Where each lifecycle stage began, in milliseconds from the start.
+     *
+     * @var list<array{0: string, 1: float}>
+     */
+    protected array $stages = [];
+
+    /**
+     * How it ended, when that is known before it is closed — a request's
+     * status is known when the response is sent, but it goes on running
+     * terminating callbacks after.
+     *
+     * @var array{0: string, 1: array<string, mixed>}|null
+     */
+    protected ?array $settled = null;
+
+    /**
      * Whatever the application chose to attach to this execution.
      *
      * @var array<string, scalar|null>
@@ -106,7 +122,53 @@ class Trace
             $this->meta['dropped_events'] = $this->dropped;
         }
 
+        if ($this->stages !== []) {
+            $this->meta['stages'] = $this->stageDurations();
+        }
+
         return $this;
+    }
+
+    /**
+     * Note that a lifecycle stage has begun.
+     */
+    public function stage(string $name, ?float $atMs = null): void
+    {
+        $last = $this->stages[array_key_last($this->stages) ?? -1] ?? null;
+
+        if ($last !== null && $last[0] === $name) {
+            return;
+        }
+
+        $this->stages[] = [$name, $atMs ?? $this->elapsedMs()];
+    }
+
+    /**
+     * The stage it is in now.
+     */
+    public function currentStage(): ?string
+    {
+        return $this->stages === [] ? null : $this->stages[array_key_last($this->stages)][0];
+    }
+
+    /**
+     * Record how it ended, for when it is closed later.
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    public function settle(string $status, array $meta = []): void
+    {
+        $this->settled = [$status, $meta];
+    }
+
+    /**
+     * The outcome recorded by settle(), if any.
+     *
+     * @return array{0: string, 1: array<string, mixed>}|null
+     */
+    public function settled(): ?array
+    {
+        return $this->settled;
     }
 
     /**
@@ -141,6 +203,29 @@ class Trace
         }
 
         return $this->keepBecause !== null;
+    }
+
+    /**
+     * Each stage with when it started and how long it lasted.
+     *
+     * @return list<array{name: string, start: int, duration: int}>
+     */
+    protected function stageDurations(): array
+    {
+        $end = (float) $this->durationMs;
+        $stages = [];
+
+        foreach ($this->stages as $i => [$name, $start]) {
+            $until = $this->stages[$i + 1][1] ?? $end;
+
+            $stages[] = [
+                'name' => $name,
+                'start' => (int) round($start),
+                'duration' => (int) round(max(0, $until - $start)),
+            ];
+        }
+
+        return $stages;
     }
 
     /**

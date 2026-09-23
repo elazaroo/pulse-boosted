@@ -2,7 +2,10 @@
 
 namespace Elazaroo\PulseBoosted\Recorders;
 
+use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Events\ExceptionReported;
+use Elazaroo\PulseBoosted\Traces\MarksControllerStage;
+use Elazaroo\PulseBoosted\Traces\Stage;
 use Elazaroo\PulseBoosted\Traces\TraceEvent;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Cache\Events\CacheHit;
@@ -14,9 +17,11 @@ use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Foundation\Events\Terminating;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Http\Client\Events\ConnectionFailed;
 use Illuminate\Http\Client\Events\ResponseReceived;
+use Illuminate\Http\Request;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Notifications\Events\NotificationSent;
@@ -24,7 +29,10 @@ use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\JobQueued;
+use Illuminate\Routing\Events\PreparingResponse;
+use Illuminate\Routing\Events\ResponsePrepared;
 use Illuminate\Routing\Events\RouteMatched;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Str;
 use Throwable;
 use WeakMap;
@@ -56,6 +64,13 @@ class Traces
         // Contexts that open and close a trace.
         RouteMatched::class,
         RequestHandled::class,
+
+        // The stages of a request. Listening for an event this version of
+        // Laravel does not have is harmless: it never fires.
+        PreparingResponse::class,
+        ResponsePrepared::class,
+        Terminating::class,
+
         CommandStarting::class,
         CommandFinished::class,
         ScheduledTaskStarting::class,
@@ -105,6 +120,9 @@ class Traces
             // Opening and closing contexts.
             $event instanceof RouteMatched => $this->startRequest($event),
             $event instanceof RequestHandled => $this->finishRequest($event),
+            $event instanceof PreparingResponse => $this->stageAfter(Stage::CONTROLLER, Stage::RENDER),
+            $event instanceof ResponsePrepared => $this->stageAfter(Stage::RENDER, Stage::AFTER_MIDDLEWARE),
+            $event instanceof Terminating => $this->tracer->stage(Stage::TERMINATING),
             $event instanceof CommandStarting => $this->startCommand($event),
             $event instanceof CommandFinished => $this->tracer->finish($event->exitCode === 0 ? 'ok' : 'failed', ['exit_code' => $event->exitCode]),
             $event instanceof ScheduledTaskStarting => $this->tracer->start('schedule', $this->taskName($event->task)),
@@ -140,11 +158,83 @@ class Traces
             return;
         }
 
+        $startedAt = $this->requestStartedAt($event->request);
+
         $this->tracer->start('request', $event->request->method().' /'.ltrim($name, '/'), [
             'method' => $event->request->method(),
             'uri' => $event->request->path(),
             'route' => $event->route->getName(),
-        ]);
+            'action' => $event->route->getActionName(),
+        ], $startedAt);
+
+        if (! $this->tracer->recording()) {
+            return;
+        }
+
+        // Everything before the route matched: booting the framework, then
+        // the global middleware. Measured from when PHP received the request,
+        // so the timeline starts where the user's wait did.
+        $bootedAt = $this->tracer->bootedAt();
+
+        if ($startedAt !== null && $bootedAt !== null && $bootedAt >= $startedAt) {
+            $this->tracer->stage(Stage::BOOTSTRAP, 0);
+            $this->tracer->stage(Stage::MIDDLEWARE, ($bootedAt - $startedAt) * 1000);
+        } else {
+            $this->tracer->stage(Stage::MIDDLEWARE, 0);
+        }
+
+        $this->markControllerStart($event->route);
+    }
+
+    /**
+     * When PHP started handling this request, if that can be trusted.
+     *
+     * Under Octane the process outlives the request, so LARAVEL_START is long
+     * past; a start more than a minute ago is not this request's.
+     */
+    protected function requestStartedAt(Request $request): ?float
+    {
+        $start = $request->server('REQUEST_TIME_FLOAT') ?? (defined('LARAVEL_START') ? LARAVEL_START : null);
+
+        if (! is_numeric($start)) {
+            return null;
+        }
+
+        $now = CarbonImmutable::now()->getPreciseTimestamp(3) / 1000;
+        $start = (float) $start;
+
+        return $start <= $now && $now - $start < 60 ? $start : null;
+    }
+
+    /**
+     * Put the controller-stage marker innermost in the route's middleware.
+     */
+    protected function markControllerStart(Route $route): void
+    {
+        $middleware = $route->middleware();
+
+        if (in_array(MarksControllerStage::class, $middleware, true)) {
+            return;
+        }
+
+        $route->action['middleware'] = [...$middleware, MarksControllerStage::class];
+
+        // The route may already have worked out its middleware — it keeps it
+        // between requests under Octane — so make it work it out again.
+        $route->computedMiddleware = null;
+    }
+
+    /**
+     * Move to the next stage, but only from the one it should follow.
+     *
+     * Laravel prepares a response more than once on the way out; only the
+     * first time, straight after the controller, is the render.
+     */
+    protected function stageAfter(string $from, string $to): void
+    {
+        if ($this->tracer->currentStage() === $from) {
+            $this->tracer->stage($to);
+        }
     }
 
     /**
@@ -172,7 +262,11 @@ class Traces
     {
         $status = $event->response->getStatusCode();
 
-        $this->tracer->finish($status >= 500 ? 'failed' : 'ok', ['status' => $status]);
+        // The response is on its way, but terminating callbacks have yet to
+        // run, and they are part of the request too. The trace is closed once
+        // they have.
+        $this->tracer->settle($status >= 500 ? 'failed' : 'ok', ['status' => $status]);
+        $this->tracer->stage(Stage::SENDING);
     }
 
     /**

@@ -73,6 +73,10 @@ class PulseServiceProvider extends ServiceProvider
 
         // Singleton because it holds the execution context for this process.
         $this->app->singleton(Tracer::class);
+
+        // When booting finished, so a request's timeline can show how long it
+        // spent there before any of its own code ran.
+        $this->app->booted(fn (Application $app) => $app->make(Tracer::class)->markBooted());
         $this->app->singleton(IssueRepository::class);
         $this->app->singleton(AlertManager::class);
 

@@ -191,6 +191,53 @@
                         @if ($detail['events']->isEmpty())
                             <p class="text-sm text-gray-500 dark:text-gray-400">Nothing was recorded inside this execution.</p>
                         @else
+                            @if ($detail['stages'] !== [])
+                                <ol class="space-y-2">
+                                    @foreach ($detail['stages'] as $stage)
+                                        <li>
+                                            <div class="flex items-baseline gap-2 text-xs">
+                                                <span class="w-14 shrink-0 text-right tabular-nums text-gray-400">{{ number_format($stage['startMs']) }}ms</span>
+                                                <span class="flex-1 min-w-0 font-semibold uppercase tracking-wide text-[11px] text-gray-700 dark:text-gray-200">{{ $stage['label'] }}</span>
+                                                <span class="w-16 shrink-0 text-right tabular-nums font-medium text-gray-700 dark:text-gray-200">{{ number_format($stage['durationMs']) }}ms</span>
+                                            </div>
+                                            <div class="ml-16 mt-0.5 h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
+                                                <div class="absolute inset-y-0 rounded-full bg-gray-400 dark:bg-gray-500" style="left: {{ round($stage['left'], 2) }}%; width: {{ round($stage['width'], 2) }}%"></div>
+                                            </div>
+                                            @if ($stage['events'] !== [])
+                                                <ol class="mt-1 ml-4 pl-2 border-l border-gray-200 dark:border-gray-800 space-y-1">
+                                                    @foreach ($stage['events'] as $event)
+                                                        <li class="group">
+                                                            <div class="flex items-baseline gap-2 text-xs">
+                                                                <span class="w-14 shrink-0 text-right tabular-nums text-gray-400">{{ number_format($event['offsetMs']) }}ms</span>
+                                                                <span class="w-16 shrink-0 text-gray-500 dark:text-gray-400 capitalize">{{ $event['type'] }}</span>
+                                                                <span class="flex-1 min-w-0 truncate text-gray-800 dark:text-gray-200" title="{{ $event['label'] }}">
+                                                                    @if ($event['level'])
+                                                                        <span @class([
+                                                                            'mr-1 font-medium',
+                                                                            'text-red-600 dark:text-red-400' => in_array($event['level'], ['error', 'critical', 'alert', 'emergency', 'unhandled']),
+                                                                            'text-amber-600 dark:text-amber-400' => $event['level'] === 'warning',
+                                                                        ])>[{{ $event['level'] }}]</span>
+                                                                    @endif
+                                                                    {{ $event['label'] }}
+                                                                </span>
+                                                                <span class="w-16 shrink-0 text-right tabular-nums text-gray-500 dark:text-gray-400">
+                                                                    {{ $event['durationMs'] === null ? '' : number_format($event['durationMs']).'ms' }}
+                                                                </span>
+                                                            </div>
+                                                            <div class="ml-16 mt-0.5 h-1 rounded-full bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
+                                                                <div
+                                                                    @class(['absolute inset-y-0 rounded-full', $eventColour[$event['type']] ?? 'bg-gray-400'])
+                                                                    style="left: {{ round($event['left'], 2) }}%; width: {{ round($event['width'], 2) }}%"
+                                                                ></div>
+                                                            </div>
+                                                        </li>
+                                                    @endforeach
+                                                </ol>
+                                            @endif
+                                        </li>
+                                    @endforeach
+                                </ol>
+                            @else
                             <ol class="space-y-1">
                                 @foreach ($detail['events'] as $event)
                                     <li class="group">
@@ -201,7 +248,7 @@
                                                 @if ($event['level'])
                                                     <span @class([
                                                         'mr-1 font-medium',
-                                                        'text-red-600 dark:text-red-400' => in_array($event['level'], ['error', 'critical', 'alert', 'emergency']),
+                                                        'text-red-600 dark:text-red-400' => in_array($event['level'], ['error', 'critical', 'alert', 'emergency', 'unhandled']),
                                                         'text-amber-600 dark:text-amber-400' => $event['level'] === 'warning',
                                                     ])>[{{ $event['level'] }}]</span>
                                                 @endif
@@ -220,6 +267,7 @@
                                     </li>
                                 @endforeach
                             </ol>
+                            @endif
 
                             @if (($detail['meta']['dropped_events'] ?? 0) > 0)
                                 <p class="mt-3 text-xs text-amber-700 dark:text-amber-400">
