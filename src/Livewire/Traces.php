@@ -143,8 +143,9 @@ class Traces extends Card
 
         $counts = $meta['counts'] ?? null;
         $peak = $meta['peak_memory'] ?? null;
+        $request = $meta['request'] ?? null;
 
-        unset($meta['counts'], $meta['peak_memory']);
+        unset($meta['counts'], $meta['peak_memory'], $meta['request']);
 
         return [
             'missing' => false,
@@ -159,6 +160,7 @@ class Traces extends Card
             // older traces without them are summed from what was kept.
             'summary' => is_array($counts) ? $counts : $this->summarise($events),
             'peakMemory' => is_numeric($peak) ? (int) $peak : null,
+            'request' => is_array($request) ? $request : null,
         ];
     }
 

@@ -254,6 +254,17 @@ return [
         ],
 
         /*
+         * What a request that ended in a server error carried. Headers are
+         * kept with these ones replaced; the body only if you switch it on,
+         * with these fields replaced by their length.
+         */
+        'request' => [
+            'capture_payload' => env('PULSE_BOOSTED_TRACES_CAPTURE_REQUEST_PAYLOAD', false),
+            'redact_headers' => ['Authorization', 'Cookie', 'Proxy-Authorization', 'X-XSRF-TOKEN', 'X-CSRF-TOKEN', 'X-Api-Key'],
+            'redact_fields' => ['_token', 'password', 'password_confirmation', 'current_password', 'token', 'secret', 'api_key', 'card_number', 'cvc', 'cvv'],
+        ],
+
+        /*
          * The most events one trace may hold. A loop that queries in a
          * thousand iterations should not write a thousand rows; the timeline
          * says how many were dropped.

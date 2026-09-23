@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Events\ExceptionReported;
 use Elazaroo\PulseBoosted\Traces\MarksControllerStage;
 use Elazaroo\PulseBoosted\Traces\QueryOrigin;
+use Elazaroo\PulseBoosted\Traces\RequestSnapshot;
 use Elazaroo\PulseBoosted\Traces\Stage;
 use Elazaroo\PulseBoosted\Traces\TraceEvent;
 use Elazaroo\PulseBoosted\Traces\Tracer;
@@ -116,6 +117,7 @@ class Traces
     public function __construct(
         protected Tracer $tracer,
         protected Repository $config,
+        protected RequestSnapshot $snapshot,
     ) {
         $this->reported = new WeakMap;
     }
@@ -320,7 +322,15 @@ class Traces
         // The response is on its way, but terminating callbacks have yet to
         // run, and they are part of the request too. The trace is closed once
         // they have.
-        $this->tracer->settle($status >= 500 ? 'failed' : 'ok', ['status' => $status]);
+        $meta = ['status' => $status];
+
+        // What it carried, for the failures only: that is when it is needed,
+        // and keeping it for every request would multiply the rows' size.
+        if ($status >= 500 && $this->tracer->recording()) {
+            $meta['request'] = $this->snapshot->capture($event->request);
+        }
+
+        $this->tracer->settle($status >= 500 ? 'failed' : 'ok', $meta);
         $this->tracer->stage(Stage::SENDING);
     }
 

@@ -301,6 +301,37 @@
                         </div>
                     @endif
 
+                    {{-- What a failed request carried --}}
+                    @if ($detail['request'])
+                        <div>
+                            <h3 class="text-xs text-gray-500 uppercase mb-2">Request</h3>
+                            @if (($detail['request']['headers'] ?? []) !== [])
+                                <details class="rounded-md bg-gray-50 dark:bg-gray-800/50">
+                                    <summary class="cursor-pointer px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300">Headers ({{ count($detail['request']['headers']) }})</summary>
+                                    <dl class="px-3 pb-2 divide-y divide-gray-200 dark:divide-gray-800">
+                                        @foreach ($detail['request']['headers'] as $name => $value)
+                                            <div class="flex items-baseline gap-3 py-1">
+                                                <dt class="w-40 shrink-0 font-mono text-[11px] text-gray-500 dark:text-gray-400 truncate">{{ $name }}</dt>
+                                                <dd @class(['min-w-0 flex-1 font-mono text-[11px] break-all', 'text-gray-400 italic' => $value === '[redacted]', 'text-gray-800 dark:text-gray-200' => $value !== '[redacted]'])>{{ $value }}</dd>
+                                            </div>
+                                        @endforeach
+                                    </dl>
+                                </details>
+                            @endif
+                            @foreach (['query' => 'Query string', 'payload' => 'Body'] as $key => $label)
+                                @if (isset($detail['request'][$key]))
+                                    <p class="mt-2 mb-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">{{ $label }}</p>
+                                    <pre class="overflow-x-auto text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 rounded-md p-3">{{ json_encode($detail['request'][$key], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}</pre>
+                                @endif
+                            @endforeach
+                            @if (! isset($detail['request']['payload']))
+                                <p class="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
+                                    The body is not kept unless <code>traces.request.capture_payload</code> is on.
+                                </p>
+                            @endif
+                        </div>
+                    @endif
+
                     {{-- What the application itself attached --}}
                     @if ($detail['context'] !== [])
                         <div>
