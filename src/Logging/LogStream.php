@@ -28,6 +28,7 @@ use stdClass;
  *     location: ?string,
  *     context: ?string,
  *     isError: bool,
+ *     handled: ?bool,
  *     traceId: ?string,
  *     execution: ?string,
  *     at: int
@@ -132,6 +133,7 @@ class LogStream
                     'location' => null,
                     'context' => $context ? json_encode($context, JSON_UNESCAPED_SLASHES) : null,
                     'isError' => false,
+                    'handled' => null,
                     'traceId' => $row->trace_id,
                     'execution' => $row->execution,
                     'at' => (int) $row->started_at + intdiv((int) $row->offset_ms, 1000),
@@ -157,7 +159,7 @@ class LogStream
                 ->orWhere('i.message', 'like', $this->like($search))))
             ->orderByDesc('o.id')
             ->limit($limit)
-            ->get(['o.id', 'o.occurred_at', 'i.class', 'i.kind', 'i.message', 'i.file', 'i.line', 't.trace_id', 't.name as execution'])
+            ->get(['o.id', 'o.occurred_at', 'o.handled', 'i.class', 'i.kind', 'i.message', 'i.file', 'i.line', 't.trace_id', 't.name as execution'])
             ->map(fn (object $row) => (object) [
                 'key' => 'exception-'.$row->id,
                 'kind' => 'exception',
@@ -167,6 +169,7 @@ class LogStream
                 'location' => Location::relative($row->file, $row->line),
                 'context' => null,
                 'isError' => $row->kind === 'error',
+                'handled' => (bool) $row->handled,
                 'traceId' => $row->trace_id,
                 'execution' => $row->execution,
                 'at' => (int) $row->occurred_at,

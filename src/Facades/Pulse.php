@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Elazaroo\PulseBoosted\Entry record(\UnitEnum|string $type, \UnitEnum|string $key, int|null $value = null, \DateTimeInterface|int|null $timestamp = null)
  * @method static \Elazaroo\PulseBoosted\Value set(\UnitEnum|string $type, \UnitEnum|string $key, string $value, \DateTimeInterface|int|null $timestamp = null)
  * @method static \Elazaroo\PulseBoosted\Pulse lazy(callable $closure)
- * @method static \Elazaroo\PulseBoosted\Pulse report(\Throwable $e)
+ * @method static \Elazaroo\PulseBoosted\Pulse report(\Throwable $e, bool $handled = true)
  * @method static \Elazaroo\PulseBoosted\Pulse context(array $attributes)
  * @method static array currentContext()
  * @method static \Elazaroo\PulseBoosted\Pulse startRecording()

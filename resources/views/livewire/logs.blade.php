@@ -82,6 +82,9 @@
                                         <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400">
                                             {{ $entry->isError ? 'Error' : 'Exception' }}
                                         </span>
+                                        @if (! $entry->handled)
+                                            <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-red-500 text-white" title="Escaped to the exception handler">Unhandled</span>
+                                        @endif
                                         <code class="text-xs font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-accent-500" title="{{ $entry->class }}">{{ $entry->class }}</code>
                                     </p>
                                     @if ($entry->message !== '')

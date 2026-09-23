@@ -1,13 +1,13 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Method Elazaroo\\PulseBoosted\\Issues\\IssueRepository\:\:find\(\) should return object\{id\: int, fingerprint\: string, class\: string, kind\: string, message\: string\|null, file\: string\|null, line\: int\|null, status\: string, first_seen_at\: int, last_seen_at\: int, occurrences\: int, resolved_at\: int\|null\}\|null but returns stdClass\|null\.$#'
+			message: '#^Method Elazaroo\\PulseBoosted\\Issues\\IssueRepository\:\:find\(\) should return object\{id\: int, fingerprint\: string, class\: string, kind\: string, message\: string\|null, handled\: bool, trace\: string\|null, php_version\: string\|null, laravel_version\: string\|null, file\: string\|null, line\: int\|null, status\: string, first_seen_at\: int, last_seen_at\: int, occurrences\: int, resolved_at\: int\|null\}\|null but returns stdClass\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Issues/IssueRepository.php
 
 		-
-			message: '#^Method Elazaroo\\PulseBoosted\\Issues\\IssueRepository\:\:issues\(\) should return Illuminate\\Support\\Collection\<int, object\{id\: int, fingerprint\: string, class\: string, kind\: string, message\: string\|null, file\: string\|null, line\: int\|null, status\: string, first_seen_at\: int, last_seen_at\: int, occurrences\: int, resolved_at\: int\|null\}\> but returns Illuminate\\Support\\Collection\<int, stdClass\>\.$#'
+			message: '#^Method Elazaroo\\PulseBoosted\\Issues\\IssueRepository\:\:issues\(\) should return Illuminate\\Support\\Collection\<int, object\{id\: int, fingerprint\: string, class\: string, kind\: string, message\: string\|null, handled\: bool, trace\: string\|null, php_version\: string\|null, laravel_version\: string\|null, file\: string\|null, line\: int\|null, status\: string, first_seen_at\: int, last_seen_at\: int, occurrences\: int, resolved_at\: int\|null\}\> but returns Illuminate\\Support\\Collection\<int, stdClass\>\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Issues/IssueRepository.php

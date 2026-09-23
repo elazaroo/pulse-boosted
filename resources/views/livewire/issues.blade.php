@@ -56,12 +56,24 @@
             @endforeach
         </div>
 
-        <input
-            type="search"
-            wire:model.live.debounce.400ms="search"
-            placeholder="Search"
-            class="w-40 rounded-md border border-gray-200 dark:border-gray-700 px-2 py-1 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs shadow-none focus:ring-0"
-        >
+        <div class="flex items-center gap-2">
+            <select
+                wire:model.live="handled"
+                aria-label="Handled or unhandled"
+                class="rounded-md border border-gray-200 dark:border-gray-700 pl-2 pr-7 py-1 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs shadow-none focus:ring-0"
+            >
+                <option value="">Handled or not</option>
+                <option value="unhandled">Unhandled</option>
+                <option value="handled">Handled</option>
+            </select>
+
+            <input
+                type="search"
+                wire:model.live.debounce.400ms="search"
+                placeholder="Search"
+                class="w-40 rounded-md border border-gray-200 dark:border-gray-700 px-2 py-1 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs shadow-none focus:ring-0"
+            >
+        </div>
     </div>
 
     <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s.visible="">
@@ -101,6 +113,11 @@
                                     <code class="block text-xs font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-accent-500" title="{{ $issue->class }}">{{ $issue->class }}</code>
                                     @if (($issue->kind ?? 'exception') === 'error')
                                         <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400">Error</span>
+                                    @endif
+                                    @if (! ($issue->handled ?? false))
+                                        <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-red-500 text-white" title="Escaped to the exception handler">Unhandled</span>
+                                    @else
+                                        <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" title="Caught and passed to report()">Handled</span>
                                     @endif
                                 </div>
                                 <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300 truncate" title="{{ $issue->message }}">
@@ -193,6 +210,63 @@
                         <div>
                             <h3 class="text-xs text-gray-500 uppercase mb-2">Message</h3>
                             <p class="text-sm text-red-600 dark:text-red-400">{{ $issue->message }}</p>
+                        </div>
+                    @endif
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span @class([
+                            'rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
+                            'bg-red-500 text-white' => ! $issue->handled,
+                            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' => $issue->handled,
+                        ])>{{ $issue->handled ? 'Handled' : 'Unhandled' }}</span>
+                        @if ($issue->laravel_version)
+                            <span class="rounded border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 dark:text-gray-300">Laravel {{ $issue->laravel_version }}</span>
+                        @endif
+                        @if ($issue->php_version)
+                            <span class="rounded border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 dark:text-gray-300">PHP {{ $issue->php_version }}</span>
+                        @endif
+                        <button
+                            type="button"
+                            x-data="{ copied: false }"
+                            @click="navigator.clipboard.writeText(@js($detail['markdown'])).then(() => { copied = true; setTimeout(() => copied = false, 1500) })"
+                            class="ml-auto rounded-md border border-gray-200 dark:border-gray-700 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                        ><span x-show="! copied">Copy as Markdown</span><span x-show="copied" x-cloak>Copied</span></button>
+                    </div>
+
+                    @if ($detail['groups'] !== [])
+                        <div>
+                            <h3 class="text-xs text-gray-500 uppercase mb-2">Stack trace</h3>
+                            <div class="space-y-1.5">
+                                @foreach ($detail['groups'] as $group)
+                                    @if ($group['app'])
+                                        @foreach ($group['frames'] as $frame)
+                                            <div class="rounded-md border border-gray-200 dark:border-gray-800 overflow-hidden">
+                                                <div class="flex items-baseline justify-between gap-3 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/60">
+                                                    <code class="text-xs text-accent-600 dark:text-accent-400 truncate" title="{{ $frame['call'] }}">{{ $frame['call'] ?: '—' }}</code>
+                                                    <code class="shrink-0 text-[11px] text-gray-500 dark:text-gray-400">{{ $frame['file'] }}{{ $frame['line'] ? ':'.$frame['line'] : '' }}</code>
+                                                </div>
+                                                @if ($frame['code'])
+                                                    <pre class="overflow-x-auto text-[11px] leading-5 font-mono bg-white dark:bg-gray-950">@foreach ($frame['code'] as $number => $text)<div @class(['flex', 'bg-red-50 dark:bg-red-500/10' => (int) $number === (int) $frame['line']])><span class="w-12 shrink-0 pr-3 text-right text-gray-400 select-none">{{ $number }}</span><span @class(['pr-3 whitespace-pre', 'text-red-700 dark:text-red-300 font-medium' => (int) $number === (int) $frame['line'], 'text-gray-700 dark:text-gray-300' => (int) $number !== (int) $frame['line']])>{{ $text }}</span></div>@endforeach</pre>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    @else
+                                        <details class="rounded-md border border-dashed border-gray-200 dark:border-gray-800">
+                                            <summary class="cursor-pointer px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                                {{ count($group['frames']) }} framework {{ \Illuminate\Support\Str::plural('frame', count($group['frames'])) }}
+                                            </summary>
+                                            <ul class="px-3 pb-2 space-y-0.5">
+                                                @foreach ($group['frames'] as $frame)
+                                                    <li class="flex items-baseline justify-between gap-3 text-[11px] font-mono">
+                                                        <span class="text-gray-600 dark:text-gray-300 truncate">{{ $frame['call'] ?: '—' }}</span>
+                                                        <span class="shrink-0 text-gray-400 truncate max-w-[50%]">{{ $frame['file'] ?? '[internal]' }}{{ $frame['line'] ? ':'.$frame['line'] : '' }}</span>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        </details>
+                                    @endif
+                                @endforeach
+                            </div>
                         </div>
                     @endif
 

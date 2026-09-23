@@ -4,11 +4,15 @@ namespace Elazaroo\PulseBoosted\Issues;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
+use Elazaroo\PulseBoosted\Events\IssueOpened;
+use Elazaroo\PulseBoosted\Events\IssueRegressed;
 use Elazaroo\PulseBoosted\Pulse;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Throwable;
@@ -27,6 +31,10 @@ use Throwable;
  *     class: string,
  *     kind: string,
  *     message: ?string,
+ *     handled: bool,
+ *     trace: ?string,
+ *     php_version: ?string,
+ *     laravel_version: ?string,
  *     file: ?string,
  *     line: ?int,
  *     status: string,
@@ -54,6 +62,7 @@ class IssueRepository
         protected Pulse $pulse,
         protected DatabaseManager $db,
         protected Repository $config,
+        protected Container $container,
     ) {
         //
     }
@@ -69,11 +78,13 @@ class IssueRepository
     /**
      * Note an exception against its issue.
      */
-    public function record(Throwable $exception, ?string $traceId, string|int|null $userId): void
+    public function record(Throwable $exception, ?string $traceId, string|int|null $userId, bool $handled = false): void
     {
         if (! $this->enabled()) {
             return;
         }
+
+        $exception = StackTrace::unwrap($exception);
 
         $fingerprint = $this->fingerprint($exception);
 
@@ -85,11 +96,16 @@ class IssueRepository
             'message' => Str::limit($exception->getMessage(), 500),
             'file' => $exception->getFile(),
             'line' => $exception->getLine(),
+            'handled' => $handled,
+            // Worked out once per issue per flush: the same bug a hundred
+            // times in one loop needs its stack read once, not a hundred times.
+            'trace' => $existing['trace'] ?? StackTrace::serialize($exception),
             'at' => CarbonImmutable::now()->getTimestamp(),
             'count' => ($existing['count'] ?? 0) + 1,
             'occurrences' => array_merge($existing['occurrences'] ?? [], [[
                 'trace_id' => $traceId,
                 'user_id' => $userId === null ? null : (string) $userId,
+                'handled' => $handled,
             ]]),
         ];
     }
@@ -123,28 +139,40 @@ class IssueRepository
     {
         $existing = $this->table()->where('fingerprint', $fingerprint)->first();
 
+        $latest = [
+            'message' => $issue['message'],
+            'handled' => $issue['handled'],
+            'trace' => $issue['trace'],
+            'php_version' => PHP_VERSION,
+            'laravel_version' => Application::VERSION,
+        ];
+
         if ($existing === null) {
             $this->table()->insert([
                 'fingerprint' => $fingerprint,
                 'class' => $issue['class'],
                 'kind' => $issue['kind'],
-                'message' => $issue['message'],
                 'file' => $issue['file'],
                 'line' => $issue['line'],
                 'status' => 'open',
                 'first_seen_at' => $issue['at'],
                 'last_seen_at' => $issue['at'],
                 'occurrences' => $issue['count'],
+                ...$latest,
             ]);
+
+            $event = IssueOpened::class;
         } else {
             $this->table()->where('fingerprint', $fingerprint)->update([
                 // A resolved issue that happens again is a regression, and
                 // saying so is the point of having marked it resolved.
                 'status' => $existing->status === 'ignored' ? 'ignored' : 'open',
-                'message' => $issue['message'],
                 'last_seen_at' => $issue['at'],
                 'occurrences' => $existing->occurrences + $issue['count'],
+                ...$latest,
             ]);
+
+            $event = $existing->status === 'resolved' ? IssueRegressed::class : null;
         }
 
         $occurrences = is_array($issue['occurrences']) ? $issue['occurrences'] : [];
@@ -153,11 +181,20 @@ class IssueRepository
             'fingerprint' => $fingerprint,
             'trace_id' => $occurrence['trace_id'],
             'user_id' => $occurrence['user_id'],
+            'handled' => $occurrence['handled'] ?? false,
             'occurred_at' => $issue['at'],
         ], $occurrences);
 
         foreach (array_chunk($rows, 200) as $chunk) {
             $this->occurrences()->insert($chunk);
+        }
+
+        if ($event !== null && ($row = $this->table()->where('fingerprint', $fingerprint)->first()) !== null) {
+            // Only the first sighting and a return after being resolved: an
+            // issue already open happening again is not news.
+            // Resolved at the moment of firing rather than held from boot, so
+            // a dispatcher swapped in later — Event::fake() — is the one used.
+            $this->container->make('events')->dispatch(new $event($row));
         }
     }
 
@@ -330,6 +367,10 @@ class IssueRepository
             if (($value = $filters[$column] ?? null) !== null && $value !== '') {
                 $query->where($column, $value);
             }
+        }
+
+        if (($handled = $filters['handled'] ?? null) !== null && $handled !== '') {
+            $query->where('handled', $handled === 'handled');
         }
 
         if (($search = $filters['search'] ?? null) !== null && $search !== '') {

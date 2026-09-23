@@ -213,9 +213,9 @@ class Pulse
     /**
      * Report the throwable exception to Pulse.
      */
-    public function report(Throwable $e): self
+    public function report(Throwable $e, bool $handled = true): self
     {
-        $this->rescue(fn () => $this->app->make('events')->dispatch(new ExceptionReported($e)));
+        $this->rescue(fn () => $this->app->make('events')->dispatch(new ExceptionReported($e, $handled)));
 
         return $this;
     }

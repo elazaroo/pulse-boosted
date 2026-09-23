@@ -52,6 +52,7 @@ class Issues
             $event->exception,
             $this->tracer->currentId(),
             $this->pulse->resolveAuthenticatedUserId(),
+            $event->handled,
         );
     }
 }

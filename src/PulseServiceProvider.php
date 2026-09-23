@@ -9,10 +9,13 @@ use Elazaroo\PulseBoosted\Contracts\Ingest;
 use Elazaroo\PulseBoosted\Contracts\ResolvesUsers;
 use Elazaroo\PulseBoosted\Contracts\Storage;
 use Elazaroo\PulseBoosted\Events\IsolatedBeat;
+use Elazaroo\PulseBoosted\Events\IssueOpened;
+use Elazaroo\PulseBoosted\Events\IssueRegressed;
 use Elazaroo\PulseBoosted\Ingests\NullIngest;
 use Elazaroo\PulseBoosted\Ingests\RedisIngest;
 use Elazaroo\PulseBoosted\Ingests\StorageIngest;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
+use Elazaroo\PulseBoosted\Issues\SendIssueMail;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\DatabaseJobRepository;
 use Elazaroo\PulseBoosted\Queues\InspectorManager;
@@ -220,7 +223,7 @@ class PulseServiceProvider extends ServiceProvider
         $this->callAfterResolving(ExceptionHandler::class, function (ExceptionHandler $handler, Application $app) {
             if (method_exists($handler, 'reportable')) {
                 $handler->reportable(function (Throwable $e) use ($app) {
-                    $app->make(Pulse::class)->report($e);
+                    $app->make(Pulse::class)->report($e, handled: $this->wasReportedByHand());
                 });
             }
         });
@@ -229,6 +232,7 @@ class PulseServiceProvider extends ServiceProvider
         // than once per server. An alert is a thing that should fire once.
         $this->callAfterResolving(Dispatcher::class, function (Dispatcher $event, Application $app) {
             $event->listen(IsolatedBeat::class, EvaluateAlerts::class);
+            $event->listen([IssueOpened::class, IssueRegressed::class], SendIssueMail::class);
         });
 
         $this->callAfterResolving(Dispatcher::class, function (Dispatcher $event, Application $app) {
@@ -242,6 +246,25 @@ class PulseServiceProvider extends ServiceProvider
                 }
             });
         });
+    }
+
+    /**
+     * Whether the exception being reported was caught by the application and
+     * passed to report() — or rescue(), which calls it — rather than escaping
+     * to the handler on its own.
+     *
+     * The helper is a global function, so it is the one frame on the way in
+     * with a function called report and no class.
+     */
+    protected function wasReportedByHand(): bool
+    {
+        foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 30) as $frame) {
+            if ($frame['function'] === 'report' && ! isset($frame['class'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

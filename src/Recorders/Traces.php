@@ -291,7 +291,9 @@ class Traces
                 'class' => $event->exception::class,
                 'file' => $event->exception->getFile(),
                 'line' => $event->exception->getLine(),
+                'handled' => $event->handled,
             ],
+            level: $event->handled ? 'handled' : 'unhandled',
         );
     }
 

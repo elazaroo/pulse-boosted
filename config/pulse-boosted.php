@@ -148,6 +148,19 @@ return [
         'trim' => [
             'keep' => env('PULSE_BOOSTED_ISSUES_KEEP', '30 days'),
         ],
+
+        /*
+         * Who hears about an issue the moment it first appears, and again if
+         * it comes back after being resolved. Sent through your own mailer;
+         * a comma-separated list works from the environment. Leave it empty
+         * and listen for IssueOpened / IssueRegressed to notify some other
+         * way.
+         */
+        'notify' => [
+            'mail' => env('PULSE_BOOSTED_ISSUES_MAIL', ''),
+            'mailer' => env('PULSE_BOOSTED_ISSUES_MAILER'),
+            'regressions' => env('PULSE_BOOSTED_ISSUES_NOTIFY_REGRESSIONS', true),
+        ],
     ],
 
     /*

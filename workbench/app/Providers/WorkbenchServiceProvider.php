@@ -21,6 +21,11 @@ class WorkbenchServiceProvider extends ServiceProvider
             // something in it without having to generate traffic.
             config(['pulse-boosted.traces.sample_rate' => 1.0]);
             config(['pulse-boosted.traces.sample_rates' => []]);
+
+            // New issues are emailed; the log mailer writes them to
+            // storage/logs so they can be read without a mail server.
+            config(['pulse-boosted.issues.notify.mail' => 'oncall@example.com']);
+            config(['mail.default' => 'log']);
         }
 
         // The dashboard is already open in `local`. This opens the destructive

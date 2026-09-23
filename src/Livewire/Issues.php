@@ -2,8 +2,10 @@
 
 namespace Elazaroo\PulseBoosted\Livewire;
 
+use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Elazaroo\PulseBoosted\Queues\QueueActions;
+use Elazaroo\PulseBoosted\Support\Location;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\View;
 use Livewire\Attributes\Lazy;
@@ -15,6 +17,8 @@ use Livewire\Attributes\Url;
  * The Exceptions card counts throwables over a period; this one asks which
  * bugs exist, whether they are still happening, how many people they reached,
  * and whether anybody has dealt with them.
+ *
+ * @phpstan-import-type IssueRow from IssueRepository
  *
  * @internal
  */
@@ -39,6 +43,14 @@ class Issues extends Card
      */
     #[Url(as: 'issue_kind')]
     public string $kind = '';
+
+    /**
+     * Caught and reported by the application, escaped to the handler, or both.
+     *
+     * @var ''|'handled'|'unhandled'
+     */
+    #[Url(as: 'issue_handled')]
+    public string $handled = '';
 
     /**
      * Most recently seen, or most frequent.
@@ -118,6 +130,7 @@ class Issues extends Card
         $filters = array_filter([
             'status' => $this->status ?: null,
             'kind' => $this->kind ?: null,
+            'handled' => $this->handled ?: null,
             'search' => $this->search ?: null,
         ], fn ($value) => $value !== null);
 
@@ -149,12 +162,85 @@ class Issues extends Card
             return ['missing' => true];
         }
 
+        $frames = json_decode((string) ($issue->trace ?? ''), true);
+        $frames = is_array($frames) ? $frames : [];
+
         return [
+            'groups' => $this->groupFrames($frames),
+            'markdown' => $this->markdown($issue, $frames),
             'missing' => false,
             'issue' => $issue,
             'users' => $issues->affectedUsers($this->selected),
             'occurrences' => $issues->recentOccurrences($this->selected),
         ];
+    }
+
+    /**
+     * Runs of framework frames folded together, so the application's own
+     * frames — the ones worth reading — are not lost among forty of Laravel's.
+     *
+     * @param  array<int, array<string, mixed>>  $frames
+     * @return array<int, array<string, mixed>>
+     */
+    protected function groupFrames(array $frames): array
+    {
+        $groups = [];
+        $vendor = [];
+
+        foreach ($frames as $frame) {
+            if ($frame['app'] ?? false) {
+                if ($vendor !== []) {
+                    $groups[] = ['app' => false, 'frames' => $vendor];
+                    $vendor = [];
+                }
+
+                $groups[] = ['app' => true, 'frames' => [$frame]];
+            } else {
+                $vendor[] = $frame;
+            }
+        }
+
+        if ($vendor !== []) {
+            $groups[] = ['app' => false, 'frames' => $vendor];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * The issue written out for pasting into a ticket or a chat.
+     *
+     * @param  IssueRow  $issue
+     * @param  array<int, array<string, mixed>>  $frames
+     */
+    protected function markdown(object $issue, array $frames): string
+    {
+        $lines = ["## {$issue->class}", ''];
+
+        if ($issue->message) {
+            $lines[] = $issue->message;
+            $lines[] = '';
+        }
+
+        $lines[] = '- Location: `'.Location::relative($issue->file, $issue->line).'`';
+        $lines[] = '- '.($issue->handled ? 'Handled' : 'Unhandled').', '.number_format((int) $issue->occurrences).' occurrences';
+        $lines[] = '- First seen '.CarbonImmutable::createFromTimestamp($issue->first_seen_at)->toDateTimeString()
+            .', last seen '.CarbonImmutable::createFromTimestamp($issue->last_seen_at)->toDateTimeString();
+
+        if ($issue->laravel_version) {
+            $lines[] = "- Laravel {$issue->laravel_version}, PHP {$issue->php_version}";
+        }
+
+        $lines[] = '';
+        $lines[] = '```';
+
+        foreach (array_slice($frames, 0, 20) as $frame) {
+            $lines[] = trim(($frame['call'] ?? '').' '.($frame['file'] ?? '[internal]').(isset($frame['line']) ? ':'.$frame['line'] : ''));
+        }
+
+        $lines[] = '```';
+
+        return implode("\n", $lines)."\n";
     }
 
     /**

@@ -43,6 +43,16 @@ return new class extends PulseMigration
             $table->unsignedInteger('last_seen_at');
             $table->unsignedBigInteger('occurrences')->default(0);
 
+            // Whether the latest occurrence was caught and reported by the
+            // application itself, rather than escaping to the handler.
+            $table->boolean('handled')->default(false);
+
+            // The stack of the latest occurrence, with a few lines of source
+            // around each application frame. JSON, never unserialized.
+            $table->mediumText('trace')->nullable();
+            $table->string('php_version', 32)->nullable();
+            $table->string('laravel_version', 32)->nullable();
+
             // Set when somebody resolves it, so a reappearance afterwards can
             // be called a regression rather than just another occurrence.
             $table->unsignedInteger('resolved_at')->nullable();
@@ -61,6 +71,7 @@ return new class extends PulseMigration
             $table->char('fingerprint', 32);
             $table->char('trace_id', 36)->nullable();
             $table->string('user_id')->nullable();
+            $table->boolean('handled')->default(false);
             $table->unsignedInteger('occurred_at');
 
             $table->index(['fingerprint', 'occurred_at']);
