@@ -17,7 +17,7 @@
     </div>
     @if ($actions ?? false)
         <div class="flex flex-grow">
-            <div class="w-full flex items-center gap-4">
+            <div class="w-full flex flex-wrap items-center gap-x-4 gap-y-2">
                 {{ $actions }}
             </div>
         </div>

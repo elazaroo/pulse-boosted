@@ -15,7 +15,7 @@ use Livewire\Attributes\Lazy;
  *
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class Queries extends Card
 {
     /**

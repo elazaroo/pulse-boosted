@@ -10,7 +10,7 @@ use Livewire\Attributes\Lazy;
  *
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class ScheduledTasks extends TraceSummaryCard
 {
     protected function executionType(): string

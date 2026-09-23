@@ -10,7 +10,7 @@ use Livewire\Attributes\Lazy;
  *
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class Mail extends TraceEventCard
 {
     protected function eventType(): string

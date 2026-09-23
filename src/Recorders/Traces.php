@@ -104,6 +104,8 @@ class Traces
         'octane:status',
         'config:cache',
         'package:discover',
+        // A whole interactive session as one execution says nothing.
+        'tinker',
     ];
 
     /**

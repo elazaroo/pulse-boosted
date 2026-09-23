@@ -13,7 +13,7 @@ use Livewire\Livewire;
 /**
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class Queues extends Card
 {
     /**

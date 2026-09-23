@@ -172,6 +172,26 @@ class PulseServiceProvider extends ServiceProvider
                         return redirect()->route('pulse-boosted', ['job' => $uuid]);
                     })->name('pulse-boosted.jobs.show');
                 });
+
+                // The dashboard's scripts and stylesheet. Outside the
+                // dashboard's middleware: they are the package's own files,
+                // the same for everyone, and a session is not worth starting
+                // for them. Versioned in the URL, so they can be kept for good.
+                $router->group([
+                    'domain' => $app->make('config')->get('pulse-boosted.domain', null),
+                    'prefix' => $app->make('config')->get('pulse-boosted.path'),
+                ], function (Router $router) {
+                    $router->get('/assets/{asset}', function (Pulse $pulse, string $asset) {
+                        if (($path = $pulse->assetPath($asset)) === null) {
+                            abort(404);
+                        }
+
+                        return response()->file($path, [
+                            'Content-Type' => str_ends_with($asset, '.css') ? 'text/css; charset=utf-8' : 'application/javascript; charset=utf-8',
+                            'Cache-Control' => 'public, max-age=31536000, immutable',
+                        ]);
+                    })->where('asset', 'livewire\.js|pulse-boosted\.(js|css)')->name('pulse-boosted.asset');
+                });
             }
         });
     }
@@ -376,6 +396,7 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.queue-status', Livewire\QueueStatus::class);
             $livewire->component('pulse-boosted.workers', Livewire\Workers::class);
             $livewire->component('pulse-boosted.traces', Livewire\Traces::class);
+            $livewire->component('pulse-boosted.trace-viewer', Livewire\TraceViewer::class);
             $livewire->component('pulse-boosted.issues', Livewire\Issues::class);
             $livewire->component('pulse-boosted.logs', Livewire\Logs::class);
             $livewire->component('pulse-boosted.mail', Livewire\Mail::class);

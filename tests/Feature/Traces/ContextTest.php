@@ -1,7 +1,7 @@
 <?php
 
 use Elazaroo\PulseBoosted\Facades\Pulse;
-use Elazaroo\PulseBoosted\Livewire\Traces as TracesCard;
+use Elazaroo\PulseBoosted\Livewire\TraceViewer as TracesCard;
 use Elazaroo\PulseBoosted\Traces\Trace;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Elazaroo\PulseBoosted\Traces\TraceRepository;

@@ -26,75 +26,92 @@
             x-data="{
                 sections: [],
                 current: null,
-                pinned: false,
                 init() {
                     // Built from the page rather than configured, so a published
-                    // dashboard with its own sections gets a matching sidebar,
-                    // and one without any simply has none.
-                    const elements = [...document.querySelectorAll('[data-pulse-section]')]
+                    // dashboard with its own sections gets matching navigation,
+                    // and one without any shows everything, as it always did.
+                    const grid = this.$refs.grid
+                    const children = [...grid.children]
+                    const headings = children.filter(el => el.dataset.pulseSection !== undefined)
 
-                    this.sections = elements.map(el => ({ id: el.id, title: el.dataset.pulseSection }))
+                    this.sections = headings.map(el => ({ id: el.dataset.pulseSectionId, title: el.dataset.pulseSection }))
 
-                    // The current section is the last heading above the reading
-                    // line, worked out on scroll rather than with an observer
-                    // so the answer is always the same for the same position.
-                    let queued = false
-
-                    const update = () => {
-                        queued = false
-
-                        // A link that was clicked stays selected while the page
-                        // scrolls to it, even if the page cannot scroll far
-                        // enough to bring its heading to the top.
-                        if (elements.length === 0 || this.pinned) {
-                            return
-                        }
-
-                        // A reading line a third of the way down the screen,
-                        // sliding to the bottom of it over the last screenful
-                        // of scrolling. Short sections at the end never reach
-                        // the top, but they do cross a line that comes to them.
-                        const height = window.innerHeight
-                        const remaining = document.documentElement.scrollHeight - (window.scrollY + height)
-                        const line = height * 0.3 + (remaining < height ? height * 0.7 * (1 - Math.max(remaining, 0) / height) : 0)
-
-                        // At the very top it is the first section, however
-                        // short, rather than whichever heading happens to sit
-                        // above the line.
-                        if (window.scrollY < 8) {
-                            this.current = elements[0].id
-
-                            return
-                        }
-
-                        const passed = elements.filter(el => el.getBoundingClientRect().top <= line)
-
-                        this.current = (passed[passed.length - 1] ?? elements[0]).id
+                    if (headings.length === 0) {
+                        return
                     }
 
-                    const unpin = () => this.pinned = false
+                    // Each heading owns the cards after it, up to the next one.
+                    // Positions rather than elements: a card re-rendering keeps
+                    // its place in the grid but not its attributes, so hiding is
+                    // done with a stylesheet that picks cards by position.
+                    this.positions = {}
 
-                    window.addEventListener('wheel', unpin, { passive: true })
-                    window.addEventListener('touchmove', unpin, { passive: true })
-                    window.addEventListener('keydown', unpin)
+                    let section = null
 
-                    window.addEventListener('scroll', () => {
-                        if (! queued) {
-                            queued = true
-                            requestAnimationFrame(update)
+                    children.forEach((el, i) => {
+                        if (el.dataset.pulseSection !== undefined) {
+                            section = el.dataset.pulseSectionId
+                            this.positions[section] = []
                         }
-                    }, { passive: true })
 
-                    // Cards load in and change the page's height after the
-                    // first paint, which can move which heading is current.
-                    new ResizeObserver(() => requestAnimationFrame(update)).observe(document.body)
+                        if (section !== null) {
+                            this.positions[section].push(i + 1)
+                        }
+                    })
 
-                    update()
+                    this.style = document.createElement('style')
+                    document.head.appendChild(this.style)
+
+                    window.addEventListener('hashchange', () => this.show(this.pick(), true))
+
+                    this.show(this.pick(), true)
+                },
+                // The section in the address, or the one holding whatever a
+                // link asked to open, or the first.
+                pick() {
+                    const hash = decodeURIComponent(window.location.hash.slice(1))
+
+                    if (this.positions[hash]) {
+                        return hash
+                    }
+
+                    const params = new URLSearchParams(window.location.search)
+                    const opens = { job: 'pulse-boosted.jobs', issue: 'pulse-boosted.issues' }
+
+                    for (const [param, name] of Object.entries(opens)) {
+                        const el = params.has(param) && this.$refs.grid.querySelector(`[wire\\:name='${name}']`)
+                        const heading = el && [...this.$refs.grid.children].indexOf(el.closest('[data-pulse-grid] > *')) + 1
+
+                        const found = heading && Object.keys(this.positions).find(id => this.positions[id].includes(heading))
+
+                        if (found) {
+                            return found
+                        }
+                    }
+
+                    return this.sections[0].id
+                },
+                // Only the current section is on the page. Cards in the others
+                // are display: none, so they neither load nor poll until shown.
+                show(id, scroll) {
+                    this.current = id
+
+                    const hidden = Object.entries(this.positions)
+                        .filter(([section]) => section !== id)
+                        .flatMap(([, positions]) => positions)
+
+                    this.style.textContent = hidden.length === 0 ? '' : hidden
+                        .map(n => `[data-pulse-grid] > :nth-child(${n})`)
+                        .join(',') + ' { display: none !important; }'
+
+                    if (scroll) {
+                        window.scrollTo({ top: 0 })
+                    }
                 },
             }"
         >
             <header class="sticky top-0 z-30 border-b border-gray-200/80 dark:border-gray-800/80 bg-white/80 dark:bg-gray-950/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 supports-[backdrop-filter]:dark:bg-gray-950/60">
-                <div class="{{ $fullWidth ? '' : 'max-w-screen-2xl' }} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+                <div class="{{ $fullWidth ? '' : 'max-w-screen-2xl' }} mx-auto px-4 sm:px-6 py-2 sm:py-0 sm:h-14 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                     <a href="{{ Route::has('pulse-boosted') ? route('pulse-boosted') : url(config('pulse-boosted.path')) }}" class="flex items-center gap-2.5 shrink-0">
                         <span class="relative flex items-center justify-center w-7 h-7 rounded-md bg-gradient-to-br from-accent-500 to-fuchsia-500 shadow-sm shadow-accent-500/30">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-white"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
@@ -102,7 +119,7 @@
                         <span class="text-sm font-semibold tracking-tight">Pulse <span class="text-gray-400 dark:text-gray-500 font-medium">Boosted</span></span>
                     </a>
 
-                    <div class="flex items-center gap-2 sm:gap-3">
+                    <div class="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
                         <span class="hidden sm:flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                             <span class="relative flex h-2 w-2">
                                 <span class="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping"></span>
@@ -129,7 +146,6 @@
                             <template x-for="section in sections" :key="section.id">
                                 <li>
                                     <a
-                                        @click="current = section.id; pinned = true"
                                         :href="'#' + section.id"
                                         x-text="section.title"
                                         class="block px-3 py-1.5 rounded-md text-sm transition-colors"
@@ -144,11 +160,28 @@
                 </nav>
 
                 <main class="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-16">
-                    <div {{ $attributes->merge(['class' => "grid default:grid-cols-{$cols} default:gap-4 lg:default:gap-5"]) }}>
+                    <div x-show="sections.length > 0" x-cloak class="lg:hidden -mx-4 sm:-mx-6 px-4 sm:px-6 mb-5 overflow-x-auto">
+                        <div class="flex gap-1 w-max">
+                            <template x-for="section in sections" :key="section.id">
+                                <a
+                                    :href="'#' + section.id"
+                                    x-text="section.title"
+                                    class="px-3 py-1.5 rounded-md text-sm whitespace-nowrap transition-colors"
+                                    :class="current === section.id
+                                        ? 'bg-accent-50 text-accent-700 font-medium dark:bg-accent-500/10 dark:text-accent-300'
+                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800/60'"
+                                ></a>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div x-ref="grid" data-pulse-grid {{ $attributes->merge(['class' => "grid default:grid-cols-{$cols} default:gap-4 lg:default:gap-5"]) }}>
                         {{ $slot }}
                     </div>
                 </main>
             </div>
         </div>
+
+        <livewire:pulse-boosted.trace-viewer />
     </body>
 </html>

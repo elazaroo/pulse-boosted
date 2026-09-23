@@ -18,7 +18,7 @@ use Livewire\Attributes\Url;
  *
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class Logs extends Card
 {
     use Concerns\FiltersByUser;

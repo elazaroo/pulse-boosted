@@ -1,7 +1,7 @@
 <?php
 
 use Elazaroo\PulseBoosted\Facades\Pulse;
-use Elazaroo\PulseBoosted\Livewire\Traces as TracesCard;
+use Elazaroo\PulseBoosted\Livewire\TraceViewer as TracesCard;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;

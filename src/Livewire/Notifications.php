@@ -10,7 +10,7 @@ use Livewire\Attributes\Lazy;
  *
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class Notifications extends TraceEventCard
 {
     protected function eventType(): string

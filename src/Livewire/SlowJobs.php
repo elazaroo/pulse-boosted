@@ -13,7 +13,7 @@ use Livewire\Attributes\Url;
 /**
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class SlowJobs extends Card
 {
     use Thresholds;

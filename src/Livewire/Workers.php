@@ -19,7 +19,7 @@ use Livewire\Attributes\Lazy;
  *
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class Workers extends Card
 {
     /**

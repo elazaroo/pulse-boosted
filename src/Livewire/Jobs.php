@@ -26,7 +26,7 @@ use Livewire\Attributes\Url;
  *
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class Jobs extends Card
 {
     /**

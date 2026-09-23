@@ -21,7 +21,7 @@ use Throwable;
  *
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class Overview extends Card
 {
     /**

@@ -11,7 +11,7 @@ use Livewire\Attributes\Lazy;
 /**
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class Cache extends Card
 {
     use Concerns\HasPeriod, Concerns\RemembersQueries;

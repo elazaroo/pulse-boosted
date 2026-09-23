@@ -32,6 +32,9 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 - Deployment tracking with `pulse-boosted:deploy`, and issues marked New in the latest deploy.
 - Performance thresholds that open issues, and auto-resolving quiet issues.
 - A user filter in the header, the Sample middleware, and the reject/redact API for trace events.
+- The dashboard shows one section at a time, chosen from the sidebar or, on narrow screens, a strip of tabs, and kept in the address. Cards in the other sections neither load nor refresh until opened, and a section's cards load together in one request.
+- The dashboard's scripts and stylesheet are served from a versioned `/assets` route with a year-long cache instead of being inlined in every page, and Livewire's script is the minified build: the page went from about 970 KB to about 80 KB.
+- The trace timeline is its own component on every dashboard, so opening a trace from Issues, Routes or any other card works whether or not the Traces card has loaded.
 - Logged warnings and errors become issues, grouped by level, origin and message with the varying parts folded away, and resolved, ignored and reopened like exceptions. `issues.log_level` sets the least severe line that opens one; `issues.notify.log_level` the least severe that sends an email.
 
 ### Changed

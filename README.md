@@ -255,14 +255,27 @@ since, and issues first seen in the latest deploy are marked *New*.
 
 ## On the dashboard
 
-The dashboard is one page in sections — Overview, Servers, Queues & jobs,
-Traces, Errors, Performance, Mail & notifications, Users — with a sidebar that
-follows you down it. The sidebar is built from the `<x-pulse-boosted::section>`
-headings on the page, so a published dashboard gets links to whatever sections
-it defines, and none if it defines none.
+The dashboard is split into sections — Overview, Servers, Queues & jobs,
+Traces, Errors & logs, Performance, Mail & notifications, Users — and shows one
+at a time, picked from the sidebar, or from a strip of tabs on a narrow screen.
+The section is in the address (`/pulse-boosted#errors`), so it can be linked to
+and survives a reload. The navigation is built from the
+`<x-pulse-boosted::section>` headings on the page: each owns the cards after it,
+so a published dashboard gets whatever sections it defines, and one that
+defines none shows every card at once, as before.
 
-Cards load as they scroll into view and only refresh while they are visible, so
-the length of the page costs nothing until you look at it.
+Only the section on screen costs anything. Its cards load together in one
+request as they come into view, and only refresh while they are visible; cards
+in the other sections do neither until you open them. The trace timeline is
+part of the page rather than of the Traces card, so a trace opens from any card
+in any section.
+
+The page's scripts and stylesheet are served from
+`/pulse-boosted/assets/...`, versioned by when each file last changed and
+cached by the browser for good, rather than inlined in every page. In
+production, the usual Laravel advice is what makes the rest fast: OPcache on,
+and `php artisan config:cache`, `route:cache` and `view:cache` when deploying.
+Xdebug loaded, even when idle, makes every request several times slower.
 
 **Overview** opens the page with seven figures for the selected period: error
 rate, p95 request time, exceptions, open issues, failed jobs, queue backlog and

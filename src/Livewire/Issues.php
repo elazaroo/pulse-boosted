@@ -27,7 +27,7 @@ use Livewire\Attributes\Url;
  *
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class Issues extends Card
 {
     use Concerns\FiltersByUser;

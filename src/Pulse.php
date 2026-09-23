@@ -86,7 +86,15 @@ class Pulse
      *
      * @var list<string|Htmlable>
      */
-    protected $css = [__DIR__.'/../dist/pulse-boosted.css'];
+    protected $css = [self::ASSETS['pulse-boosted.css']];
+
+    /**
+     * The dashboard's own assets, served from the package rather than inlined.
+     */
+    protected const ASSETS = [
+        'pulse-boosted.css' => __DIR__.'/../dist/pulse-boosted.css',
+        'pulse-boosted.js' => __DIR__.'/../dist/pulse-boosted.js',
+    ];
 
     /**
      * Indicates that Pulse is currently evaluating the buffer.
@@ -659,6 +667,13 @@ class Pulse
         }
 
         return collect($this->css)->reduce(function ($carry, $css) {
+            // The dashboard's own stylesheet is linked rather than inlined,
+            // so the browser keeps it between visits instead of downloading
+            // it inside every page.
+            if ($css === self::ASSETS['pulse-boosted.css'] && ($url = $this->assetUrl('pulse-boosted.css')) !== null) {
+                return $carry.'<link rel="stylesheet" href="'.e($url).'">'.PHP_EOL;
+            }
+
             if ($css instanceof Htmlable) {
                 return $carry.Str::finish($css->toHtml(), PHP_EOL);
             } else {
@@ -676,6 +691,12 @@ class Pulse
      */
     public function js(): string
     {
+        if (($livewire = $this->assetUrl('livewire.js')) !== null && ($pulse = $this->assetUrl('pulse-boosted.js')) !== null) {
+            // Blocking, like the inline scripts they replace, so Livewire and
+            // the dashboard's plugins are ready in the same order as before.
+            return '<script src="'.e($livewire).'"></script>'.PHP_EOL.'<script src="'.e($pulse).'"></script>'.PHP_EOL;
+        }
+
         if (
             ($livewire = @file_get_contents(__DIR__.'/../../../livewire/livewire/dist/livewire.js')) === false &&
             ($livewire = @file_get_contents(__DIR__.'/../vendor/livewire/livewire/dist/livewire.js')) === false) {
@@ -687,6 +708,47 @@ class Pulse
         }
 
         return "<script>{$livewire}</script>".PHP_EOL."<script>{$pulse}</script>".PHP_EOL;
+    }
+
+    /**
+     * Where one of the dashboard's own assets lives on disk.
+     */
+    public function assetPath(string $asset): ?string
+    {
+        if ($asset === 'livewire.js') {
+            foreach ([__DIR__.'/../../../livewire/livewire/dist/livewire.min.js', __DIR__.'/../vendor/livewire/livewire/dist/livewire.min.js'] as $path) {
+                if (is_file($path)) {
+                    return $path;
+                }
+            }
+
+            return null;
+        }
+
+        $path = self::ASSETS[$asset] ?? null;
+
+        return $path !== null && is_file($path) ? $path : null;
+    }
+
+    /**
+     * The address of one of the dashboard's own assets, versioned by when the
+     * file last changed so it can be cached for good, or null when the route
+     * serving them is not registered.
+     */
+    public function assetUrl(string $asset): ?string
+    {
+        if (! $this->app->bound('router') || ! $this->app->make('router')->has('pulse-boosted.asset')) {
+            return null;
+        }
+
+        if (($path = $this->assetPath($asset)) === null) {
+            return null;
+        }
+
+        return $this->app->make('url')->route('pulse-boosted.asset', [
+            'asset' => $asset,
+            'v' => substr(md5(filemtime($path).'|'.filesize($path)), 0, 12),
+        ], absolute: false);
     }
 
     /**

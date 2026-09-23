@@ -13,7 +13,7 @@ use Livewire\Attributes\Url;
  *
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class Alerts extends Card
 {
     #[Url(as: 'alert_tab')]

@@ -18,7 +18,7 @@ use Livewire\Attributes\Lazy;
  *
  * @internal
  */
-#[Lazy]
+#[Lazy(isolate: false)]
 class QueueStatus extends Card
 {
     /**
