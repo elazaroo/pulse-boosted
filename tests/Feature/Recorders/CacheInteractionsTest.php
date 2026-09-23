@@ -12,7 +12,8 @@ use Illuminate\Support\Str;
 it('ingests cache interactions', function () {
     Carbon::setTestNow('2000-01-02 03:04:05');
 
-    Cache::put('hit-key', 1);
+    // Written without recording, so only the reads below are counted.
+    Pulse::ignore(fn () => Cache::put('hit-key', 1));
     Cache::get('hit-key');
     Cache::get('miss-key');
     Pulse::ingest();
@@ -194,4 +195,22 @@ it('groups job exception keys', function () {
     $entries = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->get());
     expect($entries)->toHaveCount(1);
     expect($entries[0]->key)->toBe('job-exceptions:*');
+});
+
+it('counts writes, deletes and failed writes as well as reads', function () {
+    Cache::put('cart:42', ['items' => 3], 60);
+    Cache::get('cart:42');
+    Cache::forget('cart:42');
+    Pulse::ingest();
+
+    $types = Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->where('key', 'cart:42')->pluck('type')->all());
+
+    expect($types)->toContain('cache_write', 'cache_hit', 'cache_delete');
+});
+
+it('leaves out the keys Livewire uses for its own rate limiting', function () {
+    Cache::get('livewire-checksum-failures:127.0.0.1');
+    Pulse::ingest();
+
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_entries')->count()))->toBe(0);
 });

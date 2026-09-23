@@ -11,6 +11,10 @@ use Elazaroo\PulseBoosted\Traces\TraceEvent;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Cache\Events\CacheHit;
 use Illuminate\Cache\Events\CacheMissed;
+use Illuminate\Cache\Events\KeyForgetFailed;
+use Illuminate\Cache\Events\KeyForgotten;
+use Illuminate\Cache\Events\KeyWriteFailed;
+use Illuminate\Cache\Events\KeyWritten;
 use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Console\Events\ScheduledTaskFailed;
@@ -85,6 +89,10 @@ class Traces
         QueryExecuted::class,
         CacheHit::class,
         CacheMissed::class,
+        KeyWritten::class,
+        KeyForgotten::class,
+        KeyWriteFailed::class,
+        KeyForgetFailed::class,
         JobQueued::class,
         MessageLogged::class,
         ExceptionReported::class,
@@ -137,6 +145,9 @@ class Traces
             $event instanceof QueryExecuted => $this->query($event),
             $event instanceof CacheHit => $this->tracer->event(TraceEvent::CACHE, $event->key, meta: ['result' => 'hit']),
             $event instanceof CacheMissed => $this->tracer->event(TraceEvent::CACHE, $event->key, meta: ['result' => 'miss']),
+            $event instanceof KeyWritten => $this->tracer->event(TraceEvent::CACHE, $event->key, meta: ['result' => 'write']),
+            $event instanceof KeyForgotten => $this->tracer->event(TraceEvent::CACHE, $event->key, meta: ['result' => 'delete']),
+            $event instanceof KeyWriteFailed, $event instanceof KeyForgetFailed => $this->tracer->event(TraceEvent::CACHE, $event->key, meta: ['result' => 'failure'], level: 'warning'),
             $event instanceof JobQueued => $this->jobQueued($event),
             $event instanceof MessageLogged => $this->log($event),
             $event instanceof ExceptionReported => $this->exception($event),

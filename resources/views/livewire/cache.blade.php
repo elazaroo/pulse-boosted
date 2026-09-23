@@ -25,11 +25,11 @@
     </x-pulse-boosted::card-header>
 
     <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s.visible="">
-        @if ($allCacheInteractions->hits === 0 && $allCacheInteractions->misses === 0)
+        @if ($allCacheInteractions->hits === 0 && $allCacheInteractions->misses === 0 && $allCacheInteractions->writes === 0 && $allCacheInteractions->deletes === 0)
             <x-pulse-boosted::no-results />
         @else
             <div class="flex flex-col gap-6">
-                <div class="grid grid-cols-3 gap-3 text-center">
+                <div class="grid grid-cols-3 @md:grid-cols-5 gap-3 text-center">
                     <div class="flex flex-col justify-center @sm:block">
                         <span class="text-xl uppercase font-bold text-gray-700 dark:text-gray-300 tabular-nums">
                             @if ($config['sample_rate'] < 1)
@@ -56,11 +56,23 @@
                     </div>
                     <div class="flex flex-col justify-center @sm:block">
                         <span class="text-xl uppercase font-bold text-gray-700 dark:text-gray-300 tabular-nums">
-                            {{ ((int) ($allCacheInteractions->hits / ($allCacheInteractions->hits + $allCacheInteractions->misses) * 10000)) / 100 }}%
+                            @if ($allCacheInteractions->hits + $allCacheInteractions->misses > 0)
+                                {{ ((int) ($allCacheInteractions->hits / ($allCacheInteractions->hits + $allCacheInteractions->misses) * 10000)) / 100 }}%
+                            @else
+                                —
+                            @endif
                         </span>
                         <span class="text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
                             Hit Rate
                         </span>
+                    </div>
+                    <div class="flex flex-col justify-center @sm:block">
+                        <span class="text-xl uppercase font-bold text-gray-700 dark:text-gray-300 tabular-nums">{{ number_format($allCacheInteractions->writes) }}</span>
+                        <span class="text-xs uppercase font-bold text-gray-500 dark:text-gray-400">Writes</span>
+                    </div>
+                    <div class="flex flex-col justify-center @sm:block">
+                        <span @class(['text-xl uppercase font-bold tabular-nums', 'text-red-600 dark:text-red-400' => $allCacheInteractions->failures > 0, 'text-gray-700 dark:text-gray-300' => $allCacheInteractions->failures === 0])>{{ number_format($allCacheInteractions->failures) }}</span>
+                        <span class="text-xs uppercase font-bold text-gray-500 dark:text-gray-400">Failures</span>
                     </div>
                 </div>
                 <div>
@@ -70,12 +82,18 @@
                             <col width="0%" />
                             <col width="0%" />
                             <col width="0%" />
+                            <col width="0%" />
+                            <col width="0%" />
+                            <col width="0%" />
                         </colgroup>
                         <x-pulse-boosted::thead>
                             <tr>
                                 <x-pulse-boosted::th>Key</x-pulse-boosted::th>
                                 <x-pulse-boosted::th class="text-right">Hits</x-pulse-boosted::th>
                                 <x-pulse-boosted::th class="text-right">Misses</x-pulse-boosted::th>
+                                <x-pulse-boosted::th class="text-right">Writes</x-pulse-boosted::th>
+                                <x-pulse-boosted::th class="text-right">Deletes</x-pulse-boosted::th>
+                                <x-pulse-boosted::th class="text-right">Failures</x-pulse-boosted::th>
                                 <x-pulse-boosted::th class="text-right whitespace-nowrap">Hit Rate</x-pulse-boosted::th>
                             </tr>
                         </x-pulse-boosted::thead>
@@ -102,8 +120,15 @@
                                             {{ number_format($interaction->misses) }}
                                         @endif
                                     </x-pulse-boosted::td>
+                                    <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300">{{ number_format($interaction->writes) }}</x-pulse-boosted::td>
+                                    <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300">{{ number_format($interaction->deletes) }}</x-pulse-boosted::td>
+                                    <x-pulse-boosted::td numeric @class(['text-red-600 dark:text-red-400 font-bold' => $interaction->failures > 0, 'text-gray-400 dark:text-gray-600' => $interaction->failures === 0])>{{ number_format($interaction->failures) }}</x-pulse-boosted::td>
                                     <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 font-bold">
-                                        {{ ((int) ($interaction->hits / ($interaction->hits + $interaction->misses) * 10000)) / 100 }}%
+                                        @if ($interaction->hits + $interaction->misses > 0)
+                                            {{ ((int) ($interaction->hits / ($interaction->hits + $interaction->misses) * 10000)) / 100 }}%
+                                        @else
+                                            —
+                                        @endif
                                     </x-pulse-boosted::td>
                                 </tr>
                             @endforeach

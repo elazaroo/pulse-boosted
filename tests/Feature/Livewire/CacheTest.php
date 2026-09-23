@@ -43,10 +43,13 @@ it('renders cache statistics', function () {
         ->assertViewHas('allCacheInteractions', (object) [
             'hits' => 6,
             'misses' => 6,
+            'writes' => 0,
+            'deletes' => 0,
+            'failures' => 0,
         ])
         ->assertViewHas('cacheKeyInteractions', collect([
-            (object) ['key' => 'foo', 'hits' => 4, 'misses' => 4],
-            (object) ['key' => 'bar', 'hits' => 2, 'misses' => 2],
+            (object) ['key' => 'foo', 'hits' => 4, 'misses' => 4, 'writes' => 0, 'deletes' => 0, 'failures' => 0],
+            (object) ['key' => 'bar', 'hits' => 2, 'misses' => 2, 'writes' => 0, 'deletes' => 0, 'failures' => 0],
         ]));
 });
 
