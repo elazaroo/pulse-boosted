@@ -96,6 +96,10 @@ class Tracer
             return;
         }
 
+        if (function_exists('memory_reset_peak_usage') && $type !== 'request') {
+            memory_reset_peak_usage();
+        }
+
         $this->current = new Trace(
             id: (string) Str::uuid(),
             parentId: $this->inheritedParent,

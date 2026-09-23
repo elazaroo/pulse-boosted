@@ -162,8 +162,14 @@
 
                 <div class="p-5 space-y-6">
                     {{-- What it spent its time on --}}
-                    @if ($detail['summary'] !== [])
+                    @if ($detail['summary'] !== [] || $detail['peakMemory'])
                         <div class="flex flex-wrap gap-3">
+                            @if ($detail['peakMemory'])
+                                <div class="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                                    <p class="text-xs text-gray-500 uppercase">Peak memory</p>
+                                    <p class="text-sm font-bold text-gray-900 dark:text-gray-100 tabular-nums">{{ number_format($detail['peakMemory'] / 1048576, 1) }} MB</p>
+                                </div>
+                            @endif
                             @foreach ($detail['summary'] as $type => $totals)
                                 <div class="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
                                     <p class="text-xs text-gray-500 uppercase">{{ Str::plural(Str::headline($type), $totals['count']) }}</p>

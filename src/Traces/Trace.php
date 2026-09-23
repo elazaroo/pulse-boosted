@@ -27,6 +27,15 @@ class Trace
      */
     protected int $dropped = 0;
 
+    /**
+     * How many of each kind of event happened, and how long they took,
+     * counted as they arrive — including any past the cap, so the totals are
+     * right even when the timeline is not complete.
+     *
+     * @var array<string, array{count: int, ms: float}>
+     */
+    protected array $counts = [];
+
     protected ?float $durationMs = null;
 
     protected string $status = 'ok';
@@ -98,6 +107,10 @@ class Trace
      */
     public function add(TraceEvent $event, int $max): void
     {
+        $this->counts[$event->type] ??= ['count' => 0, 'ms' => 0.0];
+        $this->counts[$event->type]['count']++;
+        $this->counts[$event->type]['ms'] += (float) ($event->durationMs ?? 0);
+
         if (count($this->events) >= $max) {
             $this->dropped++;
 
@@ -121,6 +134,18 @@ class Trace
         if ($this->dropped > 0) {
             $this->meta['dropped_events'] = $this->dropped;
         }
+
+        if ($this->counts !== []) {
+            $this->meta['counts'] = array_map(
+                fn (array $count) => ['count' => $count['count'], 'ms' => (int) round($count['ms'])],
+                $this->counts,
+            );
+        }
+
+        // Peak for the process. The tracer resets it when an execution starts
+        // where PHP allows, so a worker's tenth job is not blamed for the
+        // memory its first one used.
+        $this->meta['peak_memory'] = memory_get_peak_usage(true);
 
         if ($this->stages !== []) {
             $this->meta['stages'] = $this->stageDurations();

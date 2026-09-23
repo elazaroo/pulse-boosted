@@ -141,6 +141,11 @@ class Traces extends Card
 
         unset($meta['stages']);
 
+        $counts = $meta['counts'] ?? null;
+        $peak = $meta['peak_memory'] ?? null;
+
+        unset($meta['counts'], $meta['peak_memory']);
+
         return [
             'missing' => false,
             'trace' => $trace,
@@ -150,7 +155,10 @@ class Traces extends Card
             'stages' => $this->stages($stages, $shared, (int) ($trace->duration_ms ?: 0)),
             'children' => $traces->children($trace->trace_id),
             'parent' => $trace->parent_trace_id === null ? null : $traces->find($trace->parent_trace_id),
-            'summary' => $this->summarise($events),
+            // Counted as the execution ran, so right even past the event cap;
+            // older traces without them are summed from what was kept.
+            'summary' => is_array($counts) ? $counts : $this->summarise($events),
+            'peakMemory' => is_numeric($peak) ? (int) $peak : null,
         ];
     }
 
