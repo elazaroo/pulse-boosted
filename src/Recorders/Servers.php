@@ -6,7 +6,6 @@ use Elazaroo\PulseBoosted\Events\SharedBeat;
 use Elazaroo\PulseBoosted\Pulse;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Str;
-use RuntimeException;
 
 /**
  * @internal
@@ -98,6 +97,100 @@ class Servers
     }
 
     /**
+     * Whether this PHP may shell out at all.
+     *
+     * Plenty of shared hosts disable it, and an exception from a monitoring
+     * package is a poor trade for a metric.
+     */
+    protected function canShell(): bool
+    {
+        static $can = null;
+
+        if ($can !== null) {
+            return $can;
+        }
+
+        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+
+        return $can = function_exists('shell_exec') && ! in_array('shell_exec', $disabled, true);
+    }
+
+    /**
+     * Run a command, or return nothing if we cannot.
+     */
+    protected function run(string $command): string
+    {
+        if (! $this->canShell()) {
+            return '';
+        }
+
+        return trim((string) @shell_exec($command));
+    }
+
+    /**
+     * CPU load on Windows.
+     *
+     * Windows 11 and Server 2025 ship without wmic, so this prefers CIM
+     * through PowerShell and only falls back to wmic where it still exists.
+     */
+    protected function windowsCpu(): int
+    {
+        $cim = $this->run('powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average" 2>NUL');
+
+        if ($cim !== '') {
+            return (int) $cim;
+        }
+
+        return (int) $this->run('wmic cpu get loadpercentage 2>NUL | more +1');
+    }
+
+    /**
+     * Total physical memory on Windows, in megabytes.
+     */
+    protected function windowsMemoryTotal(): int
+    {
+        $bytes = $this->run('powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory" 2>NUL');
+
+        if ($bytes === '') {
+            $bytes = $this->run('wmic ComputerSystem get TotalPhysicalMemory 2>NUL | more +1');
+        }
+
+        return intdiv((int) $bytes, 1024 * 1024);
+    }
+
+    /**
+     * Free physical memory on Windows, in megabytes.
+     */
+    protected function windowsMemoryFree(): int
+    {
+        // Both sources report kilobytes.
+        $kilobytes = $this->run('powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory" 2>NUL');
+
+        if ($kilobytes === '') {
+            $kilobytes = $this->run('wmic OS get FreePhysicalMemory 2>NUL | more +1');
+        }
+
+        return intdiv((int) $kilobytes, 1024);
+    }
+
+    /**
+     * A value from /proc/meminfo, in kilobytes.
+     *
+     * Read rather than shelled out to: it is faster, and it works where
+     * shell_exec is disabled, which is most shared hosting.
+     */
+    protected function procMeminfo(string $key): int
+    {
+        $contents = @file_get_contents('/proc/meminfo');
+
+        if ($contents === false || ! preg_match('/^'.preg_quote($key, '/').':\s+(\d+)/m', $contents, $matches)) {
+            return 0;
+        }
+
+        return (int) $matches[1];
+    }
+
+    /**
      * CPU usage.
      */
     protected function cpu(): int
@@ -106,13 +199,39 @@ class Servers
             return (self::$detectCpuUsing)();
         }
 
-        return match (PHP_OS_FAMILY) {
-            'Darwin' => (int) shell_exec("top -l 1 | grep -E \"^CPU\" | tail -1 | awk '{ print $3 + $5 }'"),
-            'Linux' => (int) shell_exec("top -bn1 | grep -E '^(%Cpu|CPU)' | awk '{ print $2 + $4 }'"),
-            'Windows' => (int) trim((string) shell_exec('wmic cpu get loadpercentage | more +1')),
-            'BSD' => (int) shell_exec("top -b -d 2| grep 'CPU: ' | tail -1 | awk '{print$10}' | grep -Eo '[0-9]+\.[0-9]+' | awk '{ print 100 - $1 }'"),
-            default => throw new RuntimeException('The pulse-boosted:check command does not currently support '.PHP_OS_FAMILY),
+        $cpu = match (PHP_OS_FAMILY) {
+            'Darwin' => (int) $this->run("top -l 1 | grep -E \"^CPU\" | tail -1 | awk '{ print $3 + $5 }'"),
+            'Linux' => (int) $this->run("top -bn1 | grep -E '^(%Cpu|CPU)' | awk '{ print $2 + $4 }'"),
+            'Windows' => $this->windowsCpu(),
+            'BSD' => (int) $this->run("top -b -d 2| grep 'CPU: ' | tail -1 | awk '{print$10}' | grep -Eo '[0-9]+\.[0-9]+' | awk '{ print 100 - $1 }'"),
+            default => 0,
         };
+
+        // Without a shell there is still load average on Unix, which is close
+        // enough to be worth showing rather than a flat zero.
+        if ($cpu === 0 && PHP_OS_FAMILY !== 'Windows' && function_exists('sys_getloadavg')) {
+            $load = sys_getloadavg();
+
+            if ($load !== false) {
+                $cpu = (int) min(100, round($load[0] / max(1, $this->cores()) * 100));
+            }
+        }
+
+        return max(0, min(100, $cpu));
+    }
+
+    /**
+     * How many CPUs this machine has, as far as we can tell.
+     */
+    protected function cores(): int
+    {
+        $contents = @file_get_contents('/proc/cpuinfo');
+
+        if (is_string($contents)) {
+            return max(1, substr_count($contents, 'processor'));
+        }
+
+        return 1;
     }
 
     /**
@@ -127,24 +246,26 @@ class Servers
         }
 
         $memoryTotal = match (PHP_OS_FAMILY) {
-            'Darwin' => intval(intval(shell_exec("sysctl hw.memsize | grep -Eo '[0-9]+'")) / 1024 / 1024),
-            'Linux' => intval(intval(shell_exec("cat /proc/meminfo | grep MemTotal | grep -E -o '[0-9]+'")) / 1024),
-            'Windows' => intval(((int) trim((string) shell_exec('wmic ComputerSystem get TotalPhysicalMemory | more +1'))) / 1024 / 1024),
-            'BSD' => intval(intval(shell_exec("sysctl hw.physmem | grep -Eo '[0-9]+'")) / 1024 / 1024),
-            default => throw new RuntimeException('The pulse-boosted:check command does not currently support '.PHP_OS_FAMILY),
+            'Darwin' => intdiv((int) $this->run("sysctl hw.memsize | grep -Eo '[0-9]+'"), 1024 * 1024),
+            'Linux' => intdiv($this->procMeminfo('MemTotal'), 1024),
+            'Windows' => $this->windowsMemoryTotal(),
+            'BSD' => intdiv((int) $this->run("sysctl hw.physmem | grep -Eo '[0-9]+'"), 1024 * 1024),
+            default => 0,
         };
 
         $memoryUsed = match (PHP_OS_FAMILY) {
-            'Darwin' => $memoryTotal - intval(intval(shell_exec("vm_stat | grep 'Pages free' | grep -Eo '[0-9]+'")) * intval(shell_exec('pagesize')) / 1024 / 1024), // MB
-            'Linux' => $memoryTotal - intval(intval(shell_exec("cat /proc/meminfo | grep MemAvailable | grep -E -o '[0-9]+'")) / 1024), // MB
-            'Windows' => $memoryTotal - intval(((int) trim((string) shell_exec('wmic OS get FreePhysicalMemory | more +1'))) / 1024), // MB
-            'BSD' => intval(intval(shell_exec("( sysctl vm.stats.vm.v_cache_count | grep -Eo '[0-9]+' ; sysctl vm.stats.vm.v_inactive_count | grep -Eo '[0-9]+' ; sysctl vm.stats.vm.v_active_count | grep -Eo '[0-9]+' ) | awk '{s+=$1} END {print s}'")) * intval(shell_exec('pagesize')) / 1024 / 1024), // MB
-            default => throw new RuntimeException('The pulse-boosted:check command does not currently support '.PHP_OS_FAMILY),
+            'Darwin' => $memoryTotal - intval(intval($this->run("vm_stat | grep 'Pages free' | grep -Eo '[0-9]+'")) * intval($this->run('pagesize')) / 1024 / 1024), // MB
+            'Linux' => $memoryTotal - intdiv($this->procMeminfo('MemAvailable'), 1024), // MB
+            'Windows' => $memoryTotal - $this->windowsMemoryFree(), // MB
+            'BSD' => intval(intval($this->run("( sysctl vm.stats.vm.v_cache_count | grep -Eo '[0-9]+' ; sysctl vm.stats.vm.v_inactive_count | grep -Eo '[0-9]+' ; sysctl vm.stats.vm.v_active_count | grep -Eo '[0-9]+' ) | awk '{s+=$1} END {print s}'")) * intval($this->run('pagesize')) / 1024 / 1024), // MB
+            default => 0,
         };
 
         return [
-            'total' => $memoryTotal,
-            'used' => $memoryUsed,
+            'total' => max(0, $memoryTotal),
+            // A total we could not read makes "used" meaningless rather than
+            // negative.
+            'used' => $memoryTotal > 0 ? max(0, min($memoryTotal, $memoryUsed)) : 0,
         ];
     }
 }
