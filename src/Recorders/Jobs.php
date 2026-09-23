@@ -7,6 +7,7 @@ use Elazaroo\PulseBoosted\Queues\Concerns\ResolvesQueueNames;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\JobStatus;
 use Elazaroo\PulseBoosted\Queues\PayloadCapture;
+use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Contracts\Queue\Job as JobContract;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
@@ -66,6 +67,7 @@ class Jobs
     public function __construct(
         protected JobRepository $jobs,
         protected PayloadCapture $payload,
+        protected Tracer $tracer,
     ) {
         //
     }
@@ -154,6 +156,10 @@ class Jobs
             'timeout' => $this->intOrNull($job->timeout()),
         ];
 
+        if (! $event instanceof JobProcessing) {
+            $this->recordAttempt($uuid, $job, $event, $now);
+        }
+
         $this->jobs->record($uuid, match (true) {
             $event instanceof JobProcessing => $attributes + $this->processing($uuid, $now),
             $event instanceof JobProcessed => $attributes + $this->finished($uuid, $now, JobStatus::Processed),
@@ -161,6 +167,37 @@ class Jobs
             $event instanceof JobFailed => $attributes + $this->finished($uuid, $now, JobStatus::Failed) + $this->exception($event->exception),
             $event instanceof JobTimedOut => $attributes + $this->finished($uuid, $now, JobStatus::TimedOut),
         });
+    }
+
+    /**
+     * One attempt at the job, as it ends.
+     */
+    protected function recordAttempt(string $uuid, JobContract $job, JobProcessed|JobReleasedAfterException|JobFailed|JobTimedOut $event, CarbonImmutable $now): void
+    {
+        $startedMs = $this->startedAt[$uuid] ?? null;
+
+        $exception = match (true) {
+            $event instanceof JobFailed, $event instanceof JobReleasedAfterException => $event->exception ?? null,
+            default => null,
+        };
+
+        $this->jobs->recordAttempt($uuid, [
+            'attempt' => $job->attempts(),
+            'status' => match (true) {
+                $event instanceof JobProcessed => JobStatus::Processed->value,
+                $event instanceof JobReleasedAfterException => JobStatus::Released->value,
+                $event instanceof JobFailed => JobStatus::Failed->value,
+                $event instanceof JobTimedOut => JobStatus::TimedOut->value,
+            },
+            'started_at' => $startedMs === null ? null : intdiv((int) $startedMs, 1000),
+            'finished_at' => $now->getTimestamp(),
+            'duration_ms' => $startedMs === null ? null : max(0, $now->getTimestampMs() - (int) $startedMs),
+            'exception_class' => $exception instanceof Throwable ? $exception::class : null,
+            'exception_message' => $exception instanceof Throwable ? Str::limit($exception->getMessage(), 1000) : null,
+            // Still open at this point: the job recorder hears the event
+            // before the trace recorder closes it.
+            'trace_id' => $this->tracer->currentId() ?? $this->tracer->lastId(),
+        ]);
     }
 
     /**

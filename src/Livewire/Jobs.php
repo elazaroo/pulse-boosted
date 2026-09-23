@@ -273,6 +273,7 @@ class Jobs extends Card
             'exceptionClass' => $job->exception_class,
             'arguments' => is_array($arguments) ? $arguments : null,
             'timeline' => $this->timeline($job),
+            'attemptLog' => $repository->attempts($job->uuid)->all(),
             'canAct' => $actions->allowed() && $actions->actionable($job),
         ];
     }

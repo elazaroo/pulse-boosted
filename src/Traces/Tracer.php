@@ -57,6 +57,11 @@ class Tracer
     protected ?float $bootedAt = null;
 
     /**
+     * The id of the execution most recently closed.
+     */
+    protected ?string $lastId = null;
+
+    /**
      * Create a new tracer.
      */
     public function __construct(
@@ -165,6 +170,7 @@ class Tracer
         $trace = $this->current->finish($status ?? $settledStatus, [...$settledMeta, ...$meta]);
 
         $this->current = null;
+        $this->lastId = $trace->id;
 
         if ($trace->worthKeeping($this->keepRules())) {
             $this->buffer[] = $trace;
@@ -224,6 +230,15 @@ class Tracer
     public function currentId(): ?string
     {
         return $this->current?->id;
+    }
+
+    /**
+     * The id of the execution most recently closed, for anything that hears
+     * about the end of an execution after the tracer has.
+     */
+    public function lastId(): ?string
+    {
+        return $this->lastId;
     }
 
     /**

@@ -213,6 +213,43 @@
                         </div>
                     @endif
 
+                    @if (($detail['attemptLog'] ?? []) !== [])
+                        <div>
+                            <h3 class="text-xs text-gray-500 uppercase mb-2">Attempts</h3>
+                            <ol class="space-y-1.5">
+                                @foreach ($detail['attemptLog'] as $attempt)
+                                    <li class="rounded-md bg-gray-50 dark:bg-gray-800/50 px-3 py-2">
+                                        <div class="flex items-center justify-between gap-3 text-xs">
+                                            <span class="flex items-center gap-2">
+                                                <span class="font-mono text-gray-500 dark:text-gray-400">#{{ $attempt->attempt }}</span>
+                                                <span @class([
+                                                    'rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide',
+                                                    'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' => $attempt->status === 'processed',
+                                                    'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400' => $attempt->status === 'released',
+                                                    'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400' => in_array($attempt->status, ['failed', 'timed_out']),
+                                                ])>{{ str_replace('_', ' ', $attempt->status) }}</span>
+                                                @if ($attempt->duration_ms !== null)
+                                                    <span class="tabular-nums text-gray-600 dark:text-gray-300">{{ number_format($attempt->duration_ms) }}ms</span>
+                                                @endif
+                                            </span>
+                                            <span class="flex items-center gap-3">
+                                                <span class="tabular-nums text-gray-400">{{ CarbonImmutable::createFromTimestamp($attempt->finished_at)->toDateTimeString() }}</span>
+                                                @if ($attempt->trace_id)
+                                                    <button type="button" wire:click="$dispatch('open-trace', { traceId: '{{ $attempt->trace_id }}' })" class="font-medium text-accent-500 hover:underline">Trace</button>
+                                                @endif
+                                            </span>
+                                        </div>
+                                        @if ($attempt->exception_class)
+                                            <p class="mt-1 text-xs text-red-600 dark:text-red-400 truncate" title="{{ $attempt->exception_message }}">
+                                                <code>{{ class_basename($attempt->exception_class) }}</code>: {{ $attempt->exception_message }}
+                                            </p>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ol>
+                        </div>
+                    @endif
+
                     <div>
                         <h3 class="text-xs text-gray-500 uppercase mb-2">Arguments</h3>
                         @if ($detail['arguments'] === null)

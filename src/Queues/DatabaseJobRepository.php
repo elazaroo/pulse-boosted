@@ -33,6 +33,13 @@ class DatabaseJobRepository implements JobRepository
     protected array $buffer = [];
 
     /**
+     * Pending attempts, in the order they finished.
+     *
+     * @var list<array<string, mixed>>
+     */
+    protected array $attemptBuffer = [];
+
+    /**
      * Create a new repository instance.
      */
     public function __construct(
@@ -61,6 +68,8 @@ class DatabaseJobRepository implements JobRepository
      */
     public function flush(): void
     {
+        $this->flushAttempts();
+
         if ($this->buffer === []) {
             return;
         }
@@ -94,6 +103,58 @@ class DatabaseJobRepository implements JobRepository
     }
 
     /**
+     * Buffer one attempt at running a job.
+     *
+     * @param  array<string, mixed>  $attempt
+     */
+    public function recordAttempt(string $uuid, array $attempt): void
+    {
+        $this->attemptBuffer[] = ['uuid' => $uuid] + $attempt;
+    }
+
+    /**
+     * Every recorded attempt at a job, first to last.
+     *
+     * @return Collection<int, object>
+     */
+    public function attempts(string $uuid): Collection
+    {
+        return $this->pulse->ignore(fn () => $this->attemptsTable()
+            ->where('uuid', $uuid)
+            ->orderBy('attempt')
+            ->orderBy('id')
+            ->limit(100)
+            ->get());
+    }
+
+    /**
+     * Write the buffered attempts.
+     */
+    protected function flushAttempts(): void
+    {
+        if ($this->attemptBuffer === []) {
+            return;
+        }
+
+        $attempts = $this->attemptBuffer;
+
+        $this->attemptBuffer = [];
+
+        $columns = ['uuid', 'attempt', 'status', 'started_at', 'finished_at', 'duration_ms', 'exception_class', 'exception_message', 'trace_id'];
+
+        $rows = array_map(fn (array $attempt) => array_combine(
+            $columns,
+            array_map(fn (string $column) => $attempt[$column] ?? null, $columns),
+        ), $attempts);
+
+        $this->pulse->ignore(function () use ($rows) {
+            foreach (array_chunk($rows, 100) as $chunk) {
+                $this->attemptsTable()->insert($chunk);
+            }
+        });
+    }
+
+    /**
      * Drop records older than the configured retention.
      */
     public function trim(): void
@@ -116,6 +177,8 @@ class DatabaseJobRepository implements JobRepository
                     ->whereNull('queued_at')
                     ->where('finished_at', '<=', $cutoff)))
             ->delete());
+
+        $this->pulse->ignore(fn () => $this->attemptsTable()->where('finished_at', '<=', $cutoff)->delete());
     }
 
     /**
@@ -125,7 +188,10 @@ class DatabaseJobRepository implements JobRepository
     {
         // Not truncate: that is DDL, and MySQL commits implicitly on DDL,
         // which would end any transaction this is called inside.
-        $this->pulse->ignore(fn () => $this->table()->delete());
+        $this->pulse->ignore(function () {
+            $this->attemptsTable()->delete();
+            $this->table()->delete();
+        });
     }
 
     /**
@@ -232,6 +298,14 @@ class DatabaseJobRepository implements JobRepository
     /**
      * A query builder for the jobs table.
      */
+    /**
+     * The attempts table.
+     */
+    protected function attemptsTable(): Builder
+    {
+        return $this->connection()->table('pulse_boosted_job_attempts');
+    }
+
     protected function table(): Builder
     {
         return $this->connection()->table('pulse_boosted_jobs');

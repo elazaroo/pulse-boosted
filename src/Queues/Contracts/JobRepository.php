@@ -88,6 +88,20 @@ interface JobRepository
     public function countsByStatus(array $filters = []): array;
 
     /**
+     * Buffer one attempt at running a job.
+     *
+     * @param  array<string, mixed>  $attempt
+     */
+    public function recordAttempt(string $uuid, array $attempt): void;
+
+    /**
+     * Every recorded attempt at a job, first to last.
+     *
+     * @return Collection<int, object>
+     */
+    public function attempts(string $uuid): Collection;
+
+    /**
      * The distinct connection and queue pairs that have been recorded.
      *
      * @return Collection<int, object>
