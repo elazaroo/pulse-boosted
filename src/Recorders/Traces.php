@@ -62,6 +62,51 @@ class Traces
     public const PAYLOAD_KEY = 'pulse_boosted_trace';
 
     /**
+     * Commands that host other executions rather than being one.
+     *
+     * A worker runs for days and works thousands of jobs; a scheduler runs
+     * the tasks that are due. Tracing the command itself would open one
+     * execution that never closes, and every job or task inside it would
+     * find the tracer busy and go unrecorded.
+     *
+     * @var list<string>
+     */
+    public const HOST_COMMANDS = [
+        'queue:work',
+        'queue:listen',
+        'horizon',
+        'horizon:work',
+        'horizon:supervisor',
+        'schedule:run',
+        'schedule:work',
+        'octane:start',
+        'octane:frankenphp',
+        'octane:roadrunner',
+        'octane:swoole',
+        'reverb:start',
+        'pulse-boosted:work',
+        'pulse-boosted:check',
+    ];
+
+    /**
+     * Commands that run constantly and say nothing worth a trace.
+     *
+     * @var list<string>
+     */
+    public const NOISE_COMMANDS = [
+        'horizon:snapshot',
+        'horizon:status',
+        'queue:monitor',
+        'schedule:list',
+        'schedule:finish',
+        'inertia:start-ssr',
+        'invoke-serialized-closure',
+        'octane:status',
+        'config:cache',
+        'package:discover',
+    ];
+
+    /**
      * The events to listen for.
      *
      * @var list<class-string>
@@ -340,6 +385,14 @@ class Traces
     protected function startCommand(CommandStarting $event): void
     {
         if ($event->command === '' || $this->shouldIgnore($event->command)) {
+            return;
+        }
+
+        if (in_array($event->command, self::HOST_COMMANDS, true)) {
+            return;
+        }
+
+        if (in_array($event->command, self::NOISE_COMMANDS, true) && ! $this->config->get('pulse-boosted.traces.capture_vendor_commands', false)) {
             return;
         }
 

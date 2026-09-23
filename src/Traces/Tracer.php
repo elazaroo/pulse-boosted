@@ -69,6 +69,20 @@ class Tracer
     protected array $finishing = [];
 
     /**
+     * Callbacks that decide an event is not worth keeping, by event type.
+     *
+     * @var array<string, list<callable(string, array<string, mixed>): bool>>
+     */
+    protected array $rejecting = [];
+
+    /**
+     * Callbacks that rewrite an event before it is kept, by event type.
+     *
+     * @var array<string, list<callable(string, array<string, mixed>): (string|array{0: string, 1: array<string, mixed>}|null)>>
+     */
+    protected array $redacting = [];
+
+    /**
      * Create a new tracer.
      */
     public function __construct(
@@ -140,6 +154,23 @@ class Tracer
         // full of Pulse's inserts is noise in someone else's timeline.
         if ($this->paused || $this->current === null || ! $this->pulse->recording()) {
             return;
+        }
+
+        foreach ([...($this->rejecting[$type] ?? []), ...($this->rejecting['*'] ?? [])] as $callback) {
+            if ($this->ignore(fn () => $callback($label, $meta)) === true) {
+                return;
+            }
+        }
+
+        foreach ([...($this->redacting[$type] ?? []), ...($this->redacting['*'] ?? [])] as $callback) {
+            $result = $this->ignore(fn () => $callback($label, $meta));
+
+            if (is_string($result)) {
+                $label = $result;
+            } elseif (is_array($result) && isset($result[0]) && is_string($result[0])) {
+                $label = $result[0];
+                $meta = is_array($result[1] ?? null) ? $result[1] : $meta;
+            }
         }
 
         if ($type === TraceEvent::EXCEPTION) {
@@ -245,6 +276,38 @@ class Tracer
     public function currentId(): ?string
     {
         return $this->current?->id;
+    }
+
+    /**
+     * Leave out events of a type the callback says are not worth keeping.
+     *
+     * @param  callable(string, array<string, mixed>): bool  $callback
+     */
+    public function reject(string $type, callable $callback): void
+    {
+        $this->rejecting[$type][] = $callback;
+    }
+
+    /**
+     * Rewrite events of a type before they are kept — to take a secret out
+     * of a query, or a token out of a URL.
+     *
+     * The callback gets the label and meta, and returns a new label, a
+     * [label, meta] pair, or null to leave it as it was.
+     *
+     * @param  callable(string, array<string, mixed>): (string|array{0: string, 1: array<string, mixed>}|null)  $callback
+     */
+    public function redact(string $type, callable $callback): void
+    {
+        $this->redacting[$type][] = $callback;
+    }
+
+    /**
+     * Draw again for the current execution at a different rate.
+     */
+    public function resample(float $rate): void
+    {
+        $this->current?->resample($this->draw($rate));
     }
 
     /**
@@ -451,6 +514,14 @@ class Tracer
 
         $rate ??= $this->config->get('pulse-boosted.traces.sample_rate', 0.1);
 
+        return $this->draw((float) $rate);
+    }
+
+    /**
+     * One draw at a rate between 0 and 1.
+     */
+    protected function draw(float $rate): bool
+    {
         if ($rate >= 1) {
             return true;
         }

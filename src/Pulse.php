@@ -242,6 +242,117 @@ class Pulse
     }
 
     /**
+     * Leave out trace events of a type that the callback says are not worth
+     * keeping. The callback receives the event's label and meta.
+     *
+     *     PulseBoosted::rejectTraceEvents('query', fn (string $sql) => str_contains($sql, 'telescope_'));
+     *
+     * @param  callable(string, array<string, mixed>): bool  $callback
+     */
+    public function rejectTraceEvents(string $type, callable $callback): self
+    {
+        $this->app->make(Tracer::class)->reject($type, $callback);
+
+        return $this;
+    }
+
+    /**
+     * Rewrite trace events of a type before they are kept. The callback
+     * returns a new label, a [label, meta] pair, or null to leave it alone.
+     *
+     *     PulseBoosted::redactTraceEvents('http', fn (string $url) => preg_replace('/token=[^&]+/', 'token=***', $url));
+     *
+     * @param  callable(string, array<string, mixed>): (string|array{0: string, 1: array<string, mixed>}|null)  $callback
+     */
+    public function redactTraceEvents(string $type, callable $callback): self
+    {
+        $this->app->make(Tracer::class)->redact($type, $callback);
+
+        return $this;
+    }
+
+    /**
+     * Leave out queries the callback rejects.
+     *
+     * @param  callable(string, array<string, mixed>): bool  $callback
+     */
+    public function rejectQueries(callable $callback): self
+    {
+        return $this->rejectTraceEvents('query', $callback);
+    }
+
+    /**
+     * Leave out cache operations on keys matching any of the patterns.
+     *
+     * @param  list<string>  $patterns
+     */
+    public function rejectCacheKeys(array $patterns): self
+    {
+        return $this->rejectTraceEvents('cache', fn (string $key) => collect($patterns)
+            ->contains(fn (string $pattern) => @preg_match($pattern, $key) === 1 || $pattern === $key));
+    }
+
+    /**
+     * Leave out outgoing requests the callback rejects.
+     *
+     * @param  callable(string, array<string, mixed>): bool  $callback
+     */
+    public function rejectOutgoingRequests(callable $callback): self
+    {
+        return $this->rejectTraceEvents('http', $callback);
+    }
+
+    /**
+     * Leave out mail the callback rejects.
+     *
+     * @param  callable(string, array<string, mixed>): bool  $callback
+     */
+    public function rejectMail(callable $callback): self
+    {
+        return $this->rejectTraceEvents('mail', $callback);
+    }
+
+    /**
+     * Leave out notifications the callback rejects.
+     *
+     * @param  callable(string, array<string, mixed>): bool  $callback
+     */
+    public function rejectNotifications(callable $callback): self
+    {
+        return $this->rejectTraceEvents('notification', $callback);
+    }
+
+    /**
+     * Leave out queued jobs the callback rejects.
+     *
+     * @param  callable(string, array<string, mixed>): bool  $callback
+     */
+    public function rejectQueuedJobs(callable $callback): self
+    {
+        return $this->rejectTraceEvents('job', $callback);
+    }
+
+    /**
+     * Rewrite queries before they are kept.
+     *
+     * @param  callable(string, array<string, mixed>): (string|array{0: string, 1: array<string, mixed>}|null)  $callback
+     */
+    public function redactQueries(callable $callback): self
+    {
+        return $this->redactTraceEvents('query', $callback);
+    }
+
+    /**
+     * Rewrite outgoing request URLs before they are kept.
+     *
+     * @param  callable(string, array<string, mixed>): (string|array{0: string, 1: array<string, mixed>}|null)  $callback
+     */
+    public function redactOutgoingRequests(callable $callback): self
+    {
+        return $this->redactTraceEvents('http', $callback);
+    }
+
+    /**
      * What has been attached to the execution being traced.
      *
      * @return array<string, scalar|null>

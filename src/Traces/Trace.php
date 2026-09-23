@@ -87,7 +87,7 @@ class Trace
         public readonly string $name,
         public readonly CarbonImmutable $startedAt,
         protected array $meta = [],
-        public readonly bool $sampled = true,
+        protected bool $sampled = true,
     ) {
         //
     }
@@ -194,6 +194,22 @@ class Trace
     public function settled(): ?array
     {
         return $this->settled;
+    }
+
+    /**
+     * Whether it won the sampling draw.
+     */
+    public function sampled(): bool
+    {
+        return $this->sampled;
+    }
+
+    /**
+     * Draw again, with a different rate — for a route that asked for its own.
+     */
+    public function resample(bool $sampled): void
+    {
+        $this->sampled = $sampled;
     }
 
     /**
