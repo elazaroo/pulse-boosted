@@ -1,4 +1,6 @@
 @props(['expand' => false])
+{{-- A card two or more rows tall gets the room to show it. --}}
+@aware(['rows' => 1])
 <div
     x-data="{
         init() {
@@ -20,7 +22,7 @@
             }
         }
     }"
-    {{ $attributes->merge(['class' => '@container/scroll-wrapper flex-grow flex w-full overflow-hidden' . ($expand ? '' : ' basis-56'), ':class' => "loading && 'opacity-25 animate-pulse'"]) }}
+    {{ $attributes->merge(['class' => '@container/scroll-wrapper flex-grow flex w-full overflow-hidden' . ($expand ? '' : ((int) $rows > 1 ? ' basis-[34rem]' : ' basis-56')), ':class' => "loading && 'opacity-25 animate-pulse'"]) }}
 >
     <div x-ref="content" class="flex-grow basis-full overflow-y-auto space-y-1 scrollbar:w-1.5 scrollbar:h-1.5 scrollbar:bg-transparent scrollbar-track:bg-gray-100 scrollbar-thumb:rounded scrollbar-thumb:bg-gray-300 scrollbar-track:rounded dark:scrollbar-track:bg-gray-500/10 dark:scrollbar-thumb:bg-gray-500/50 supports-scrollbars" @scroll.debounce.5ms="scroll">
         {{ $slot }}

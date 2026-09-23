@@ -25,8 +25,7 @@
     <livewire:pulse-boosted.scheduled-tasks cols="6" />
 
     <x-pulse-boosted::section id="errors" title="Errors & logs" />
-    <livewire:pulse-boosted.issues cols="full" />
-    <livewire:pulse-boosted.logs cols="full" rows="2" />
+    <livewire:pulse-boosted.issues cols="full" rows="2" />
 
     <x-pulse-boosted::section id="performance" title="Performance" />
     <livewire:pulse-boosted.routes cols="full" />

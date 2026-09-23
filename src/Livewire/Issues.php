@@ -5,6 +5,7 @@ namespace Elazaroo\PulseBoosted\Livewire;
 use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Deployments\Deployments;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
+use Elazaroo\PulseBoosted\Logging\LogStream;
 use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Elazaroo\PulseBoosted\Support\Location;
 use Illuminate\Contracts\Support\Renderable;
@@ -13,11 +14,14 @@ use Livewire\Attributes\Lazy;
 use Livewire\Attributes\Url;
 
 /**
- * Exceptions grouped into the problems behind them.
+ * Everything that went wrong, grouped into the problems behind it — or
+ * listed one entry at a time.
  *
- * The Exceptions card counts throwables over a period; this one asks which
- * bugs exist, whether they are still happening, how many people they reached,
- * and whether anybody has dealt with them.
+ * Grouped, it asks which problems exist — exceptions, errors and warnings the
+ * application logged, executions over their threshold — whether they are
+ * still happening, how many people they reached, and whether anybody has
+ * dealt with them. Every entry lists each log line and exception as it
+ * happened, the way a log file would.
  *
  * @phpstan-import-type IssueRow from IssueRepository
  *
@@ -29,6 +33,22 @@ class Issues extends Card
     use Concerns\FiltersByUser;
 
     public const PER_PAGE = 15;
+
+    public const STREAM_PER_PAGE = 20;
+
+    /**
+     * Grouped into issues, or every entry as it happened.
+     *
+     * @var 'grouped'|'stream'
+     */
+    #[Url(as: 'issue_view')]
+    public string $view = 'grouped';
+
+    /**
+     * In the stream: a log level, 'exception', or everything.
+     */
+    #[Url(as: 'log_level')]
+    public string $logLevel = '';
 
     #[Url(as: 'issue_status')]
     public string $status = 'open';
@@ -76,6 +96,14 @@ class Issues extends Card
         if ($property !== 'page') {
             $this->page = 1;
         }
+    }
+
+    /**
+     * Show the trace an entry came from.
+     */
+    public function showTrace(string $traceId): void
+    {
+        $this->dispatch('open-trace', traceId: $traceId);
     }
 
     /**
@@ -128,7 +156,7 @@ class Issues extends Card
     /**
      * Render the component.
      */
-    public function render(IssueRepository $issues, QueueActions $actions, Deployments $deployments): Renderable
+    public function render(IssueRepository $issues, QueueActions $actions, Deployments $deployments, LogStream $stream): Renderable
     {
         $filters = array_filter([
             'status' => $this->status ?: null,
@@ -149,6 +177,10 @@ class Issues extends Card
             // "New" only means something once there is an earlier deploy to
             // be new since.
             'latestDeploy' => ($recent = $deployments->recent(2))->count() > 1 ? $recent->first()?->version : null,
+            ...($this->view === 'stream' ? [
+                'entries' => $stream->entries($this->logLevel, trim($this->search), self::STREAM_PER_PAGE, ($this->page - 1) * self::STREAM_PER_PAGE, $this->user),
+                'counts' => $stream->counts(),
+            ] : []),
         ]);
     }
 
@@ -233,7 +265,12 @@ class Issues extends Card
             $lines[] = '- Location: `'.$location.'`';
         }
 
-        $lines[] = '- '.($issue->kind === 'performance' ? 'Slow' : ($issue->handled ? 'Handled' : 'Unhandled')).', '.number_format((int) $issue->occurrences).' occurrences';
+        $lines[] = '- '.match (true) {
+            $issue->kind === 'performance' => 'Slow',
+            $issue->kind === 'log' => 'Logged '.$issue->level,
+            (bool) $issue->handled => 'Handled',
+            default => 'Unhandled',
+        }.', '.number_format((int) $issue->occurrences).' occurrences';
         $lines[] = '- First seen '.CarbonImmutable::createFromTimestamp($issue->first_seen_at)->toDateTimeString()
             .', last seen '.CarbonImmutable::createFromTimestamp($issue->last_seen_at)->toDateTimeString();
 

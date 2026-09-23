@@ -5,6 +5,7 @@ namespace Elazaroo\PulseBoosted\Issues;
 use Elazaroo\PulseBoosted\Events\IssueOpened;
 use Elazaroo\PulseBoosted\Events\IssueRegressed;
 use Elazaroo\PulseBoosted\Pulse;
+use Elazaroo\PulseBoosted\Recorders\Issues;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Mail\Factory as Mailer;
@@ -41,6 +42,10 @@ class SendIssueMail
             return;
         }
 
+        if (($event->issue->kind ?? null) === 'log' && ! $this->severeEnoughToMail((string) ($event->issue->level ?? ''))) {
+            return;
+        }
+
         $mail = new IssueMail($event->issue, regressed: $event instanceof IssueRegressed);
 
         if (($mailer = $this->config->get('pulse-boosted.issues.notify.mailer')) !== null) {
@@ -53,6 +58,19 @@ class SendIssueMail
         $this->pulse->rescue(fn () => $this->tracer->ignore(fn () => $this->pulse->ignore(
             fn () => $this->mail->mailer($mail->mailer)->to($recipients)->send($mail)
         )));
+    }
+
+    /**
+     * Whether a log issue's level is worth an email.
+     */
+    protected function severeEnoughToMail(string $level): bool
+    {
+        $levels = Issues::LEVELS;
+
+        $at = array_search($level, $levels, true);
+        $limit = array_search((string) $this->config->get('pulse-boosted.issues.notify.log_level', 'error'), $levels, true);
+
+        return $at !== false && $limit !== false && $at <= $limit;
     }
 
     /**

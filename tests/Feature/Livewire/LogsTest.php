@@ -230,5 +230,10 @@ it('still records an exception that was logged by hand without being reported', 
     $labels = Pulse::ignore(fn () => DB::table('pulse_boosted_trace_events')->where('type', 'log')->pluck('label')->all());
 
     expect($labels)->toBe(['Handled it']);
-    expect(app(IssueRepository::class)->count([]))->toBe(0);
+    // Not an exception issue, since it was never reported — but an error
+    // logged is an issue of its own.
+    app(IssueRepository::class)->flush();
+
+    expect(app(IssueRepository::class)->count(['kind' => 'exception']))->toBe(0);
+    expect(app(IssueRepository::class)->count(['kind' => 'log']))->toBe(1);
 });

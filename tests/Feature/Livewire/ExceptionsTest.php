@@ -4,18 +4,16 @@ use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Facades\Pulse;
 use Elazaroo\PulseBoosted\Livewire\Exceptions;
 use Elazaroo\PulseBoosted\Livewire\Issues;
-use Elazaroo\PulseBoosted\Livewire\Logs;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
-it('is left off the default dashboard, where Issues and Logging cover it', function () {
-    // Issues groups exceptions by where they were thrown and Logging lists
-    // each one; this card is still available to published dashboards.
+it('is left off the default dashboard, where Issues covers it', function () {
+    // Issues groups exceptions by where they were thrown and lists each one;
+    // this card is still available to published dashboards.
     $this
         ->get('/pulse-boosted')
         ->assertDontSeeLivewire(Exceptions::class)
-        ->assertSeeLivewire(Issues::class)
-        ->assertSeeLivewire(Logs::class);
+        ->assertSeeLivewire(Issues::class);
 });
 
 it('renders exceptions', function () {

@@ -9,6 +9,13 @@
         'Laravel' => $issue->laravel_version,
         'PHP' => $issue->php_version,
     ];
+
+    $badge = match (true) {
+        ($issue->kind ?? null) === 'log' => [ucfirst((string) $issue->level), 'background:#ffedd5;color:#c2410c;'],
+        ($issue->kind ?? null) === 'performance' => ['Slow', 'background:#fef3c7;color:#b45309;'],
+        (bool) $issue->handled => ['Handled', 'background:#f4f4f5;color:#52525b;'],
+        default => ['Unhandled', 'background:#fee2e2;color:#b91c1c;'],
+    };
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -28,9 +35,7 @@
                                 Pulse Boosted &middot; {{ $regressed ? 'An issue marked resolved has happened again' : 'A new issue' }}
                             </p>
                             <p style="margin:0 0 12px;">
-                                <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;{{ $issue->handled ? 'background:#f4f4f5;color:#52525b;' : 'background:#fee2e2;color:#b91c1c;' }}">
-                                    {{ $issue->handled ? 'Handled' : 'Unhandled' }}
-                                </span>
+                                <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;{{ $badge[1] }}">{{ $badge[0] }}</span>
                                 @if ($regressed)
                                     <span style="display:inline-block;margin-left:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:#fef3c7;color:#b45309;">Regressed</span>
                                 @endif

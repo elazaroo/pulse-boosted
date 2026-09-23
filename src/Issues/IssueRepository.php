@@ -30,6 +30,7 @@ use Throwable;
  *     fingerprint: string,
  *     class: string,
  *     kind: string,
+ *     level: ?string,
  *     message: ?string,
  *     handled: bool,
  *     trace: ?string,
@@ -95,6 +96,7 @@ class IssueRepository
         $this->buffer[$fingerprint] = [
             'class' => $exception::class,
             'kind' => $exception instanceof \Error ? 'error' : 'exception',
+            'level' => null,
             'message' => Str::limit($exception->getMessage(), 500),
             'file' => $exception->getFile(),
             'line' => $exception->getLine(),
@@ -113,6 +115,61 @@ class IssueRepository
     }
 
     /**
+     * Note a log line at warning or above against its issue.
+     *
+     * Lines are grouped by their level, where they were written from, and
+     * their message with the parts that vary taken out, so "Order 7 could not
+     * be charged" and "Order 9 could not be charged" are one issue.
+     *
+     * @param  array{0: string, 1: int}|null  $origin
+     */
+    public function recordLog(string $level, string $message, ?array $origin, ?string $traceId, string|int|null $userId): void
+    {
+        if (! $this->enabled()) {
+            return;
+        }
+
+        $pattern = self::normalizeMessage($message);
+        $location = $origin === null ? '' : $origin[0].':'.$origin[1];
+
+        $fingerprint = md5('log|'.$level.'|'.$location.'|'.$pattern);
+
+        $existing = $this->buffer[$fingerprint] ?? null;
+
+        $this->buffer[$fingerprint] = [
+            'class' => Str::limit($pattern, 250, '…'),
+            'kind' => 'log',
+            'level' => $level,
+            'message' => Str::limit($message, 500),
+            'file' => $origin[0] ?? null,
+            'line' => $origin[1] ?? null,
+            // Written on purpose, so neither handled nor not.
+            'handled' => true,
+            'trace' => null,
+            'at' => CarbonImmutable::now()->getTimestamp(),
+            'count' => ($existing['count'] ?? 0) + 1,
+            'occurrences' => array_merge($existing['occurrences'] ?? [], [[
+                'trace_id' => $traceId,
+                'user_id' => $userId === null ? null : (string) $userId,
+                'handled' => true,
+            ]]),
+        ];
+    }
+
+    /**
+     * A log message with the parts that change between writes folded away.
+     */
+    public static function normalizeMessage(string $message): string
+    {
+        $message = preg_replace('/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i', '{uuid}', $message) ?? $message;
+        $message = preg_replace('/[\w.+-]+@[\w-]+\.[\w.-]+/', '{email}', $message) ?? $message;
+        $message = preg_replace('/"[^"]*"|\'[^\']*\'/', '"…"', $message) ?? $message;
+        $message = preg_replace('/\d+(?:\.\d+)?/', '{n}', $message) ?? $message;
+
+        return trim(preg_replace('/\s+/', ' ', $message) ?? $message);
+    }
+
+    /**
      * Note an execution that ran over its threshold against its issue.
      */
     public function recordSlow(string $type, string $name, int $durationMs, int $thresholdMs, ?string $traceId, string|int|null $userId): void
@@ -128,6 +185,7 @@ class IssueRepository
         $this->buffer[$fingerprint] = [
             'class' => Str::limit('Slow '.$type.': '.$name, 250, ''),
             'kind' => 'performance',
+            'level' => null,
             'message' => "{$name} took ".number_format($durationMs)."ms, over its {$thresholdMs}ms threshold",
             'file' => null,
             'line' => null,
@@ -190,6 +248,7 @@ class IssueRepository
                 'fingerprint' => $fingerprint,
                 'class' => $issue['class'],
                 'kind' => $issue['kind'],
+                'level' => $issue['level'] ?? null,
                 'file' => $issue['file'],
                 'line' => $issue['line'],
                 'status' => 'open',
@@ -315,8 +374,9 @@ class IssueRepository
         $exceptions = (int) ($counts['exception'] ?? 0);
         $errors = (int) ($counts['error'] ?? 0);
         $performance = (int) ($counts['performance'] ?? 0);
+        $logs = (int) ($counts['log'] ?? 0);
 
-        return ['' => $exceptions + $errors + $performance, 'exception' => $exceptions, 'error' => $errors, 'performance' => $performance];
+        return ['' => $exceptions + $errors + $logs + $performance, 'exception' => $exceptions, 'error' => $errors, 'log' => $logs, 'performance' => $performance];
     }
 
     /**

@@ -3,17 +3,32 @@
 @use('Elazaroo\PulseBoosted\Support\Location')
 
 <x-pulse-boosted::card :cols="$cols" :rows="$rows" :class="$class">
-    <x-pulse-boosted::card-header name="Issues" details="exceptions grouped by where they were thrown">
+    <x-pulse-boosted::card-header name="Issues" details="{{ $view === 'stream' ? 'every log line and exception, as it happened' : 'exceptions, errors, warnings and slow executions, grouped' }}">
         <x-slot:icon>
             <x-pulse-boosted::icons.bug-ant />
         </x-slot:icon>
         <x-slot:actions>
+            <div class="flex items-center p-0.5 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800">
+                @foreach (['grouped' => 'Grouped', 'stream' => 'Every entry'] as $value => $label)
+                    <button
+                        type="button"
+                        wire:click="$set('view', '{{ $value }}')"
+                        @class([
+                            'px-2.5 py-1 rounded text-xs font-medium whitespace-nowrap',
+                            'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100' => $view === $value,
+                            'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100' => $view !== $value,
+                        ])
+                    >{{ $label }}</button>
+                @endforeach
+            </div>
+
+            @if ($view === 'grouped')
             <div class="flex items-center rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
-                @foreach (['' => 'All', 'exception' => 'Exceptions', 'error' => 'Errors', 'performance' => 'Performance'] as $value => $label)
+                @foreach (['' => 'All', 'exception' => 'Exceptions', 'error' => 'Errors', 'log' => 'Logged', 'performance' => 'Slow'] as $value => $label)
                     <button
                         type="button"
                         wire:click="$set('kind', '{{ $value }}')"
-                        title="{{ ['error' => 'PHP Errors: usually a bug in the code', 'exception' => 'Exceptions: usually something the application anticipated', 'performance' => 'Executions slower than their threshold'][$value] ?? '' }}"
+                        title="{{ ['error' => 'PHP Errors: usually a bug in the code', 'exception' => 'Exceptions: usually something the application anticipated', 'log' => 'Warnings and errors the application logged', 'performance' => 'Executions slower than their threshold'][$value] ?? '' }}"
                         @class([
                             'px-2 py-1 text-xs font-medium whitespace-nowrap border-r last:border-r-0 border-gray-200 dark:border-gray-700',
                             'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200' => $kind !== $value,
@@ -33,9 +48,13 @@
                 ]"
                 @change="loading = true"
             />
+            @endif
         </x-slot:actions>
     </x-pulse-boosted::card-header>
 
+    @if ($view === 'stream')
+        @include('pulse-boosted::livewire.partials.log-stream', ['perPage' => \Elazaroo\PulseBoosted\Livewire\Issues::STREAM_PER_PAGE])
+    @else
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-gray-800 shrink-0">
         <div class="flex flex-wrap items-center gap-1">
             @foreach (['open' => 'Open', 'resolved' => 'Resolved', 'ignored' => 'Ignored', '' => 'All'] as $value => $label)
@@ -119,15 +138,23 @@
                                     @endif
                                     @if (($issue->kind ?? '') === 'performance')
                                         <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">Slow</span>
+                                    @elseif (($issue->kind ?? '') === 'log')
+                                        <span @class([
+                                            'shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide',
+                                            'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400' => in_array($issue->level, ['emergency', 'alert', 'critical', 'error']),
+                                            'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400' => ! in_array($issue->level, ['emergency', 'alert', 'critical', 'error']),
+                                        ]) title="Logged by the application">{{ $issue->level }}</span>
                                     @elseif (! ($issue->handled ?? false))
                                         <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-red-500 text-white" title="Escaped to the exception handler">Unhandled</span>
                                     @else
                                         <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" title="Caught and passed to report()">Handled</span>
                                     @endif
                                 </div>
-                                <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300 truncate" title="{{ $issue->message }}">
-                                    {{ $issue->message ?: '—' }}
-                                </p>
+                                @unless (($issue->kind ?? '') === 'log' && $issue->message === $issue->class)
+                                    <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300 truncate" title="{{ $issue->message }}">
+                                        {{ $issue->message ?: '—' }}
+                                    </p>
+                                @endunless
                                 @if ($location = Location::relative($issue->file, $issue->line))
                                     <p class="mt-0.5 font-mono text-[11px] text-gray-400 dark:text-gray-500 truncate" title="{{ $location }}">{{ $location }}</p>
                                 @endif
@@ -154,6 +181,8 @@
             @endif
         @endif
     </x-pulse-boosted::scroll>
+
+    @endif
 
     @if ($detail !== null)
         <div class="fixed inset-0 z-40 bg-gray-900/30 dark:bg-black/50" wire:click="deselect"></div>
@@ -221,6 +250,8 @@
                     <div class="flex flex-wrap items-center gap-2">
                         @if (($issue->kind ?? '') === 'performance')
                             <span class="rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">Slow</span>
+                        @elseif (($issue->kind ?? '') === 'log')
+                            <span class="rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400">Logged {{ $issue->level }}</span>
                         @else
                             <span @class([
                                 'rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',

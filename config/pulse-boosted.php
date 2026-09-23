@@ -191,6 +191,13 @@ return [
          */
         'auto_resolve_after' => env('PULSE_BOOSTED_ISSUES_AUTO_RESOLVE_AFTER'),
 
+        /*
+         * Log lines at this level or more severe become issues too, grouped
+         * by message and where they were written, so a warning can be
+         * resolved or ignored like an exception. 'none' turns it off.
+         */
+        'log_level' => env('PULSE_BOOSTED_ISSUES_LOG_LEVEL', 'warning'),
+
         'thresholds' => [
             'request' => [],
             'job' => [],
@@ -202,6 +209,10 @@ return [
             'mail' => env('PULSE_BOOSTED_ISSUES_MAIL', ''),
             'mailer' => env('PULSE_BOOSTED_ISSUES_MAILER'),
             'regressions' => env('PULSE_BOOSTED_ISSUES_NOTIFY_REGRESSIONS', true),
+
+            // Issues made from log lines are emailed only at this level or
+            // above; a new warning is rarely worth an email.
+            'log_level' => env('PULSE_BOOSTED_ISSUES_NOTIFY_LOG_LEVEL', 'error'),
         ],
     ],
 

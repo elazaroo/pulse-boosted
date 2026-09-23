@@ -33,6 +33,9 @@ return new class extends PulseMigration
             // Error is usually a bug in the code. Worked out when recorded,
             // because the class may no longer exist when it is read back.
             $table->string('kind', 16)->default('exception');
+
+            // For an issue made from log lines, the level they were written at.
+            $table->string('level', 16)->nullable();
             $table->mediumText('message')->nullable();
             $table->string('file')->nullable();
             $table->unsignedInteger('line')->nullable();

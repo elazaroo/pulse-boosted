@@ -244,7 +244,7 @@ it('tells PHP errors apart from exceptions', function () {
     Pulse::report(new TypeError('A bug'));
     $repository->flush();
 
-    expect($repository->countsByKind())->toBe(['' => 2, 'exception' => 1, 'error' => 1, 'performance' => 0]);
+    expect($repository->countsByKind())->toBe(['' => 2, 'exception' => 1, 'error' => 1, 'log' => 0, 'performance' => 0]);
     expect($repository->issues(['kind' => 'error'])[0]->class)->toBe(TypeError::class);
 
     Livewire::test(Issues::class, ['lazy' => false])

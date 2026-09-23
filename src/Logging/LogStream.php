@@ -44,6 +44,11 @@ class LogStream
     public const EXCEPTIONS = 'exception';
 
     /**
+     * The kinds of issue that were thrown, as opposed to logged or slow.
+     */
+    protected const THROWN = ['exception', 'error'];
+
+    /**
      * Create a new stream.
      */
     public function __construct(
@@ -97,7 +102,11 @@ class LogStream
                 ->all();
 
             return [
-                self::EXCEPTIONS => (int) $this->connection()->table('pulse_boosted_issue_occurrences')->count(),
+                self::EXCEPTIONS => (int) $this->connection()
+                    ->table('pulse_boosted_issue_occurrences as o')
+                    ->join('pulse_boosted_issues as i', 'i.fingerprint', '=', 'o.fingerprint')
+                    ->whereIn('i.kind', self::THROWN)
+                    ->count(),
                 ...$levels,
             ];
         });
@@ -155,6 +164,9 @@ class LogStream
             // Traces are kept for a day and occurrences for a month, so an
             // older exception may have no timeline left to open.
             ->leftJoin('pulse_boosted_traces as t', 't.trace_id', '=', 'o.trace_id')
+            // Logged lines are already in the stream as themselves, and slow
+            // executions were never thrown.
+            ->whereIn('i.kind', self::THROWN)
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->where('i.class', 'like', $this->like($search))
                 ->orWhere('i.message', 'like', $this->like($search))))

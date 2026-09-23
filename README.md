@@ -286,20 +286,26 @@ for your process manager to bring back.
 
 **Traces** lists executions and draws the timeline of whichever one you open.
 
-**Issues** groups exceptions into the bugs behind them: one thing that went
-wrong four hundred times, rather than four hundred things that went wrong. It
-tells PHP Errors — usually a bug in the code — apart from Exceptions the
-application anticipated, sorts by most recent or most frequent, and shows where
-each was thrown. An issue can be resolved or ignored, and a resolved one that
-happens again reopens itself, which is how a regression announces itself. It
-replaces Pulse's Exceptions card on the default dashboard; that card is still
-available as `<livewire:pulse-boosted.exceptions />`.
+**Issues** is everything that went wrong, in one place, seen two ways.
 
-**Logging** is the other half: every log line and every exception, one entry at
-a time, newest first, filterable by level or to exceptions alone. Exceptions
-are never sampled. Log lines are trace events, so they follow the trace sample
-rate. Laravel logs each exception it reports, so that log line is left out — the
-exception is already there as itself, with its class and location.
+*Grouped*, it folds exceptions, the warnings and errors the application logs,
+and executions over their threshold into the problems behind them: one thing
+that went wrong four hundred times, rather than four hundred things that went
+wrong. It tells PHP Errors — usually a bug in the code — apart from Exceptions
+the application anticipated, sorts by most recent or most frequent, and shows
+where each was thrown or written. An issue can be resolved or ignored, and a
+resolved one that happens again reopens itself, which is how a regression
+announces itself.
+
+*Every entry* lists each log line and exception as it happened, newest first,
+filterable by level or to exceptions alone. Exceptions are never sampled. Log
+lines are trace events, so they follow the trace sample rate. Laravel logs each
+exception it reports, so that log line is left out — the exception is already
+there as itself, with its class and location.
+
+It replaces Pulse's Exceptions card on the default dashboard; that card is
+still available as `<livewire:pulse-boosted.exceptions />`, and the stream on
+its own as `<livewire:pulse-boosted.logs />`.
 
 **Mail** and **Notifications** list what was sent, with the execution it
 happened inside. These are trace events too.
@@ -410,6 +416,21 @@ keeps that occurrence's stack, with five lines of source either side of the
 first ten application frames, and the Laravel and PHP versions it happened on.
 Issues can be resolved or ignored; a resolved one that happens again reopens
 itself.
+
+### Logged warnings and errors
+
+```env
+PULSE_BOOSTED_ISSUES_LOG_LEVEL=warning        # the least severe line that opens an issue; none to turn off
+PULSE_BOOSTED_ISSUES_NOTIFY_LOG_LEVEL=error   # the least severe one that sends an email
+```
+
+A line written at `warning` or above becomes an issue under *Logged*, and is
+resolved, ignored and reopened like any exception. Lines are grouped by level,
+the place they were written from, and their message with the parts that vary
+folded away — numbers, UUIDs, email addresses and quoted strings — so `Order 7
+could not be charged` and `Order 9 could not be charged` are one issue. A line
+that only logs an exception already reported is left out, so nothing counts
+twice.
 
 ### Being told about new issues
 

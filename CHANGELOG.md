@@ -17,7 +17,7 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 - Traces: requests, commands, scheduled tasks and jobs become execution contexts, and the queries, cache reads, dispatched jobs, outgoing calls, exceptions, log lines, mail and notifications inside them are recorded against them with a timeline. A job carries its parent's trace id on the queue payload, so work is still joined to whatever asked for it across processes. Sampled at the entry point, capped per trace, and kept for a day.
 - A runnable demo application in `workbench/`, with `demo:seed-queue`.
 - Issues, grouping exceptions by class, file and line, with resolve, ignore and reopen, a PHP Error / Exception split, and sorting by recency or frequency. It replaces the Exceptions card on the default dashboard.
-- Logging: log lines and exceptions in one stream. Exceptions are never sampled; the log line Laravel writes for each reported exception is left out so it is not shown twice.
+- Logging: log lines and exceptions in one stream. Exceptions are never sampled; the log line Laravel writes for each reported exception is left out so it is not shown twice. On the default dashboard it is the Issues card's *Every entry* view rather than a card of its own.
 - Mail, Notifications, Commands and Scheduled Tasks cards, read from traces. Commands and Scheduled Tasks show the 95th percentile next to the average.
 - `PulseBoosted::context()` to attach the application's own attributes to a trace; the Traces search matches them.
 - Alert rules over seven metrics, with `AlertTriggered` and `AlertResolved` events and `pulse-boosted:alerts`.
@@ -32,6 +32,7 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 - Deployment tracking with `pulse-boosted:deploy`, and issues marked New in the latest deploy.
 - Performance thresholds that open issues, and auto-resolving quiet issues.
 - A user filter in the header, the Sample middleware, and the reject/redact API for trace events.
+- Logged warnings and errors become issues, grouped by level, origin and message with the varying parts folded away, and resolved, ignored and reopened like exceptions. `issues.log_level` sets the least severe line that opens one; `issues.notify.log_level` the least severe that sends an email.
 
 ### Changed
 

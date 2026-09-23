@@ -135,6 +135,9 @@ Route::middleware(ActAsDemoUser::class)->prefix('demo')->group(function () {
         Cache::get('demo:cart:'.Auth::id());
         Cache::forget('demo:cart:'.Auth::id());
 
+        // Different numbers every time, one issue on the dashboard.
+        Log::warning('Only '.random_int(1, 4).' left in stock for SKU '.random_int(1000, 9999));
+
         return 'cart refreshed';
     });
 
