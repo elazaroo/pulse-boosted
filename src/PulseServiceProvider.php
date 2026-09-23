@@ -15,6 +15,7 @@ use Elazaroo\PulseBoosted\Events\IssueRegressed;
 use Elazaroo\PulseBoosted\Ingests\NullIngest;
 use Elazaroo\PulseBoosted\Ingests\RedisIngest;
 use Elazaroo\PulseBoosted\Ingests\StorageIngest;
+use Elazaroo\PulseBoosted\Issues\AutoResolveIssues;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Elazaroo\PulseBoosted\Issues\PerformanceThresholds;
 use Elazaroo\PulseBoosted\Issues\SendIssueMail;
@@ -245,6 +246,7 @@ class PulseServiceProvider extends ServiceProvider
         $this->callAfterResolving(Dispatcher::class, function (Dispatcher $event, Application $app) {
             $event->listen(IsolatedBeat::class, EvaluateAlerts::class);
             $event->listen([IssueOpened::class, IssueRegressed::class], SendIssueMail::class);
+            $event->listen(IsolatedBeat::class, AutoResolveIssues::class);
         });
 
         $this->callAfterResolving(Dispatcher::class, function (Dispatcher $event, Application $app) {

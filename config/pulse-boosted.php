@@ -183,6 +183,14 @@ return [
          *
          * Empty by default: what counts as slow is yours to say.
          */
+        /*
+         * Resolve open issues that have not happened for this long — '7
+         * days', '1 month' — or null to leave them open until someone
+         * resolves them. One that happens again reopens and is announced as a
+         * regression, so nothing is lost by resolving too early.
+         */
+        'auto_resolve_after' => env('PULSE_BOOSTED_ISSUES_AUTO_RESOLVE_AFTER'),
+
         'thresholds' => [
             'request' => [],
             'job' => [],

@@ -370,6 +370,25 @@ class IssueRepository
     }
 
     /**
+     * Resolve open issues that have not happened for the given interval.
+     *
+     * @return int How many were resolved.
+     */
+    public function resolveQuietFor(string $interval): int
+    {
+        $now = CarbonImmutable::now();
+        $before = $now->sub(CarbonInterval::fromString($interval))->getTimestamp();
+
+        return $this->pulse->ignore(fn () => $this->table()
+            ->where('status', 'open')
+            ->where('last_seen_at', '<=', $before)
+            ->update([
+                'status' => 'resolved',
+                'resolved_at' => $now->getTimestamp(),
+            ]));
+    }
+
+    /**
      * Drop occurrences, and issues nothing has been heard from, past the
      * configured retention.
      */
