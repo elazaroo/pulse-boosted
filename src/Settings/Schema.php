@@ -31,7 +31,7 @@ class Schema
      */
     public const GROUPS = [
         'email' => ['Email', 'Who hears about issues, and which ones.'],
-        'webhooks' => ['Webhooks', 'Slack, and anything else that takes a webhook.'],
+        'webhooks' => ['Webhooks', 'Slack, Discord, Teams, Google Chat, Mattermost, Telegram, or any URL.'],
         'issues' => ['Issues', 'What becomes an issue, and what happens to quiet ones.'],
         'thresholds' => ['Thresholds', 'How slow is too slow.'],
         'traces' => ['Traces', 'How much is recorded, and what is always kept.'],
@@ -54,11 +54,7 @@ class Schema
             ['key' => 'issues.notify.assignee', 'group' => 'email', 'type' => 'bool', 'label' => 'Email the assignee', 'help' => 'Whoever an issue is assigned to hears about it coming back, on top of the recipients.'],
             ['key' => 'issues.notify.log_level', 'group' => 'email', 'type' => 'select', 'options' => $levels, 'label' => 'Least severe logged issue to send', 'help' => 'Issues made from log lines are only emailed, and sent as webhooks, at this level or above.'],
 
-            ['key' => 'webhooks.slack', 'group' => 'webhooks', 'type' => 'secrets', 'label' => 'Slack incoming webhooks', 'help' => 'One per line. The URL is the credential, so it is stored encrypted and never shown again in full.'],
-            ['key' => 'webhooks.urls', 'group' => 'webhooks', 'type' => 'urls', 'label' => 'Other webhooks', 'help' => 'One per line. Each gets the event as JSON.'],
-            ['key' => 'webhooks.secret', 'group' => 'webhooks', 'type' => 'secret', 'label' => 'Signing secret', 'help' => 'Webhooks are signed with it in X-Pulse-Boosted-Signature, as sha256= and the HMAC of the body.'],
-            ['key' => 'webhooks.events', 'group' => 'webhooks', 'type' => 'events', 'label' => 'Events to send'],
-            ['key' => 'webhooks.queue', 'group' => 'webhooks', 'type' => 'text', 'label' => 'Queue connection', 'help' => 'Empty sends straight away. A connection name sends from a worker, retried when the receiver is down.'],
+            ['key' => 'webhooks.queue', 'group' => 'webhooks', 'type' => 'text', 'label' => 'Send from a queue', 'help' => 'Empty sends straight away. A connection name sends from a worker, retried when the receiver is down.'],
 
             ['key' => 'issues.log_level', 'group' => 'issues', 'type' => 'select', 'options' => ['none' => 'none — log lines never become issues'] + $levels, 'label' => 'Least severe log line that opens an issue'],
             ['key' => 'issues.auto_resolve_after', 'group' => 'issues', 'type' => 'select', 'options' => ['' => 'Never', '1 day' => 'After 1 day', '3 days' => 'After 3 days', '7 days' => 'After 7 days', '14 days' => 'After 14 days', '30 days' => 'After 30 days'], 'label' => 'Resolve issues nobody has seen', 'help' => 'One that was not really fixed reopens the next time it happens.'],

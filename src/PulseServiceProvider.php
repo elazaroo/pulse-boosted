@@ -444,6 +444,7 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.person-viewer', Livewire\PersonViewer::class);
             $livewire->component('pulse-boosted.search', Livewire\Search::class);
             $livewire->component('pulse-boosted.settings', Livewire\Settings::class);
+            $livewire->component('pulse-boosted.webhook-destinations', Livewire\WebhookDestinations::class);
             $livewire->component('pulse-boosted.issues', Livewire\Issues::class);
             $livewire->component('pulse-boosted.logs', Livewire\Logs::class);
             $livewire->component('pulse-boosted.mail', Livewire\Mail::class);

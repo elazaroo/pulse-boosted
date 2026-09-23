@@ -3,7 +3,7 @@
 namespace Elazaroo\PulseBoosted\Livewire;
 
 use Carbon\CarbonInterval;
-use Elazaroo\PulseBoosted\Notify\Webhooks;
+use Elazaroo\PulseBoosted\Notify\Destinations;
 use Elazaroo\PulseBoosted\Pulse;
 use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Elazaroo\PulseBoosted\Settings\Schema;
@@ -42,13 +42,6 @@ class Settings extends Component
      * @var array<string, mixed>
      */
     public array $values = [];
-
-    /**
-     * The result of the last webhook test.
-     *
-     * @var list<array{target: string, slack: bool, ok: bool, status: ?int, error: ?string}>|null
-     */
-    public ?array $tested = null;
 
     public ?string $saved = null;
 
@@ -148,16 +141,6 @@ class Settings extends Component
         unset($rows[$index]);
 
         $this->values[$id] = array_values($rows);
-    }
-
-    /**
-     * Send a test to every webhook as saved.
-     */
-    public function testWebhooks(Webhooks $webhooks, QueueActions $actions): void
-    {
-        abort_unless($actions->allowed(), 403);
-
-        $this->tested = $webhooks->test($this->me());
     }
 
     public function render(Store $settings, QueueActions $actions, People $people): Renderable
@@ -423,7 +406,7 @@ class Settings extends Component
     protected function masked(array $field, mixed $value): array
     {
         if ($field['type'] === 'secrets') {
-            return array_map(fn (string $url) => Webhooks::mask($url), $this->list($value));
+            return array_map(fn (string $url) => Destinations::host($url), $this->list($value));
         }
 
         $value = (string) ($value ?? '');

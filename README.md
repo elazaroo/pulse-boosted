@@ -57,16 +57,15 @@ Every option is also settable through the environment. The most common ones:
 
 ### The settings page
 
-Most of what changes after launch — who is emailed, the Slack and webhook
-addresses, what counts as slow, the sample rates, the alert rules — can also
+Most of what changes after launch — who is emailed, where webhooks go, what counts as slow, the sample rates, the alert rules — can also
 be changed at `/pulse-boosted/settings`, the cog in the header, without a
 deploy:
 
 - **Email** — recipients, regressions, the assignee, and the least severe
   logged issue worth sending.
-- **Webhooks** — Slack incoming webhooks, other URLs, the signing secret, which
-  events to send and the queue to send them from, with a button that sends a
-  test to each and says how it answered.
+- **Webhooks** — Slack, Discord, Microsoft Teams, Google Chat, Mattermost,
+  Telegram or any URL, each with its events, a test button and how its last
+  delivery went; see [Webhooks](#webhooks).
 - **Issues** — which log lines become issues, resolving quiet ones, and the
   people offered when assigning.
 - **Thresholds** — the per-route, per-job, per-command and per-task thresholds
@@ -84,11 +83,6 @@ config* hands it back. Saving a value equal to what config says removes the
 override rather than storing a copy. Every server picks a change up within a
 minute, workers and `pulse-boosted:check` included. Settings are read from
 the cache on each request, not the database.
-
-Webhook addresses and the signing secret are the credentials, so they are
-stored encrypted with the application key, never sent back to the browser,
-and shown only by their host and last characters. After rotating `APP_KEY`
-they have to be entered again.
 
 Anyone who can see the dashboard can read the page; changing anything needs
 the `managePulseBoostedQueues` gate.
@@ -572,14 +566,19 @@ off.
 
 ## Webhooks
 
-```env
-PULSE_BOOSTED_SLACK_WEBHOOK=https://hooks.slack.com/services/T000/B000/XXXX
-PULSE_BOOSTED_WEBHOOKS=https://ops.example.com/hooks/pulse
-PULSE_BOOSTED_WEBHOOK_SECRET=a-long-random-string
-```
+Webhooks are added on the settings page, under **Webhooks**, and kept in the
+database — not in `.env`. Paste the address and the service is worked out from
+it; each gets its events in its own format:
 
-Slack's incoming webhooks get a message they can show, with a link back to the
-dashboard. Any other URL gets the event as JSON:
+| Service | Address | What it gets |
+| --- | --- | --- |
+| Slack | `https://hooks.slack.com/services/…` | A message with blocks and a link back |
+| Discord | `https://discord.com/api/webhooks/…` | An embed, red, green or blue by event, that can never ping `@everyone` |
+| Microsoft Teams | a Workflows address (`…logic.azure.com/workflows/…`) or an incoming webhook (`….webhook.office.com/…`) | An adaptive card with the details and an *Open* button |
+| Google Chat | `https://chat.googleapis.com/v1/spaces/…/messages?key=…&token=…` | A message with a link back |
+| Mattermost | its incoming webhook address | The same message as Slack, which it reads |
+| Telegram | `https://api.telegram.org/bot<token>/sendMessage`, and the chat id | A message to that chat |
+| Any URL | anything that takes JSON | The event itself, below |
 
 ```json
 {
@@ -593,17 +592,27 @@ dashboard. Any other URL gets the event as JSON:
 }
 ```
 
-signed in `X-Pulse-Boosted-Signature` as `sha256=` and the HMAC of the body
-with the secret. The events are `issue.opened`, `issue.regressed`,
-`issue.assigned`, `alert.triggered`, `alert.resolved` and `schedule.missed`;
-`webhooks.events` narrows them down. Issues follow the same rules as the email:
-regressions can be turned off, and issues made from log lines are only sent at
-`issues.notify.log_level` or above.
+with the event in `X-Pulse-Boosted-Event` and, when a signing secret is set,
+`X-Pulse-Boosted-Signature`: `sha256=` and the HMAC of the body. The events are
+`issue.opened`, `issue.regressed`, `issue.assigned`, `alert.triggered`,
+`alert.resolved` and `schedule.missed`, and each webhook gets the ones ticked
+for it. Issues follow the same rules as the email: regressions can be turned
+off, and issues made from log lines are only sent at `issues.notify.log_level`
+or above.
 
-Webhooks are sent straight away with a five second timeout, and a receiver that
-is down never fails the code that caused the event. Name a queue connection in
-`PULSE_BOOSTED_WEBHOOK_QUEUE` to send them from a worker instead, retried if the
-receiver is down.
+**The address is the credential** for most of these services, so once saved it
+is encrypted with the application key and never shown again — the page shows
+only its host. A webhook can be renamed, pointed at a new address, given other
+events, switched off, tested or removed, but not read back. After rotating
+`APP_KEY`, the addresses have to be entered again; the page says which.
+
+Each webhook shows how its last delivery went, and **Test** sends one and shows
+the answer — the status and what the service said — so a revoked or mistyped
+address is found before an incident. Webhooks are sent straight away with a
+five second timeout, and a receiver that is down never fails the code that
+caused the event. Name a queue connection under *Send from a queue* to send
+them from a worker instead, retried if the receiver is down; the job carries
+the webhook's id, never its address.
 
 ## The queue explorer
 

@@ -432,27 +432,14 @@ return [
     | Webhooks
     |--------------------------------------------------------------------------
     |
-    | Where to post what happens, besides the issue email: Slack incoming
-    | webhook URLs get a message they can show, any other URL gets the event
-    | as JSON. Both take a comma-separated list.
-    |
-    | A plain webhook is signed with the secret, when there is one, in the
-    | X-Pulse-Boosted-Signature header: "sha256=" and the HMAC of the body.
+    | Webhooks — Slack, Discord, Microsoft Teams, Google Chat, Mattermost,
+    | Telegram, or any URL that takes JSON — are added on the settings page,
+    | and stored in the database with their addresses encrypted. Only how
+    | they are sent is configured here.
     |
     */
 
     'webhooks' => [
-        'urls' => env('PULSE_BOOSTED_WEBHOOKS', ''),
-        'slack' => env('PULSE_BOOSTED_SLACK_WEBHOOK', ''),
-        'secret' => env('PULSE_BOOSTED_WEBHOOK_SECRET'),
-
-        /*
-         * Which events to send: issue.opened, issue.regressed,
-         * issue.assigned, alert.triggered, alert.resolved and
-         * schedule.missed. Null sends them all.
-         */
-        'events' => null,
-
         /*
          * Sent straight away with a short timeout, unless a queue connection
          * is named here: then from a worker, and retried if the receiver is

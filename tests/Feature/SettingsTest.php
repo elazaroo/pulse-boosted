@@ -9,11 +9,9 @@ use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Elazaroo\PulseBoosted\Recorders\SlowRequests;
 use Elazaroo\PulseBoosted\Settings\Schema;
 use Elazaroo\PulseBoosted\Settings\Settings;
-use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 /**
@@ -63,28 +61,6 @@ it('lays what is saved over config, and goes back to config when asked', functio
     expect(Pulse::ignore(fn () => DB::table('pulse_boosted_settings')->count()))->toBe(0);
 });
 
-it('keeps secrets encrypted, and never sends them to the page', function () {
-    $url = 'https://hooks.slack.com/services/T000/B000/SUPERSECRETTOKEN';
-
-    Livewire::test(SettingsForm::class, ['group' => 'webhooks'])
-        ->set(field('webhooks.slack'), $url)
-        ->call('save')
-        ->assertHasNoErrors()
-        ->assertSet(field('webhooks.slack'), '')
-        ->assertDontSee('SUPERSECRETTOKEN')
-        ->assertSee('https://hooks.slack.com/services/T0…OKEN');
-
-    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_settings')->where('key', 'webhooks.slack')->value('value')))->not->toContain('hooks.slack.com');
-    expect(freshSettings()->value('webhooks.slack'))->toBe([$url]);
-
-    // Saving again with the box left empty keeps it.
-    Livewire::test(SettingsForm::class, ['group' => 'webhooks'])->call('save');
-    expect(freshSettings()->value('webhooks.slack'))->toBe([$url]);
-
-    Livewire::test(SettingsForm::class, ['group' => 'webhooks'])->call('clearSecret', 'webhooks.slack');
-    expect(freshSettings()->value('webhooks.slack'))->toBe([]);
-});
-
 it('checks what it is given', function () {
     Livewire::test(SettingsForm::class, ['group' => 'email'])
         ->set(field('issues.notify.mail'), "oncall@example.com\nnot-an-email")
@@ -95,11 +71,6 @@ it('checks what it is given', function () {
         ->set(field('traces.sample_rate'), '1.5')
         ->call('save')
         ->assertHasErrors(field('traces.sample_rate'));
-
-    Livewire::test(SettingsForm::class, ['group' => 'webhooks'])
-        ->set(field('webhooks.secret'), 'short')
-        ->call('save')
-        ->assertHasErrors(field('webhooks.secret'));
 
     expect(Pulse::ignore(fn () => DB::table('pulse_boosted_settings')->count()))->toBe(0);
 });
@@ -189,23 +160,6 @@ it('writes alert rules the alert manager reads', function () {
         ->assertHasErrors(field('alerts.rules').'.1.window');
 });
 
-it('sends a test to every webhook and says how each answered', function () {
-    Http::fake([
-        'hooks.slack.com/*' => Http::response('ok'),
-        'ops.example.com/*' => Http::response('nope', 500),
-    ]);
-
-    freshSettings()->set('webhooks.slack', ['https://hooks.slack.com/services/T/B/X']);
-    app(Settings::class)->set('webhooks.urls', ['https://ops.example.com/hooks']);
-
-    Livewire::test(SettingsForm::class, ['group' => 'webhooks'])
-        ->call('testWebhooks')
-        ->assertSee('Delivered')
-        ->assertSee('Failed · 500');
-
-    Http::assertSent(fn (Request $request) => str_contains($request->body(), 'Test from Pulse Boosted'));
-});
-
 it('lets anyone who can see the dashboard read the settings, and only the gate change them', function () {
     Gate::define(QueueActions::GATE, fn ($user = null) => false);
 
@@ -255,7 +209,6 @@ it('reaches processes that outlive a request within a minute', function () {
 
 it('ignores what it cannot read rather than breaking the application', function () {
     Pulse::ignore(fn () => DB::table('pulse_boosted_settings')->insert([
-        ['key' => 'webhooks.secret', 'value' => 'not encrypted with this key', 'updated_at' => 0],
         ['key' => 'not.a.setting', 'value' => '"x"', 'updated_at' => 0],
     ]));
 

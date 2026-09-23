@@ -208,30 +208,10 @@
             </div>
         @endforeach
 
-        @if ($group === 'webhooks' && $tested !== null)
-            <div class="rounded-md border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
-                @forelse ($tested as $result)
-                    <div class="flex items-center justify-between gap-3 px-3 py-2 text-xs">
-                        <span class="min-w-0 truncate font-mono text-gray-700 dark:text-gray-300">{{ $result['slack'] ? 'Slack · ' : '' }}{{ $result['target'] }}</span>
-                        @if ($result['ok'])
-                            <span class="shrink-0 font-semibold text-emerald-600 dark:text-emerald-400">Delivered</span>
-                        @else
-                            <span class="shrink-0 font-semibold text-red-600 dark:text-red-400" title="{{ $result['error'] }}">Failed{{ $result['status'] ? ' · '.$result['status'] : '' }}</span>
-                        @endif
-                    </div>
-                @empty
-                    <p class="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">No webhooks saved yet, so there was nothing to send to.</p>
-                @endforelse
-            </div>
-        @endif
-
         @if ($canManage)
             <div class="flex items-center justify-end gap-3 border-t border-gray-100 dark:border-gray-800 pt-4">
                 @if ($saved)
                     <span class="text-xs text-emerald-600 dark:text-emerald-400" wire:key="saved-{{ $saved }}" x-data="{ show: true }" x-init="setTimeout(() => show = false, 3000)" x-show="show" x-transition.opacity>Saved</span>
-                @endif
-                @if ($group === 'webhooks')
-                    <button type="button" wire:click="testWebhooks" wire:loading.attr="disabled" class="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">Send a test</button>
                 @endif
                 <button type="submit" wire:loading.attr="disabled" class="px-3 py-1.5 text-xs font-medium rounded-md bg-accent-500 text-white hover:bg-accent-600 disabled:opacity-50">Save {{ strtolower($title) }}</button>
             </div>
