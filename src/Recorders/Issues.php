@@ -50,7 +50,7 @@ class Issues
 
         $this->issues->record(
             $event->exception,
-            $this->tracer->currentId(),
+            $this->tracer->currentOrJustFinishedId(),
             $this->pulse->resolveAuthenticatedUserId(),
             $event->handled,
         );

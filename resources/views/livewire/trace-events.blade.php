@@ -72,7 +72,7 @@
                 </x-pulse-boosted::thead>
                 <tbody>
                     @foreach ($events as $event)
-                        @php($meta = json_decode($event->meta ?? '{}', true) ?: [])
+                        @php($meta = array_diff_key(json_decode($event->meta ?? '{}', true) ?: [], ['stage' => true]))
                         <tr wire:key="{{ $event->id }}-spacer" class="h-2 first:h-0"></tr>
                         <tr wire:key="{{ $event->id }}-row" wire:click="showTrace('{{ $event->trace_id }}')" class="cursor-pointer group">
                             <x-pulse-boosted::td class="max-w-[1px]">

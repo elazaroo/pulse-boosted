@@ -294,6 +294,14 @@ class Trace
     }
 
     /**
+     * The user it ran for, if one was attached.
+     */
+    public function userId(): ?string
+    {
+        return $this->userId;
+    }
+
+    /**
      * Attach the application's own attributes to this execution.
      *
      * A trace says what the application did; this says what it was doing it

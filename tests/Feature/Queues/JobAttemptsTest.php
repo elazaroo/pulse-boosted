@@ -2,14 +2,17 @@
 
 use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Elazaroo\PulseBoosted\Livewire\Jobs;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -104,13 +107,13 @@ it('trims attempts with the jobs they belong to', function () {
     $repository = app(JobRepository::class);
     $repository->flush();
 
-    Illuminate\Support\Carbon::setTestNow(now()->addMonth());
+    Carbon::setTestNow(now()->addMonth());
     CarbonImmutable::setTestNow(CarbonImmutable::now()->addMonth());
 
     $repository->trim();
 
     CarbonImmutable::setTestNow();
-    Illuminate\Support\Carbon::setTestNow();
+    Carbon::setTestNow();
 
     expect($repository->attempts('aaaaaaaa-0000-4000-8000-000000000004'))->toHaveCount(0);
 
@@ -128,3 +131,23 @@ class FlakyJob implements ShouldQueue
         throw new RuntimeException('Still flaky');
     }
 }
+
+it('links the exception of a failed job to that job\'s trace', function () {
+    // The worker reports the exception after announcing the failure, which
+    // is what closes the job's trace.
+    Str::createUuidsUsingSequence(['aaaaaaaa-0000-4000-8000-000000000005']);
+
+    Bus::dispatchToQueue(new FlakyJob);
+    work(3);
+
+    app(JobRepository::class)->flush();
+    app(IssueRepository::class)->flush();
+
+    $lastAttemptTrace = app(JobRepository::class)->attempts('aaaaaaaa-0000-4000-8000-000000000005')->last()->trace_id;
+
+    $occurrence = Pulse::ignore(fn () => DB::table('pulse_boosted_issue_occurrences')->orderByDesc('id')->first());
+
+    expect($occurrence->trace_id)->toBe($lastAttemptTrace);
+
+    Pulse::flush();
+});

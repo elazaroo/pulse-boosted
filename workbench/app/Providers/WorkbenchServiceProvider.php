@@ -4,9 +4,13 @@ namespace Workbench\App\Providers;
 
 use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Elazaroo\PulseBoosted\Recorders\Jobs;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Workbench\App\Console\Commands\DemoTrafficCommand;
 use Workbench\App\Console\Commands\SeedQueueCommand;
+use Workbench\App\Jobs\RebuildSearchIndex;
 
 class WorkbenchServiceProvider extends ServiceProvider
 {
@@ -26,6 +30,37 @@ class WorkbenchServiceProvider extends ServiceProvider
             // storage/logs so they can be read without a mail server.
             config(['pulse-boosted.issues.notify.mail' => 'oncall@example.com']);
             config(['mail.default' => 'log']);
+
+            // The version running, so traces and issues are tagged with it and
+            // the Overview can say what is new since the last deploy.
+            config(['pulse-boosted.deployment' => 'v2.4.0']);
+
+            // Anything slower than these opens a performance issue.
+            config(['pulse-boosted.issues.thresholds' => [
+                'request' => ['GET /demo/report' => 500, '*' => 5000],
+                'job' => [RebuildSearchIndex::class => 300],
+                'command' => [],
+                'schedule' => [],
+            ]]);
+
+            config(['pulse-boosted.issues.auto_resolve_after' => '30 days']);
+
+            // Keep the body of a request that ended in a 5xx, redacted.
+            config(['pulse-boosted.traces.request.capture_payload' => true]);
+
+            // A few rules, so the Alerts card has something to watch.
+            config(['pulse-boosted.alerts.rules' => [
+                ['name' => 'Error rate', 'metric' => 'error_rate', 'threshold' => 5, 'window' => '1 hour', 'options' => ['type' => 'request'], 'description' => 'More than 5% of requests are failing.'],
+                ['name' => 'Exceptions', 'metric' => 'exceptions', 'threshold' => 3, 'window' => '1 hour', 'description' => 'More than three exceptions in the last hour.'],
+                ['name' => 'Default queue backing up', 'metric' => 'queue_size', 'threshold' => 50, 'options' => ['queue' => 'default']],
+                ['name' => 'Slow requests', 'metric' => 'p95_duration', 'threshold' => 2000, 'window' => '1 hour', 'options' => ['type' => 'request']],
+            ]]);
+
+            // A couple of scheduled tasks, so the Scheduled Tasks card has runs.
+            $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+                $schedule->command('inspire')->everyMinute();
+                $schedule->call(fn () => DB::table('users')->count())->everyMinute()->name('demo:count-users');
+            });
         }
 
         // The dashboard is already open in `local`. This opens the destructive
@@ -37,7 +72,7 @@ class WorkbenchServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__.'/../../routes/web.php');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([SeedQueueCommand::class]);
+            $this->commands([SeedQueueCommand::class, DemoTrafficCommand::class]);
         }
     }
 }

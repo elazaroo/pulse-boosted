@@ -28,5 +28,11 @@ To try the dashboard locally against a demo application:
 composer serve
 ```
 
+and, in another terminal, fill every card with data:
+
+```sh
+php vendor/bin/testbench demo:traffic
+```
+
 For anything larger than a fix, open an issue first so we can agree on the
 approach before you spend time on it.

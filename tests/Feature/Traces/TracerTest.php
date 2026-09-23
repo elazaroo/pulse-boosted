@@ -4,12 +4,14 @@ use Elazaroo\PulseBoosted\Facades\Pulse;
 use Elazaroo\PulseBoosted\Recorders\Traces as TracesRecorder;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Elazaroo\PulseBoosted\Traces\TraceRepository;
+use Illuminate\Auth\GenericUser;
 use Illuminate\Bus\Queueable;
 use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
@@ -318,4 +320,26 @@ it('marks a request that returned a server error as failed', function () {
     expect(json_decode($trace->meta, true)['status'])->toBe(500);
 
     Pulse::flush();
+});
+
+it('records who a request ran for', function () {
+    // Regression: nothing ever attached the user, so no trace had one and
+    // the user filter had nobody to offer.
+    Route::get('mine', function () {
+        Auth::setUser(new GenericUser(['id' => 42]));
+
+        return 'ok';
+    })->middleware('web');
+
+    $this->get('mine')->assertOk();
+
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_traces')->value('user_id')))->toBe('42');
+});
+
+it('leaves the user empty when nobody is signed in', function () {
+    Route::get('anonymous', fn () => 'ok')->middleware('web');
+
+    $this->get('anonymous')->assertOk();
+
+    expect(Pulse::ignore(fn () => DB::table('pulse_boosted_traces')->value('user_id')))->toBeNull();
 });

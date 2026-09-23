@@ -62,6 +62,11 @@ class Tracer
     protected ?string $lastId = null;
 
     /**
+     * When the most recent execution closed, as a microtime.
+     */
+    protected ?float $lastFinishedAt = null;
+
+    /**
      * Called with each execution as it finishes, before it is kept or dropped.
      *
      * @var list<callable(Trace): void>
@@ -205,6 +210,15 @@ class Tracer
             return;
         }
 
+        // Who it ran for, as the application sees it at the end — after
+        // authentication middleware has run. Asked without querying: only a
+        // user already resolved, or one remembered at login, is used.
+        if ($this->current->userId() === null) {
+            $user = $this->pulse->rescue(fn () => $this->ignore(fn () => $this->pulse->resolveAuthenticatedUserId()));
+
+            $this->current->setUser($user === null ? null : (string) $user);
+        }
+
         // A request settles its status when the response goes out, and is
         // closed only after its terminating callbacks have run.
         [$settledStatus, $settledMeta] = $this->current->settled() ?? ['ok', []];
@@ -213,6 +227,7 @@ class Tracer
 
         $this->current = null;
         $this->lastId = $trace->id;
+        $this->lastFinishedAt = microtime(true);
 
         foreach ($this->finishing as $callback) {
             $this->pulse->rescue(fn () => $callback($trace));
@@ -328,6 +343,27 @@ class Tracer
     public function lastId(): ?string
     {
         return $this->lastId;
+    }
+
+    /**
+     * The execution something belongs to: the open one, or one that closed a
+     * moment ago.
+     *
+     * A worker reports a job's exception only after it has announced that
+     * the job failed, which is what closes the job's trace; without looking
+     * back this far, the exception would belong to nothing.
+     */
+    public function currentOrJustFinishedId(float $withinSeconds = 2.0): ?string
+    {
+        if ($this->current !== null) {
+            return $this->current->id;
+        }
+
+        if ($this->lastFinishedAt !== null && microtime(true) - $this->lastFinishedAt <= $withinSeconds) {
+            return $this->lastId;
+        }
+
+        return null;
     }
 
     /**
