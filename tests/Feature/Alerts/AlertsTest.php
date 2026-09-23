@@ -447,3 +447,17 @@ it('rejects a comparison it does not understand', function () {
     expect(fn () => new AlertRule(name: 'x', metric: 'exceptions', threshold: 1, comparison: 'sideways'))
         ->toThrow(InvalidArgumentException::class);
 });
+
+it('renders a single root element whether or not rules are configured', function () {
+    // Livewire marks an @if with comments. At the top level of the view they
+    // sat outside the root, and the morph that swaps the lazy placeholder
+    // for the card then lost the component's snapshot.
+    foreach ([[], [['name' => 'Rule', 'metric' => 'exceptions', 'threshold' => 1]]] as $rules) {
+        Config::set('pulse-boosted.alerts.rules', $rules);
+
+        $html = trim(Livewire::test(Alerts::class, ['lazy' => false])->html());
+
+        expect($html)->toStartWith('<div');
+        expect(substr_count($html, 'wire:snapshot'))->toBe(1);
+    }
+});

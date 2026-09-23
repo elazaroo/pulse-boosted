@@ -1,9 +1,15 @@
 @use('Carbon\CarbonImmutable')
 @use('Illuminate\Support\Str')
 
+{{--
+    One root element whatever is shown: Livewire marks an @if with comments,
+    and at the top level those would sit outside the root and break the
+    morph that swaps the lazy placeholder for this.
+--}}
+<div class="default:col-span-full default:lg:col-span-{{ $cols ?: 'full' }} default:row-span-{{ $rows ?: 1 }} {{ $class }}">
 @if (! $enabled || $configured === 0)
     {{-- Nothing to watch is one line, not a card-sized hole at the top of the page. --}}
-    <div class="col-span-full flex items-center gap-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400">
+    <div class="flex items-center gap-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400">
         <x-pulse-boosted::icons.signal-slash class="w-4 h-4 shrink-0 stroke-gray-400" />
         @if (! $enabled)
             <span>Alerting is switched off in the configuration.</span>
@@ -12,7 +18,7 @@
         @endif
     </div>
 @else
-<x-pulse-boosted::card :cols="$cols" :rows="$rows" :class="$class">
+<x-pulse-boosted::card cols="full" :rows="1" class="h-full">
     <x-pulse-boosted::card-header name="Alerts" details="{{ $configured }} {{ Str::plural('rule', $configured) }}">
         <x-slot:icon>
             <x-pulse-boosted::icons.signal-slash />
@@ -137,3 +143,4 @@
     </x-pulse-boosted::scroll>
 </x-pulse-boosted::card>
 @endif
+</div>
