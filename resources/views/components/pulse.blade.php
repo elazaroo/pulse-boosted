@@ -1,6 +1,6 @@
 @use('Elazaroo\PulseBoosted\Facades\Pulse')
 @use('Illuminate\Support\Facades\Route')
-@props(['cols' => 12, 'fullWidth' => false, 'title' => null])
+@props(['cols' => 12, 'fullWidth' => false, 'title' => null, 'nav' => 'Dashboard'])
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
@@ -130,6 +130,15 @@
                         <livewire:pulse-boosted.search />
                         <livewire:pulse-boosted.user-filter />
                         <livewire:pulse-boosted.period-selector />
+                        @if (Route::has('pulse-boosted.settings'))
+                            <a href="{{ route('pulse-boosted.settings') }}" title="Settings" aria-label="Settings" @class([
+                                'p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800',
+                                'text-accent-500' => $nav === 'Settings',
+                                'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200' => $nav !== 'Settings',
+                            ])>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+                            </a>
+                        @endif
                         <x-pulse-boosted::theme-switcher />
                     </div>
                 </div>
@@ -142,7 +151,10 @@
                     class="hidden lg:block w-52 shrink-0 border-r border-gray-200/80 dark:border-gray-800/80"
                 >
                     <div class="sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto py-6 px-3">
-                        <p class="px-3 mb-2 text-[11px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">Dashboard</p>
+                        @if ($nav !== 'Dashboard')
+                            <a href="{{ Route::has('pulse-boosted') ? route('pulse-boosted') : url(config('pulse-boosted.path')) }}" class="flex items-center gap-1.5 px-3 mb-4 text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">&larr; Dashboard</a>
+                        @endif
+                        <p class="px-3 mb-2 text-[11px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ $nav }}</p>
                         <ul class="space-y-0.5">
                             <template x-for="section in sections" :key="section.id">
                                 <li>

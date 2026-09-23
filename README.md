@@ -55,6 +55,44 @@ Every option is also settable through the environment. The most common ones:
 | `PULSE_BOOSTED_DB_CONNECTION` | app default | Connection holding the `pulse_boosted_*` tables |
 | `PULSE_BOOSTED_INGEST_DRIVER` | `storage` | `storage`, `redis` or `null` |
 
+### The settings page
+
+Most of what changes after launch — who is emailed, the Slack and webhook
+addresses, what counts as slow, the sample rates, the alert rules — can also
+be changed at `/pulse-boosted/settings`, the cog in the header, without a
+deploy:
+
+- **Email** — recipients, regressions, the assignee, and the least severe
+  logged issue worth sending.
+- **Webhooks** — Slack incoming webhooks, other URLs, the signing secret, which
+  events to send and the queue to send them from, with a button that sends a
+  test to each and says how it answered.
+- **Issues** — which log lines become issues, resolving quiet ones, and the
+  people offered when assigning.
+- **Thresholds** — the per-route, per-job, per-command and per-task thresholds
+  that open performance issues, the thresholds of the Slow Requests, Slow
+  Queries, Slow Jobs and Slow Outgoing Requests cards, and how slow a trace has
+  to be to be kept.
+- **Traces** — the sample rate overall and per kind, and what is always kept.
+- **Alerts** — the rules: a metric, above or below a threshold, over a window,
+  with options.
+- **Scheduled tasks** — watching the schedule for missed tasks.
+
+What is saved there wins over the config file and `.env`, field by field, and
+each field says whether it is set on the page or comes from config; *use
+config* hands it back. Saving a value equal to what config says removes the
+override rather than storing a copy. Every server picks a change up within a
+minute, workers and `pulse-boosted:check` included. Settings are read from
+the cache on each request, not the database.
+
+Webhook addresses and the signing secret are the credentials, so they are
+stored encrypted with the application key, never sent back to the browser,
+and shown only by their host and last characters. After rotating `APP_KEY`
+they have to be entered again.
+
+Anyone who can see the dashboard can read the page; changing anything needs
+the `managePulseBoostedQueues` gate.
+
 ### SQL Server
 
 Point the storage connection at a `sqlsrv` connection and the migrations will build the SQL Server schema:

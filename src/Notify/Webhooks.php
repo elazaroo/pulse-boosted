@@ -3,10 +3,13 @@
 namespace Elazaroo\PulseBoosted\Notify;
 
 use Elazaroo\PulseBoosted\Pulse;
+use Elazaroo\PulseBoosted\Support\DashboardUrl;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Queue\Factory as Queue;
 use Illuminate\Http\Client\Factory as Http;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
 /**
@@ -93,6 +96,60 @@ class Webhooks
                 $this->deliver($url, $body, $slack);
             }
         }
+    }
+
+    /**
+     * Send a test to every configured address, straight away whatever the
+     * queue setting, and say how each one answered.
+     *
+     * @return list<array{target: string, slack: bool, ok: bool, status: ?int, error: ?string}>
+     */
+    public function test(?string $by = null): array
+    {
+        $payload = [
+            'event' => 'test',
+            'summary' => 'Test from Pulse Boosted'.($by ? " by {$by}" : '').': webhooks are set up.',
+            'app' => (string) $this->config->get('app.name'),
+            'environment' => (string) $this->config->get('app.env'),
+            'url' => (Route::has('pulse-boosted.settings') ? route('pulse-boosted.settings') : DashboardUrl::to()).'#webhooks',
+            'sent_at' => now()->toIso8601String(),
+            'data' => ['fields' => ['Sent from' => 'the settings page']],
+        ];
+
+        $results = [];
+
+        foreach ($this->targets() as [$url, $slack]) {
+            $body = $slack ? $this->slackMessage($payload) : $payload;
+
+            try {
+                $this->deliver($url, $body, $slack, throw: true);
+
+                $results[] = ['target' => self::mask($url), 'slack' => $slack, 'ok' => true, 'status' => 200, 'error' => null];
+            } catch (RequestException $e) {
+                $results[] = ['target' => self::mask($url), 'slack' => $slack, 'ok' => false, 'status' => $e->response->status(), 'error' => Str::limit(trim($e->response->body()), 120)];
+            } catch (\Throwable $e) {
+                $results[] = ['target' => self::mask($url), 'slack' => $slack, 'ok' => false, 'status' => null, 'error' => Str::limit($e->getMessage(), 120)];
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * An address with its secret part hidden: the host and the start of the
+     * path are enough to tell which one it is.
+     */
+    public static function mask(string $url): string
+    {
+        $parts = parse_url($url);
+
+        if (! is_array($parts) || ! isset($parts['host'])) {
+            return Str::mask($url, '•', 6);
+        }
+
+        $path = $parts['path'] ?? '';
+
+        return ($parts['scheme'] ?? 'https').'://'.$parts['host'].(strlen($path) > 12 ? substr($path, 0, 12).'…'.substr($path, -4) : $path);
     }
 
     /**

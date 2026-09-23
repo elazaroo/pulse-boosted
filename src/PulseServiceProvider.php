@@ -16,6 +16,7 @@ use Elazaroo\PulseBoosted\Events\IssueAssigned;
 use Elazaroo\PulseBoosted\Events\IssueOpened;
 use Elazaroo\PulseBoosted\Events\IssueRegressed;
 use Elazaroo\PulseBoosted\Events\ScheduledTaskMissed;
+use Elazaroo\PulseBoosted\Events\SharedBeat;
 use Elazaroo\PulseBoosted\Ingests\NullIngest;
 use Elazaroo\PulseBoosted\Ingests\RedisIngest;
 use Elazaroo\PulseBoosted\Ingests\StorageIngest;
@@ -30,6 +31,7 @@ use Elazaroo\PulseBoosted\Queues\InspectorManager;
 use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Elazaroo\PulseBoosted\Recorders\Traces as TracesRecorder;
 use Elazaroo\PulseBoosted\Schedule\WatchSchedule;
+use Elazaroo\PulseBoosted\Settings\Settings;
 use Elazaroo\PulseBoosted\Storage\DatabaseStorage;
 use Elazaroo\PulseBoosted\Traces\Trace;
 use Elazaroo\PulseBoosted\Traces\Tracer;
@@ -46,6 +48,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\Console\AboutCommand;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Queue\Queue as QueueBase;
@@ -95,6 +98,7 @@ class PulseServiceProvider extends ServiceProvider
         $this->app->singleton(IssueRepository::class);
         $this->app->singleton(AlertManager::class);
         $this->app->singleton(Deployments::class);
+        $this->app->singleton(Settings::class);
 
         $this->callAfterResolving(Tracer::class, function (Tracer $tracer, Application $app) {
             $tracer->whenFinishing(fn (Trace $trace) => $app->make(PerformanceThresholds::class)($trace));
@@ -121,6 +125,10 @@ class PulseServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Settings changed from the dashboard win over config, so they are laid
+        // over it before anything reads it.
+        $this->app->make(Settings::class)->apply();
+
         if ($this->app->make('config')->get('pulse-boosted.enabled')) {
             $this->app->make(Pulse::class)->register($this->app->make('config')->get('pulse-boosted.recorders'));
             $this->listenForEvents();
@@ -175,6 +183,10 @@ class PulseServiceProvider extends ServiceProvider
                     // links people already have keep working, and so a job can
                     // still be linked to directly; both land on the dashboard
                     // with the right thing open.
+                    $router->get('/settings', function (ViewFactory $view) {
+                        return $view->make('pulse-boosted::settings');
+                    })->name('pulse-boosted.settings');
+
                     $router->get('/queues', function () {
                         return redirect()->route('pulse-boosted');
                     })->name('pulse-boosted.queues');
@@ -275,6 +287,9 @@ class PulseServiceProvider extends ServiceProvider
         // Under a lock, so the rules are checked once across the fleet rather
         // than once per server. An alert is a thing that should fire once.
         $this->callAfterResolving(Dispatcher::class, function (Dispatcher $event, Application $app) {
+            // Workers and the check command outlive a request, so they pick up
+            // settings changed from the dashboard as they go.
+            $event->listen([JobProcessing::class, IsolatedBeat::class, SharedBeat::class], fn () => $app->make(Settings::class)->refreshIfStale());
             $event->listen(IsolatedBeat::class, EvaluateAlerts::class);
             $event->listen([IssueOpened::class, IssueRegressed::class], SendIssueMail::class);
             $event->listen([
@@ -428,6 +443,7 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.trace-viewer', Livewire\TraceViewer::class);
             $livewire->component('pulse-boosted.person-viewer', Livewire\PersonViewer::class);
             $livewire->component('pulse-boosted.search', Livewire\Search::class);
+            $livewire->component('pulse-boosted.settings', Livewire\Settings::class);
             $livewire->component('pulse-boosted.issues', Livewire\Issues::class);
             $livewire->component('pulse-boosted.logs', Livewire\Logs::class);
             $livewire->component('pulse-boosted.mail', Livewire\Mail::class);
