@@ -3,6 +3,8 @@
     row out of line. Jobs and traces earn the full width.
 --}}
 <x-pulse>
+    <livewire:pulse-boosted.alerts cols="full" />
+
     <livewire:pulse-boosted.servers cols="full" />
 
     <livewire:pulse-boosted.queue-status cols="6" />

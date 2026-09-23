@@ -210,6 +210,89 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Alerts
+    |--------------------------------------------------------------------------
+    |
+    | A dashboard tells you something is wrong once you go and look at it. A
+    | rule is what saves you from having to. Each one is a metric, a threshold
+    | and a window; when a reading breaches it, an episode opens, and when the
+    | reading recovers the episode closes.
+    |
+    | Pulse Boosted does not send alerts anywhere, because where an alert
+    | should go is your application's business, not the dashboard's. Listen
+    | for AlertTriggered and AlertResolved and notify however you already do.
+    |
+    | Rules are evaluated on the isolated beat of pulse-boosted:check, so they
+    | run once across the fleet rather than once per server.
+    |
+    | Available metrics:
+    |
+    |   exceptions       Exceptions thrown in the window. Never sampled.
+    |   new_issues       Bugs seen for the first time in the window.
+    |   failed_jobs      Jobs that failed in the window. Takes a 'queue'.
+    |   queue_size       Jobs waiting right now. Takes a 'queue' and a
+    |                    'connection'; the default connection, and every queue
+    |                    on it, when they are omitted.
+    |   error_rate       Percentage of traced executions that failed.
+    |   p95_duration     What the slowest 5% of executions exceeded, in ms.
+    |   slow_executions  Executions over 'slower_than' ms.
+    |
+    | error_rate, p95_duration and slow_executions read traces, which are
+    | sampled, and take an optional 'type' of request, job, command or
+    | schedule.
+    |
+    */
+
+    'alerts' => [
+        'enabled' => env('PULSE_BOOSTED_ALERTS_ENABLED', true),
+
+        /*
+         * How often the rules are checked. More often than a minute is rarely
+         * worth the queries.
+         */
+        'check_every' => env('PULSE_BOOSTED_ALERTS_CHECK_EVERY', '1 minute'),
+
+        /*
+         * Settled episodes are dropped after this long. Open ones are kept
+         * however old, because they are still happening.
+         */
+        'trim' => [
+            'keep' => env('PULSE_BOOSTED_ALERTS_KEEP', '7 days'),
+        ],
+
+        /*
+         * Nothing is watched until you say so. These are here as a shape to
+         * copy rather than defaults worth having: what counts as too many
+         * depends entirely on your traffic.
+         */
+        'rules' => [
+            // [
+            //     'name' => 'Error rate',
+            //     'metric' => 'error_rate',
+            //     'threshold' => 5,
+            //     'comparison' => 'above',
+            //     'window' => '5 minutes',
+            //     'options' => ['type' => 'request'],
+            //     'description' => 'More than 5% of requests are failing.',
+            // ],
+            // [
+            //     'name' => 'Default queue backing up',
+            //     'metric' => 'queue_size',
+            //     'threshold' => 1000,
+            //     'options' => ['queue' => 'default'],
+            // ],
+            // [
+            //     'name' => 'Slow requests',
+            //     'metric' => 'p95_duration',
+            //     'threshold' => 2000,
+            //     'window' => '15 minutes',
+            //     'options' => ['type' => 'request'],
+            // ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Queue Inspection
     |--------------------------------------------------------------------------
     |

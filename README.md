@@ -226,6 +226,96 @@ usually takes 40ms and occasionally takes eight seconds averages out to
 something that looks fine.
 
 Every row on every card opens the trace behind it.
+## Alerts
+
+A dashboard tells you something is wrong once you go and look at it. A rule is
+what saves you from having to. Each one is a metric, a threshold and a window;
+when a reading breaches it an episode opens, and when the reading recovers the
+episode closes. The Alerts card shows what is breaching now, what is being
+watched, and what has breached before.
+
+```php
+// config/pulse-boosted.php
+'alerts' => [
+    'enabled' => true,
+    'check_every' => '1 minute',
+    'rules' => [
+        [
+            'name' => 'Error rate',
+            'metric' => 'error_rate',
+            'threshold' => 5,
+            'comparison' => 'above',   // or 'below'
+            'window' => '5 minutes',
+            'options' => ['type' => 'request'],
+            'description' => 'More than 5% of requests are failing.',
+        ],
+        [
+            'name' => 'Default queue backing up',
+            'metric' => 'queue_size',
+            'threshold' => 1000,
+            'options' => ['queue' => 'default'],
+        ],
+    ],
+],
+```
+
+| Metric | What it reads |
+| --- | --- |
+| `exceptions` | Exceptions thrown in the window. Never sampled, so this is a true count. |
+| `new_issues` | Bugs seen for the first time in the window. A spike is a deploy that went wrong. |
+| `failed_jobs` | Jobs that failed in the window. Takes a `queue`. |
+| `queue_size` | Jobs waiting right now. Takes a `queue` and a `connection`. |
+| `error_rate` | Percentage of traced executions that failed. |
+| `p95_duration` | What the slowest 5% of executions exceeded, in milliseconds. |
+| `slow_executions` | Executions over `slower_than` milliseconds. |
+
+The last three read traces, which are sampled, and take an optional `type` of
+`request`, `job`, `command` or `schedule`. A ratio taken from a sample is still
+the right ratio, but a count taken from one is a tenth of the truth at the
+default sample rate — so thresholds on `slow_executions` should be set from
+what the dashboard shows, not from what you believe your traffic to be.
+
+A metric that cannot be read — a queue driver that cannot count itself, a
+window with no traffic in it — reads as unknown, and a rule never trips on an
+unknown. "We do not know" is not the same as "it is bad".
+
+`queue_size` looks at one connection, the default unless the rule names
+another, because adding every configured connection together would double count
+where two of them are the same backend under a second name.
+
+### Being told
+
+Pulse Boosted does not send alerts anywhere. Where an alert should go is your
+application's business, not the dashboard's, and you already have a way of
+notifying people:
+
+```php
+use Elazaroo\PulseBoosted\Events\AlertResolved;
+use Elazaroo\PulseBoosted\Events\AlertTriggered;
+
+Event::listen(function (AlertTriggered $event) {
+    Notification::route('slack', config('alerting.slack'))
+        ->notify(new SomethingIsWrong($event->rule->name, $event->value));
+});
+
+Event::listen(function (AlertResolved $event) {
+    // Worth sending too: an alert nobody is told has ended is an alert
+    // somebody is still worrying about.
+});
+```
+
+Rules are evaluated on the isolated beat of `pulse-boosted:check`, under a
+lock, so they run once across the fleet rather than once per server. To see
+what each rule reads right now:
+
+```sh
+php artisan pulse-boosted:alerts            # checks, and opens or closes episodes
+php artisan pulse-boosted:alerts --dry-run  # reads only, changes nothing
+```
+
+It exits non-zero when anything is breaching, so it also works as a health
+check from outside.
+
 ## The queue explorer
 
 `/pulse-boosted/queues` reads from two places and says which is which.
@@ -254,6 +344,7 @@ Listing never pops: the database inspector runs a `SELECT` and the Redis one use
 | `pulse-boosted:work` | Process the ingest stream |
 | `pulse-boosted:restart` | Signal workers to restart |
 | `pulse-boosted:clear` | Purge stored data |
+| `pulse-boosted:alerts` | Check the alert rules and show what each one reads |
 
 ## Relationship to Laravel Pulse
 

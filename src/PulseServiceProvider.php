@@ -3,9 +3,12 @@
 namespace Elazaroo\PulseBoosted;
 
 use Composer\InstalledVersions;
+use Elazaroo\PulseBoosted\Alerts\AlertManager;
+use Elazaroo\PulseBoosted\Alerts\EvaluateAlerts;
 use Elazaroo\PulseBoosted\Contracts\Ingest;
 use Elazaroo\PulseBoosted\Contracts\ResolvesUsers;
 use Elazaroo\PulseBoosted\Contracts\Storage;
+use Elazaroo\PulseBoosted\Events\IsolatedBeat;
 use Elazaroo\PulseBoosted\Ingests\NullIngest;
 use Elazaroo\PulseBoosted\Ingests\RedisIngest;
 use Elazaroo\PulseBoosted\Ingests\StorageIngest;
@@ -66,6 +69,7 @@ class PulseServiceProvider extends ServiceProvider
         // Singleton because it holds the execution context for this process.
         $this->app->singleton(Tracer::class);
         $this->app->singleton(IssueRepository::class);
+        $this->app->singleton(AlertManager::class);
 
         $this->registerIngest();
     }
@@ -207,6 +211,12 @@ class PulseServiceProvider extends ServiceProvider
             });
         });
 
+        // Under a lock, so the rules are checked once across the fleet rather
+        // than once per server. An alert is a thing that should fire once.
+        $this->callAfterResolving(Dispatcher::class, function (Dispatcher $event, Application $app) {
+            $event->listen(IsolatedBeat::class, EvaluateAlerts::class);
+        });
+
         $this->callAfterResolving(Dispatcher::class, function (Dispatcher $event, Application $app) {
             $event->listen([
                 RequestReceived::class, // @phpstan-ignore class.notFound
@@ -265,12 +275,15 @@ class PulseServiceProvider extends ServiceProvider
             $issues = $app->make(IssueRepository::class);
             $issues->flush();
 
+            $alerts = $app->make(AlertManager::class);
+
             $odds = $app->make('config')->get('pulse-boosted.ingest.trim.lottery') ?? [1, 1_000];
 
             Lottery::odds(...$odds)
-                ->winner(function () use ($tracer, $issues) {
+                ->winner(function () use ($tracer, $issues, $alerts) {
                     $tracer->trim();
                     $issues->trim();
+                    $alerts->trim();
                 })
                 ->choose();
         });
@@ -314,6 +327,7 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.notifications', Livewire\Notifications::class);
             $livewire->component('pulse-boosted.commands', Livewire\Commands::class);
             $livewire->component('pulse-boosted.scheduled-tasks', Livewire\ScheduledTasks::class);
+            $livewire->component('pulse-boosted.alerts', Livewire\Alerts::class);
         });
     }
 
@@ -358,6 +372,7 @@ class PulseServiceProvider extends ServiceProvider
                 Commands\CheckCommand::class,
                 Commands\RestartCommand::class,
                 Commands\ClearCommand::class,
+                Commands\AlertsCommand::class,
             ]);
 
             AboutCommand::add('Pulse Boosted', fn () => [
