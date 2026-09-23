@@ -34,6 +34,12 @@ return new class extends PulseMigration
             $table->unsignedBigInteger('duration_ms')->nullable();
             $table->string('status', 16)->default('ok');
 
+            // Whether this execution won the sampling draw. One that lost it is
+            // still kept when it failed, threw or was slow — but it must not
+            // count towards rates and percentiles, or keeping every failure
+            // and a tenth of the successes would make the error rate lie.
+            $table->boolean('sampled')->default(true);
+
             $table->string('user_id')->nullable();
             $table->mediumText('meta')->nullable();
 

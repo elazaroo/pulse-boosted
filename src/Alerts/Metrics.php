@@ -206,9 +206,12 @@ class Metrics
      */
     protected function executions(int $since, AlertRule $rule): Builder
     {
+        // Sampled executions only. Failures are kept even when they lose the
+        // draw; counting those too would inflate every rate worked out here.
         $query = $this->connection()
             ->table('pulse_boosted_traces')
-            ->where('started_at', '>=', $since);
+            ->where('started_at', '>=', $since)
+            ->where('sampled', true);
 
         if (($type = $rule->option('type')) !== null) {
             $query->where('type', $type);

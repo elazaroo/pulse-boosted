@@ -34,6 +34,12 @@ class Trace
     protected ?string $userId = null;
 
     /**
+     * Why this execution should be written even though it lost the sampling
+     * draw, once something has made it worth keeping.
+     */
+    protected ?string $keepBecause = null;
+
+    /**
      * Whatever the application chose to attach to this execution.
      *
      * @var array<string, scalar|null>
@@ -56,6 +62,7 @@ class Trace
         public readonly string $name,
         public readonly CarbonImmutable $startedAt,
         protected array $meta = [],
+        public readonly bool $sampled = true,
     ) {
         //
     }
@@ -100,6 +107,40 @@ class Trace
         }
 
         return $this;
+    }
+
+    /**
+     * Keep this execution whatever the sampling draw said.
+     */
+    public function keep(string $because): void
+    {
+        $this->keepBecause ??= $because;
+    }
+
+    /**
+     * Whether it should be written, and if it was not sampled, why.
+     *
+     * @param  array{failed?: bool, exceptions?: bool, slower_than?: int|float|null}  $rules
+     */
+    public function worthKeeping(array $rules): bool
+    {
+        if ($this->sampled) {
+            return true;
+        }
+
+        if (($rules['failed'] ?? true) && $this->status === 'failed') {
+            $this->keep('failed');
+        }
+
+        if (($rules['slower_than'] ?? null) !== null && $this->durationMs !== null && $this->durationMs >= (float) $rules['slower_than']) {
+            $this->keep('slow');
+        }
+
+        if ($this->keepBecause === 'exception' && ! ($rules['exceptions'] ?? true)) {
+            $this->keepBecause = null;
+        }
+
+        return $this->keepBecause !== null;
     }
 
     /**
@@ -178,6 +219,10 @@ class Trace
     {
         $meta = $this->meta;
 
+        if (! $this->sampled && $this->keepBecause !== null) {
+            $meta['kept_because'] = $this->keepBecause;
+        }
+
         if ($this->context !== []) {
             $meta['context'] = $this->context;
         }
@@ -190,6 +235,7 @@ class Trace
             'started_at' => $this->startedAt->getTimestamp(),
             'duration_ms' => $this->durationMs === null ? null : (int) round($this->durationMs),
             'status' => $this->status,
+            'sampled' => $this->sampled,
             'user_id' => $this->userId,
             'meta' => $meta === [] ? null : json_encode($meta, JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR),
         ];

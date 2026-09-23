@@ -130,6 +130,14 @@ keep that in hand:
   not at all — half a trace is worse than none, because the gaps read as time
   the application spent idle. The default is 10% of requests, 50% of jobs, and
   everything for commands and scheduled tasks, which are rare.
+- **The verdict waits until the end.** Every execution is recorded in memory
+  as it runs; the sample decides afterwards whether it is written. One that
+  lost the draw is written anyway if it failed, threw — even an exception the
+  application caught — or ran slower than `traces.keep.slower_than`
+  milliseconds, because those are the traces you come looking for. They are
+  marked *kept* in the list, and left out of error rates and percentiles,
+  which are worked out from sampled executions alone so keeping every failure
+  cannot make the error rate lie.
 - **A per-trace cap** of 500 events, so a loop that queries a thousand times
   writes 500 rows and the timeline says how many it dropped.
 - **A day's retention**, against a week for the aggregates.

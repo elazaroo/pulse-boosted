@@ -81,7 +81,13 @@ class Tracer
             return;
         }
 
-        if (! $this->shouldSample($type)) {
+        // The draw happens now, but the verdict waits: an execution that
+        // lost it is still recorded, in memory, in case it turns out to be
+        // one worth keeping. Only if nothing could make it so is there no
+        // point recording at all.
+        $sampled = $this->shouldSample($type);
+
+        if (! $sampled && ! $this->keepsUnsampled()) {
             return;
         }
 
@@ -92,6 +98,7 @@ class Tracer
             name: $name,
             startedAt: CarbonImmutable::now(),
             meta: $meta,
+            sampled: $sampled,
         );
 
         $this->inheritedParent = null;
@@ -108,6 +115,10 @@ class Tracer
         // full of Pulse's inserts is noise in someone else's timeline.
         if ($this->paused || $this->current === null || ! $this->pulse->recording()) {
             return;
+        }
+
+        if ($type === TraceEvent::EXCEPTION) {
+            $this->current->keep('exception');
         }
 
         $this->current->add(new TraceEvent(
@@ -131,9 +142,13 @@ class Tracer
             return;
         }
 
-        $this->buffer[] = $this->current->finish($status, $meta);
+        $trace = $this->current->finish($status, $meta);
 
         $this->current = null;
+
+        if ($trace->worthKeeping($this->keepRules())) {
+            $this->buffer[] = $trace;
+        }
     }
 
     /**
@@ -342,6 +357,32 @@ class Tracer
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /**
+     * What makes an execution that lost the draw worth writing anyway.
+     *
+     * @return array{failed: bool, exceptions: bool, slower_than: int|float|null}
+     */
+    protected function keepRules(): array
+    {
+        $slowerThan = $this->config->get('pulse-boosted.traces.keep.slower_than', 1000);
+
+        return [
+            'failed' => (bool) $this->config->get('pulse-boosted.traces.keep.failed', true),
+            'exceptions' => (bool) $this->config->get('pulse-boosted.traces.keep.exceptions', true),
+            'slower_than' => $slowerThan === null || $slowerThan === '' ? null : (float) $slowerThan,
+        ];
+    }
+
+    /**
+     * Whether anything could make an unsampled execution worth keeping.
+     */
+    protected function keepsUnsampled(): bool
+    {
+        $rules = $this->keepRules();
+
+        return $rules['failed'] || $rules['exceptions'] || $rules['slower_than'] !== null;
     }
 
     /**

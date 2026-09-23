@@ -192,8 +192,11 @@ class TraceRepository
      */
     public function summaryByName(string $type, int $sample = 2000): Collection
     {
+        // Sampled executions only, for the same reason as the alert metrics:
+        // failures kept regardless of the draw would skew every figure.
         $rows = $this->pulse->ignore(fn () => $this->table()
             ->where('type', $type)
+            ->where('sampled', true)
             ->orderByDesc('id')
             ->limit($sample)
             ->get(['trace_id', 'name', 'duration_ms', 'status', 'started_at']));

@@ -201,6 +201,25 @@ return [
         ],
 
         /*
+         * Executions worth keeping even when they lose the sampling draw.
+         *
+         * Every execution is recorded in memory as it runs; sampling decides
+         * afterwards whether it is written. One that failed, threw — even an
+         * exception the application caught — or ran slower than the given
+         * milliseconds is written regardless, because those are the traces
+         * you come looking for. Set slower_than to null to keep slow ones
+         * only when sampled.
+         *
+         * Traces kept this way are marked, and left out of error rates and
+         * percentiles, which are worked out from the sampled ones alone.
+         */
+        'keep' => [
+            'failed' => env('PULSE_BOOSTED_TRACES_KEEP_FAILED', true),
+            'exceptions' => env('PULSE_BOOSTED_TRACES_KEEP_EXCEPTIONS', true),
+            'slower_than' => env('PULSE_BOOSTED_TRACES_KEEP_SLOWER_THAN', 1000),
+        ],
+
+        /*
          * The most events one trace may hold. A loop that queries in a
          * thousand iterations should not write a thousand rows; the timeline
          * says how many were dropped.

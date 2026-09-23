@@ -97,6 +97,9 @@
                                         <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
                                     @endif
                                     <code class="block text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-accent-500" title="{{ $row->name }}">{{ $row->name }}</code>
+                                    @if (! ($row->sampled ?? true))
+                                        <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-medium text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-700" title="Lost the sampling draw, kept because it {{ ['failed' => 'failed', 'exception' => 'threw an exception', 'slow' => 'was slow'][json_decode($row->meta ?? '{}', true)['kept_because'] ?? ''] ?? 'mattered' }}">kept</span>
+                                    @endif
                                 </div>
                             </x-pulse-boosted::td>
                             <x-pulse-boosted::td class="text-gray-500 dark:text-gray-400 text-xs capitalize">{{ $row->type }}</x-pulse-boosted::td>
@@ -143,6 +146,11 @@
                                 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300' => $trace->status === 'ok',
                                 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' => $trace->status !== 'ok',
                             ])>{{ $trace->status }}</span>
+                            @if (! ($trace->sampled ?? true))
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium shrink-0 border border-dashed border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400">
+                                    Kept: {{ ['failed' => 'it failed', 'exception' => 'it threw', 'slow' => 'it was slow'][$detail['meta']['kept_because'] ?? ''] ?? 'it mattered' }}
+                                </span>
+                            @endif
                         </div>
                         <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                             {{ Str::headline($trace->type) }} &middot; {{ number_format((int) $trace->duration_ms) }} ms &middot;
