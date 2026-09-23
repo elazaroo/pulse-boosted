@@ -231,6 +231,137 @@ class TraceRepository
     }
 
     /**
+     * Every query the sampled executions ran, grouped by what it is.
+     *
+     * Pulse's own card lists the slow ones; this lists all of them, because
+     * the query that costs the most is usually a fast one run ten thousand
+     * times, not a slow one run once.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function queryGroups(string $search = '', string $orderBy = 'total', int $sample = 5000, int $limit = 100): Collection
+    {
+        $rows = $this->pulse->ignore(fn () => $this->connection()
+            ->table('pulse_boosted_trace_events as e')
+            ->join('pulse_boosted_traces as t', 't.trace_id', '=', 'e.trace_id')
+            ->where('e.type', 'query')
+            // Sampled executions only, so the counts are a fair sample rather
+            // than one weighted towards the failures kept regardless.
+            ->where('t.sampled', true)
+            ->orderByDesc('e.id')
+            ->limit($sample)
+            ->get(['e.label', 'e.duration_ms', 'e.meta', 'e.trace_id']));
+
+        $groups = [];
+
+        foreach ($rows as $row) {
+            $meta = json_decode((string) ($row->meta ?? ''), true);
+            $meta = is_array($meta) ? $meta : [];
+
+            $sql = QueryOrigin::normalize((string) $row->label);
+            $connection = (string) ($meta['connection'] ?? '');
+            $key = $connection.'|'.$sql;
+
+            $groups[$key] ??= [
+                'sql' => $sql,
+                'connection' => $connection,
+                'durations' => [],
+                'locations' => [],
+                'slowestMs' => -1,
+                'slowestTrace' => null,
+            ];
+
+            $duration = (int) ($row->duration_ms ?? 0);
+
+            $groups[$key]['durations'][] = $duration;
+
+            if (isset($meta['file'])) {
+                $location = $meta['file'].':'.($meta['line'] ?? '?');
+                $groups[$key]['locations'][$location] = ($groups[$key]['locations'][$location] ?? 0) + 1;
+            }
+
+            if ($duration > $groups[$key]['slowestMs']) {
+                $groups[$key]['slowestMs'] = $duration;
+                $groups[$key]['slowestTrace'] = $row->trace_id;
+            }
+        }
+
+        return collect($groups)
+            ->when($search !== '', fn (Collection $groups) => $groups->filter(fn (array $group) => stripos($group['sql'], $search) !== false))
+            ->map(function (array $group) {
+                $durations = collect($group['durations'])->sort()->values();
+
+                arsort($group['locations']);
+
+                return [
+                    'sql' => $group['sql'],
+                    'connection' => $group['connection'],
+                    'calls' => $durations->count(),
+                    'total' => (int) $durations->sum(),
+                    'avg' => (int) round((float) $durations->avg()),
+                    'p95' => $this->percentile($durations, 95),
+                    'max' => (int) $durations->max(),
+                    'location' => array_key_first($group['locations']),
+                    'locations' => count($group['locations']),
+                    'traceId' => $group['slowestTrace'],
+                ];
+            })
+            ->sortByDesc(fn (array $group) => $group[in_array($orderBy, ['calls', 'avg', 'p95', 'total'], true) ? $orderBy : 'total'])
+            ->take($limit)
+            ->values();
+    }
+
+    /**
+     * Requests grouped by route, with how they answered and how long they took.
+     *
+     * Grouped by the route's pattern rather than the URL, so /orders/41 and
+     * /orders/42 are one row: the route is the thing that has a performance.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function routeGroups(string $search = '', string $orderBy = 'calls', int $sample = 5000): Collection
+    {
+        $rows = $this->pulse->ignore(fn () => $this->table()
+            ->where('type', 'request')
+            ->where('sampled', true)
+            ->orderByDesc('id')
+            ->limit($sample)
+            ->get(['trace_id', 'name', 'duration_ms', 'status', 'meta']));
+
+        return $rows
+            ->groupBy('name')
+            ->map(function (Collection $group, string $name) {
+                $statuses = $group->map(function (object $row) {
+                    $meta = json_decode((string) ($row->meta ?? ''), true);
+
+                    return (int) (is_array($meta) ? ($meta['status'] ?? 0) : 0);
+                });
+
+                $durations = $group->pluck('duration_ms')->filter(fn ($value) => $value !== null)->map(fn ($value) => (int) $value)->sort()->values();
+
+                [$method, $path] = array_pad(explode(' ', $name, 2), 2, '');
+
+                $slowest = $group->sortByDesc(fn (object $row) => (int) ($row->duration_ms ?? 0))->first();
+
+                return [
+                    'name' => $name,
+                    'method' => $method,
+                    'path' => $path,
+                    'calls' => $group->count(),
+                    'ok' => $statuses->filter(fn (int $status) => $status > 0 && $status < 400)->count(),
+                    'client' => $statuses->filter(fn (int $status) => $status >= 400 && $status < 500)->count(),
+                    'server' => $statuses->filter(fn (int $status) => $status >= 500)->count(),
+                    'avg' => $durations->isEmpty() ? null : (int) round((float) $durations->avg()),
+                    'p95' => $this->percentile($durations, 95),
+                    'traceId' => $slowest?->trace_id,
+                ];
+            })
+            ->when($search !== '', fn (Collection $groups) => $groups->filter(fn (array $group) => stripos($group['name'], $search) !== false))
+            ->sortByDesc(fn (array $group) => $group[in_array($orderBy, ['calls', 'avg', 'p95', 'server'], true) ? $orderBy : 'calls'] ?? 0)
+            ->values();
+    }
+
+    /**
      * The value below which the given share of a sorted set falls.
      *
      * @param  Collection<int, int>  $sorted

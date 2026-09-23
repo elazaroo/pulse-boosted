@@ -29,6 +29,8 @@
     <livewire:pulse-boosted.logs cols="full" rows="2" />
 
     <x-pulse-boosted::section id="performance" title="Performance" />
+    <livewire:pulse-boosted.routes cols="full" />
+    <livewire:pulse-boosted.queries cols="full" />
     <livewire:pulse-boosted.slow-requests cols="6" />
     <livewire:pulse-boosted.slow-queries cols="6" />
     <livewire:pulse-boosted.slow-outgoing-requests cols="6" />

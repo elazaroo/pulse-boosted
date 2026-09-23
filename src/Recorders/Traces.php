@@ -5,6 +5,7 @@ namespace Elazaroo\PulseBoosted\Recorders;
 use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Events\ExceptionReported;
 use Elazaroo\PulseBoosted\Traces\MarksControllerStage;
+use Elazaroo\PulseBoosted\Traces\QueryOrigin;
 use Elazaroo\PulseBoosted\Traces\Stage;
 use Elazaroo\PulseBoosted\Traces\TraceEvent;
 use Elazaroo\PulseBoosted\Traces\Tracer;
@@ -160,7 +161,23 @@ class Traces
 
         $startedAt = $this->requestStartedAt($event->request);
 
-        $this->tracer->start('request', $event->request->method().' /'.ltrim($name, '/'), [
+        $label = $event->request->method().' /'.ltrim($name, '/');
+
+        // Every Livewire interaction goes to the same update route, which
+        // would make them one row. Named by the components instead, each
+        // interaction is its own thing — and the dashboard's own polling can
+        // be recognised and left out.
+        if (($components = $this->livewireComponents($event->request, $name)) !== null) {
+            if ($components !== [] && collect($components)->every(fn (string $component) => str_starts_with($component, 'pulse-boosted.'))) {
+                return;
+            }
+
+            if ($components !== []) {
+                $label = 'LIVEWIRE '.implode(', ', $components);
+            }
+        }
+
+        $this->tracer->start('request', $label, [
             'method' => $event->request->method(),
             'uri' => $event->request->path(),
             'route' => $event->route->getName(),
@@ -184,6 +201,33 @@ class Traces
         }
 
         $this->markControllerStart($event->route);
+    }
+
+    /**
+     * The components a Livewire update request is for, or null if it is not
+     * one.
+     *
+     * @return list<string>|null
+     */
+    protected function livewireComponents(Request $request, string $uri): ?array
+    {
+        if (! preg_match('#(^|/)livewire[^/]*/update$#', $uri)) {
+            return null;
+        }
+
+        $names = [];
+
+        foreach ((array) $request->input('components', []) as $component) {
+            $snapshot = is_array($component) ? ($component['snapshot'] ?? null) : null;
+            $snapshot = is_string($snapshot) ? json_decode($snapshot, true) : null;
+            $name = is_array($snapshot) ? ($snapshot['memo']['name'] ?? null) : null;
+
+            if (is_string($name) && $name !== '') {
+                $names[] = $name;
+            }
+        }
+
+        return array_values(array_unique($names));
     }
 
     /**
@@ -321,9 +365,21 @@ class Traces
      */
     protected function query(QueryExecuted $event): void
     {
-        $this->tracer->event(TraceEvent::QUERY, $event->sql, $event->time, [
-            'connection' => $event->connectionName,
-        ]);
+        if (! $this->tracer->recording()) {
+            return;
+        }
+
+        $meta = ['connection' => $event->connectionName];
+
+        // Where in the application it was run from — the line to go and
+        // change. Only worked out for executions being recorded, since a
+        // backtrace per query is not free.
+        if (($origin = QueryOrigin::find(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 40))) !== null) {
+            $meta['file'] = $origin[0];
+            $meta['line'] = $origin[1];
+        }
+
+        $this->tracer->event(TraceEvent::QUERY, $event->sql, $event->time, $meta);
     }
 
     /**
