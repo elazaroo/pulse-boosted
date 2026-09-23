@@ -64,12 +64,12 @@ class LogStream
      *
      * @return Collection<int, stdClass>
      */
-    public function entries(string $level = '', string $search = '', int $limit = 20, int $offset = 0): Collection
+    public function entries(string $level = '', string $search = '', int $limit = 20, int $offset = 0, string $user = ''): Collection
     {
         $wanted = $offset + $limit;
 
-        $logs = $level === self::EXCEPTIONS ? collect() : $this->logs($level, $search, $wanted);
-        $exceptions = $level === '' || $level === self::EXCEPTIONS ? $this->exceptions($search, $wanted) : collect();
+        $logs = $level === self::EXCEPTIONS ? collect() : $this->logs($level, $search, $wanted, $user);
+        $exceptions = $level === '' || $level === self::EXCEPTIONS ? $this->exceptions($search, $wanted, $user) : collect();
 
         return $logs
             ->concat($exceptions)
@@ -108,7 +108,7 @@ class LogStream
      *
      * @return Collection<int, stdClass>
      */
-    protected function logs(string $level, string $search, int $limit): Collection
+    protected function logs(string $level, string $search, int $limit, string $user = ''): Collection
     {
         return $this->pulse->ignore(fn () => $this->connection()
             ->table('pulse_boosted_trace_events as e')
@@ -116,6 +116,7 @@ class LogStream
             ->where('e.type', 'log')
             ->when($level !== '', fn (Builder $query) => $query->where('e.level', $level))
             ->when($search !== '', fn (Builder $query) => $query->where('e.label', 'like', $this->like($search)))
+            ->when($user !== '', fn (Builder $query) => $query->where('t.user_id', $user))
             ->orderByDesc('e.id')
             ->limit($limit)
             ->get(['e.id', 'e.trace_id', 'e.label', 'e.level', 'e.meta', 'e.offset_ms', 't.name as execution', 't.started_at'])
@@ -146,7 +147,7 @@ class LogStream
      *
      * @return Collection<int, stdClass>
      */
-    protected function exceptions(string $search, int $limit): Collection
+    protected function exceptions(string $search, int $limit, string $user = ''): Collection
     {
         return $this->pulse->ignore(fn () => $this->connection()
             ->table('pulse_boosted_issue_occurrences as o')
@@ -157,6 +158,7 @@ class LogStream
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->where('i.class', 'like', $this->like($search))
                 ->orWhere('i.message', 'like', $this->like($search))))
+            ->when($user !== '', fn (Builder $query) => $query->where('o.user_id', $user))
             ->orderByDesc('o.id')
             ->limit($limit)
             ->get(['o.id', 'o.occurred_at', 'o.handled', 'i.class', 'i.kind', 'i.message', 'i.file', 'i.line', 't.trace_id', 't.name as execution'])

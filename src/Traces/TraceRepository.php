@@ -423,8 +423,10 @@ class TraceRepository
     {
         $query = $this->table();
 
-        foreach (['type', 'status'] as $column) {
-            if (($value = $filters[$column] ?? null) !== null && $value !== '') {
+        foreach (['type', 'status', 'user' => 'user_id'] as $filter => $column) {
+            $filter = is_int($filter) ? $column : $filter;
+
+            if (($value = $filters[$filter] ?? null) !== null && $value !== '') {
                 $query->where($column, $value);
             }
         }

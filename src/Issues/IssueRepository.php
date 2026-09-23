@@ -421,6 +421,11 @@ class IssueRepository
             $query->where('handled', $handled === 'handled');
         }
 
+        // Issues this user ran into, going by the occurrences still kept.
+        if (($user = $filters['user'] ?? null) !== null && $user !== '') {
+            $query->whereIn('fingerprint', $this->occurrences()->select('fingerprint')->where('user_id', $user));
+        }
+
         if (($search = $filters['search'] ?? null) !== null && $search !== '') {
             $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 

@@ -26,6 +26,8 @@ use Livewire\Attributes\Url;
 #[Lazy]
 class Issues extends Card
 {
+    use Concerns\FiltersByUser;
+
     public const PER_PAGE = 15;
 
     #[Url(as: 'issue_status')]
@@ -132,6 +134,7 @@ class Issues extends Card
             'status' => $this->status ?: null,
             'kind' => $this->kind ?: null,
             'handled' => $this->handled ?: null,
+            'user' => $this->user ?: null,
             'search' => $this->search ?: null,
         ], fn ($value) => $value !== null);
 

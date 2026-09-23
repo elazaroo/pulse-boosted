@@ -110,6 +110,7 @@
                             </span>
                             Live
                         </span>
+                        <livewire:pulse-boosted.user-filter />
                         <livewire:pulse-boosted.period-selector />
                         <x-pulse-boosted::theme-switcher />
                     </div>

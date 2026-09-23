@@ -382,6 +382,7 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.scheduled-tasks', Livewire\ScheduledTasks::class);
             $livewire->component('pulse-boosted.alerts', Livewire\Alerts::class);
             $livewire->component('pulse-boosted.overview', Livewire\Overview::class);
+            $livewire->component('pulse-boosted.user-filter', Livewire\UserFilter::class);
             $livewire->component('pulse-boosted.routes', Livewire\Routes::class);
             $livewire->component('pulse-boosted.queries', Livewire\Queries::class);
         });

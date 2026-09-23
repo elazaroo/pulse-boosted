@@ -21,6 +21,8 @@ use Livewire\Attributes\Url;
 #[Lazy]
 class Logs extends Card
 {
+    use Concerns\FiltersByUser;
+
     public const PER_PAGE = 20;
 
     /**
@@ -60,7 +62,7 @@ class Logs extends Card
         $counts = $stream->counts();
 
         return View::make('pulse-boosted::livewire.logs', [
-            'entries' => $stream->entries($this->logLevel, trim($this->search), self::PER_PAGE, ($this->page - 1) * self::PER_PAGE),
+            'entries' => $stream->entries($this->logLevel, trim($this->search), self::PER_PAGE, ($this->page - 1) * self::PER_PAGE, $this->user),
             'counts' => $counts,
             'total' => array_sum($counts),
         ]);

@@ -27,6 +27,8 @@ use Livewire\Attributes\Url;
 #[Lazy]
 class Traces extends Card
 {
+    use Concerns\FiltersByUser;
+
     public const PER_PAGE = 20;
 
     #[Url(as: 'trace_type')]
@@ -97,6 +99,7 @@ class Traces extends Card
         $filters = array_filter([
             'type' => $this->type ?: null,
             'status' => $this->status ?: null,
+            'user' => $this->user ?: null,
         ], fn ($value) => $value !== null);
 
         return View::make('pulse-boosted::livewire.traces', [
