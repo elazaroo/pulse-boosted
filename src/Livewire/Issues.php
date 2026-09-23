@@ -29,6 +29,25 @@ class Issues extends Card
     #[Url(as: 'issue_q')]
     public string $search = '';
 
+    /**
+     * Exceptions, PHP errors, or both.
+     *
+     * An Exception is usually something the application anticipated; an Error
+     * is usually a bug in the code. They want looking at differently.
+     *
+     * @var ''|'exception'|'error'
+     */
+    #[Url(as: 'issue_kind')]
+    public string $kind = '';
+
+    /**
+     * Most recently seen, or most frequent.
+     *
+     * @var 'latest'|'count'
+     */
+    #[Url(as: 'issue_sort')]
+    public string $orderBy = 'latest';
+
     #[Url(as: 'issue')]
     public ?string $selected = null;
 
@@ -98,14 +117,16 @@ class Issues extends Card
     {
         $filters = array_filter([
             'status' => $this->status ?: null,
+            'kind' => $this->kind ?: null,
             'search' => $this->search ?: null,
         ], fn ($value) => $value !== null);
 
         return View::make('pulse-boosted::livewire.issues', [
             'enabled' => $issues->enabled(),
-            'issues' => $issues->issues($filters, self::PER_PAGE, ($this->page - 1) * self::PER_PAGE),
+            'issues' => $issues->issues($filters, self::PER_PAGE, ($this->page - 1) * self::PER_PAGE, $this->orderBy),
             'total' => $issues->count($filters),
             'statusCounts' => $issues->countsByStatus(),
+            'kindCounts' => $issues->countsByKind($filters),
             'detail' => $this->detail($issues),
             'canManage' => $actions->allowed(),
         ]);

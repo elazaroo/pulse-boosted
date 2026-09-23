@@ -236,3 +236,41 @@ it('records exceptions the application throws, not only ones reported by hand', 
 
     Pulse::flush();
 });
+
+it('tells PHP errors apart from exceptions', function () {
+    $repository = app(IssueRepository::class);
+
+    Pulse::report(new RuntimeException('Anticipated'));
+    Pulse::report(new TypeError('A bug'));
+    $repository->flush();
+
+    expect($repository->countsByKind())->toBe(['' => 2, 'exception' => 1, 'error' => 1]);
+    expect($repository->issues(['kind' => 'error'])[0]->class)->toBe(TypeError::class);
+
+    Livewire::test(Issues::class, ['lazy' => false])
+        ->set('kind', 'exception')
+        ->assertSee('Anticipated')
+        ->assertDontSee('A bug');
+
+    Pulse::flush();
+});
+
+it('sorts by how often an issue happens', function () {
+    $repository = app(IssueRepository::class);
+
+    $often = throwFrom('Often');
+    Pulse::report(new LogicException('Rare'));
+    Pulse::report($often);
+    Pulse::report($often);
+    $repository->flush();
+
+    expect($repository->issues([], orderBy: 'count')[0]->class)->toBe(RuntimeException::class);
+    expect($repository->issues([], orderBy: 'latest')[0]->class)->toBe(RuntimeException::class);
+
+    Pulse::report(new LogicException('Rare'));
+    $repository->flush();
+
+    expect($repository->issues([], orderBy: 'count')[0]->class)->toBe(RuntimeException::class);
+
+    Pulse::flush();
+});

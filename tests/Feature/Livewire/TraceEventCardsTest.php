@@ -1,7 +1,6 @@
 <?php
 
 use Elazaroo\PulseBoosted\Facades\Pulse;
-use Elazaroo\PulseBoosted\Livewire\Logs;
 use Elazaroo\PulseBoosted\Livewire\Mail;
 use Elazaroo\PulseBoosted\Livewire\Notifications;
 use Elazaroo\PulseBoosted\Traces\TraceEvent;
@@ -38,57 +37,39 @@ function traceWithEvent(string $type, string $label, ?string $level = null, stri
     return $traceId;
 }
 
-it('lists log lines with the execution they came from', function () {
-    traceWithEvent(TraceEvent::LOG, 'Payment declined', 'error', 'POST /pay');
-
-    Livewire::test(Logs::class, ['lazy' => false])
-        ->assertSee('Payment declined')
-        ->assertSee('POST /pay');
-});
-
-it('filters logs by level', function () {
-    traceWithEvent(TraceEvent::LOG, 'Disk nearly full', 'warning');
-    traceWithEvent(TraceEvent::LOG, 'Payment declined', 'error');
-
-    Livewire::test(Logs::class, ['lazy' => false])
-        ->set('logLevel', 'error')
-        ->assertSee('Payment declined')
-        ->assertDontSee('Disk nearly full');
-});
-
-it('searches logs by message', function () {
-    traceWithEvent(TraceEvent::LOG, 'Disk nearly full', 'warning');
-    traceWithEvent(TraceEvent::LOG, 'Payment declined', 'error');
-
-    Livewire::test(Logs::class, ['lazy' => false])
-        ->set('search', 'declined')
-        ->assertSee('Payment declined')
-        ->assertDontSee('Disk nearly full');
-});
-
-it('does not let a search term act as a wildcard', function () {
-    traceWithEvent(TraceEvent::LOG, 'Disk nearly full', 'warning');
-
-    Livewire::test(Logs::class, ['lazy' => false])
-        ->set('search', '%')
-        ->assertDontSee('Disk nearly full');
-});
-
-it('resets to the first page when the filters change', function () {
-    traceWithEvent(TraceEvent::LOG, 'Something', 'info');
-
-    Livewire::test(Logs::class, ['lazy' => false])
-        ->set('page', 3)
-        ->set('search', 'some')
-        ->assertSet('page', 1);
-});
-
-it('lists sent mail', function () {
-    traceWithEvent(TraceEvent::MAIL, 'Your invoice is ready');
+it('lists sent mail with the execution it came from', function () {
+    traceWithEvent(TraceEvent::MAIL, 'Your invoice is ready', execution: 'POST /pay');
 
     Livewire::test(Mail::class, ['lazy' => false])
         ->assertSee('Your invoice is ready')
-        ->assertSee('Mail');
+        ->assertSee('POST /pay');
+});
+
+it('searches by subject', function () {
+    traceWithEvent(TraceEvent::MAIL, 'Your invoice is ready');
+    traceWithEvent(TraceEvent::MAIL, 'Welcome aboard');
+
+    Livewire::test(Mail::class, ['lazy' => false])
+        ->set('search', 'invoice')
+        ->assertSee('Your invoice is ready')
+        ->assertDontSee('Welcome aboard');
+});
+
+it('does not let a search term act as a wildcard', function () {
+    traceWithEvent(TraceEvent::MAIL, 'Welcome aboard');
+
+    Livewire::test(Mail::class, ['lazy' => false])
+        ->set('search', '%')
+        ->assertDontSee('Welcome aboard');
+});
+
+it('resets to the first page when the filters change', function () {
+    traceWithEvent(TraceEvent::MAIL, 'Something');
+
+    Livewire::test(Mail::class, ['lazy' => false])
+        ->set('page', 3)
+        ->set('search', 'some')
+        ->assertSet('page', 1);
 });
 
 it('lists delivered notifications', function () {
@@ -99,12 +80,12 @@ it('lists delivered notifications', function () {
 });
 
 it('keeps each card to its own kind of event', function () {
-    traceWithEvent(TraceEvent::LOG, 'A log line', 'info');
+    traceWithEvent(TraceEvent::NOTIFICATION, 'A notification');
     traceWithEvent(TraceEvent::MAIL, 'An email');
 
     Livewire::test(Mail::class, ['lazy' => false])
         ->assertSee('An email')
-        ->assertDontSee('A log line');
+        ->assertDontSee('A notification');
 });
 
 it('says so when there is nothing recorded', function () {
@@ -112,9 +93,9 @@ it('says so when there is nothing recorded', function () {
 });
 
 it('can open the trace a row came from', function () {
-    $traceId = traceWithEvent(TraceEvent::LOG, 'Payment declined', 'error');
+    $traceId = traceWithEvent(TraceEvent::MAIL, 'Your invoice is ready');
 
-    Livewire::test(Logs::class, ['lazy' => false])
+    Livewire::test(Mail::class, ['lazy' => false])
         ->call('showTrace', $traceId)
         ->assertDispatched('open-trace', traceId: $traceId);
 });

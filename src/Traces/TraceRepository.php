@@ -181,24 +181,6 @@ class TraceRepository
     }
 
     /**
-     * How many log lines sit at each level, for the level filter.
-     *
-     * @return array<string, int>
-     */
-    public function countsByLevel(): array
-    {
-        return $this->pulse->ignore(fn () => $this->connection()
-            ->table('pulse_boosted_trace_events')
-            ->where('type', 'log')
-            ->whereNotNull('level')
-            ->groupBy('level')
-            ->selectRaw('level, count(*) as aggregate')
-            ->pluck('aggregate', 'level')
-            ->map(fn ($count) => (int) $count)
-            ->all());
-    }
-
-    /**
      * Per-name totals for a kind of execution: how often, how long, and how
      * often it failed.
      *

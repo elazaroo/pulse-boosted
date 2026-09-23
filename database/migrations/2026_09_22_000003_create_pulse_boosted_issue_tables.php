@@ -27,6 +27,12 @@ return new class extends PulseMigration
             $table->char('fingerprint', 32)->unique();
 
             $table->string('class');
+
+            // 'exception' or 'error'. PHP splits what can be thrown in two: an
+            // Exception is usually something the application anticipated, an
+            // Error is usually a bug in the code. Worked out when recorded,
+            // because the class may no longer exist when it is read back.
+            $table->string('kind', 16)->default('exception');
             $table->mediumText('message')->nullable();
             $table->string('file')->nullable();
             $table->unsignedInteger('line')->nullable();
@@ -42,6 +48,7 @@ return new class extends PulseMigration
             $table->unsignedInteger('resolved_at')->nullable();
 
             $table->index('status');
+            $table->index('kind');
             $table->index('last_seen_at');
             $table->index('class');
         });

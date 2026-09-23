@@ -24,10 +24,9 @@
     <livewire:pulse-boosted.commands cols="6" />
     <livewire:pulse-boosted.scheduled-tasks cols="6" />
 
-    <x-pulse-boosted::section id="errors" title="Errors" />
-    <livewire:pulse-boosted.issues cols="6" />
-    <livewire:pulse-boosted.exceptions cols="6" />
-    <livewire:pulse-boosted.logs cols="full" />
+    <x-pulse-boosted::section id="errors" title="Errors & logs" />
+    <livewire:pulse-boosted.issues cols="full" />
+    <livewire:pulse-boosted.logs cols="full" rows="2" />
 
     <x-pulse-boosted::section id="performance" title="Performance" />
     <livewire:pulse-boosted.slow-requests cols="6" />

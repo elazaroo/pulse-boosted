@@ -16,8 +16,9 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 - A Workers card, built from a heartbeat each worker writes as it loops, since Laravel does not track them. Distinguishes a worker that stopped cleanly from one that went quiet.
 - Traces: requests, commands, scheduled tasks and jobs become execution contexts, and the queries, cache reads, dispatched jobs, outgoing calls, exceptions, log lines, mail and notifications inside them are recorded against them with a timeline. A job carries its parent's trace id on the queue payload, so work is still joined to whatever asked for it across processes. Sampled at the entry point, capped per trace, and kept for a day.
 - A runnable demo application in `workbench/`, with `demo:seed-queue`.
-- Issues, grouping exceptions by class, file and line, with resolve, ignore and reopen.
-- Logs, Mail, Notifications, Commands and Scheduled Tasks cards, read from traces. Commands and Scheduled Tasks show the 95th percentile next to the average.
+- Issues, grouping exceptions by class, file and line, with resolve, ignore and reopen, a PHP Error / Exception split, and sorting by recency or frequency. It replaces the Exceptions card on the default dashboard.
+- Logging: log lines and exceptions in one stream. Exceptions are never sampled; the log line Laravel writes for each reported exception is left out so it is not shown twice.
+- Mail, Notifications, Commands and Scheduled Tasks cards, read from traces. Commands and Scheduled Tasks show the 95th percentile next to the average.
 - `PulseBoosted::context()` to attach the application's own attributes to a trace; the Traces search matches them.
 - Alert rules over seven metrics, with `AlertTriggered` and `AlertResolved` events and `pulse-boosted:alerts`.
 - A redesigned dashboard: sections with a following sidebar, an Overview row of headline figures, and cards that only refresh while visible.

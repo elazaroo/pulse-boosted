@@ -25,6 +25,7 @@ use Throwable;
  *     id: int,
  *     fingerprint: string,
  *     class: string,
+ *     kind: string,
  *     message: ?string,
  *     file: ?string,
  *     line: ?int,
@@ -80,6 +81,7 @@ class IssueRepository
 
         $this->buffer[$fingerprint] = [
             'class' => $exception::class,
+            'kind' => $exception instanceof \Error ? 'error' : 'exception',
             'message' => Str::limit($exception->getMessage(), 500),
             'file' => $exception->getFile(),
             'line' => $exception->getLine(),
@@ -125,6 +127,7 @@ class IssueRepository
             $this->table()->insert([
                 'fingerprint' => $fingerprint,
                 'class' => $issue['class'],
+                'kind' => $issue['kind'],
                 'message' => $issue['message'],
                 'file' => $issue['file'],
                 'line' => $issue['line'],
@@ -172,9 +175,10 @@ class IssueRepository
      * @param  array<string, string|null>  $filters
      * @return Collection<int, IssueRow>
      */
-    public function issues(array $filters = [], int $limit = 20, int $offset = 0): Collection
+    public function issues(array $filters = [], int $limit = 20, int $offset = 0, string $orderBy = 'latest'): Collection
     {
         return $this->pulse->ignore(fn () => $this->filtered($filters)
+            ->when($orderBy === 'count', fn (Builder $query) => $query->orderByDesc('occurrences'))
             ->orderByDesc('last_seen_at')
             ->offset($offset)
             ->limit($limit)
@@ -207,6 +211,27 @@ class IssueRepository
         return collect(['open', 'resolved', 'ignored'])
             ->mapWithKeys(fn (string $status) => [$status => (int) ($counts[$status] ?? 0)])
             ->all();
+    }
+
+    /**
+     * How many issues are exceptions and how many are errors, under whatever
+     * else is being filtered on.
+     *
+     * @param  array<string, string|null>  $filters
+     * @return array<string, int>
+     */
+    public function countsByKind(array $filters = []): array
+    {
+        $counts = $this->pulse->ignore(fn () => $this->filtered(array_diff_key($filters, ['kind' => null]))
+            ->groupBy('kind')
+            ->selectRaw('kind, count(*) as aggregate')
+            ->pluck('aggregate', 'kind')
+            ->all());
+
+        $exceptions = (int) ($counts['exception'] ?? 0);
+        $errors = (int) ($counts['error'] ?? 0);
+
+        return ['' => $exceptions + $errors, 'exception' => $exceptions, 'error' => $errors];
     }
 
     /**
@@ -301,8 +326,10 @@ class IssueRepository
     {
         $query = $this->table();
 
-        if (($status = $filters['status'] ?? null) !== null && $status !== '') {
-            $query->where('status', $status);
+        foreach (['status', 'kind'] as $column) {
+            if (($value = $filters[$column] ?? null) !== null && $value !== '') {
+                $query->where($column, $value);
+            }
         }
 
         if (($search = $filters['search'] ?? null) !== null && $search !== '') {

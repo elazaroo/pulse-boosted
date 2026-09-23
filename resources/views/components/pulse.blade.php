@@ -26,18 +26,70 @@
             x-data="{
                 sections: [],
                 current: null,
+                pinned: false,
                 init() {
                     // Built from the page rather than configured, so a published
                     // dashboard with its own sections gets a matching sidebar,
                     // and one without any simply has none.
-                    this.sections = [...document.querySelectorAll('[data-pulse-section]')]
-                        .map(el => ({ id: el.id, title: el.dataset.pulseSection }))
+                    const elements = [...document.querySelectorAll('[data-pulse-section]')]
 
-                    const observer = new IntersectionObserver(entries => {
-                        entries.filter(e => e.isIntersecting).forEach(e => this.current = e.target.id)
-                    }, { rootMargin: '-10% 0px -80% 0px' })
+                    this.sections = elements.map(el => ({ id: el.id, title: el.dataset.pulseSection }))
 
-                    document.querySelectorAll('[data-pulse-section]').forEach(el => observer.observe(el))
+                    // The current section is the last heading above the reading
+                    // line, worked out on scroll rather than with an observer
+                    // so the answer is always the same for the same position.
+                    let queued = false
+
+                    const update = () => {
+                        queued = false
+
+                        // A link that was clicked stays selected while the page
+                        // scrolls to it, even if the page cannot scroll far
+                        // enough to bring its heading to the top.
+                        if (elements.length === 0 || this.pinned) {
+                            return
+                        }
+
+                        // A reading line a third of the way down the screen,
+                        // sliding to the bottom of it over the last screenful
+                        // of scrolling. Short sections at the end never reach
+                        // the top, but they do cross a line that comes to them.
+                        const height = window.innerHeight
+                        const remaining = document.documentElement.scrollHeight - (window.scrollY + height)
+                        const line = height * 0.3 + (remaining < height ? height * 0.7 * (1 - Math.max(remaining, 0) / height) : 0)
+
+                        // At the very top it is the first section, however
+                        // short, rather than whichever heading happens to sit
+                        // above the line.
+                        if (window.scrollY < 8) {
+                            this.current = elements[0].id
+
+                            return
+                        }
+
+                        const passed = elements.filter(el => el.getBoundingClientRect().top <= line)
+
+                        this.current = (passed[passed.length - 1] ?? elements[0]).id
+                    }
+
+                    const unpin = () => this.pinned = false
+
+                    window.addEventListener('wheel', unpin, { passive: true })
+                    window.addEventListener('touchmove', unpin, { passive: true })
+                    window.addEventListener('keydown', unpin)
+
+                    window.addEventListener('scroll', () => {
+                        if (! queued) {
+                            queued = true
+                            requestAnimationFrame(update)
+                        }
+                    }, { passive: true })
+
+                    // Cards load in and change the page's height after the
+                    // first paint, which can move which heading is current.
+                    new ResizeObserver(() => requestAnimationFrame(update)).observe(document.body)
+
+                    update()
                 },
             }"
         >
@@ -76,6 +128,7 @@
                             <template x-for="section in sections" :key="section.id">
                                 <li>
                                     <a
+                                        @click="current = section.id; pinned = true"
                                         :href="'#' + section.id"
                                         x-text="section.title"
                                         class="block px-3 py-1.5 rounded-md text-sm transition-colors"

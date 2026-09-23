@@ -27,6 +27,7 @@ use Illuminate\Queue\Events\JobQueued;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Str;
 use Throwable;
+use WeakMap;
 
 /**
  * Joins everything that happens in one execution onto a single trace.
@@ -78,13 +79,21 @@ class Traces
     ];
 
     /**
+     * Exceptions already on the timeline, so Laravel logging the same one a
+     * moment later does not put it there twice.
+     *
+     * @var WeakMap<Throwable, true>
+     */
+    protected WeakMap $reported;
+
+    /**
      * Create a new recorder instance.
      */
     public function __construct(
         protected Tracer $tracer,
         protected Repository $config,
     ) {
-        //
+        $this->reported = new WeakMap;
     }
 
     /**
@@ -250,6 +259,16 @@ class Traces
             return;
         }
 
+        // Laravel's handler logs every exception it reports, straight after
+        // reporting it. That exception is already on the timeline as itself,
+        // with its class and location, so the log line would only repeat it.
+        // An exception logged by hand without being reported still counts.
+        $exception = $event->context['exception'] ?? null;
+
+        if ($exception instanceof Throwable && isset($this->reported[$exception])) {
+            return;
+        }
+
         $this->tracer->event(
             TraceEvent::LOG,
             (string) $event->message,
@@ -263,6 +282,8 @@ class Traces
      */
     protected function exception(ExceptionReported $event): void
     {
+        $this->reported[$event->exception] = true;
+
         $this->tracer->event(
             TraceEvent::EXCEPTION,
             $event->exception::class.': '.Str::limit($event->exception->getMessage(), 200),

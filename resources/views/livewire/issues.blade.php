@@ -1,11 +1,39 @@
 @use('Carbon\CarbonImmutable')
 @use('Illuminate\Support\Str')
+@use('Elazaroo\PulseBoosted\Support\Location')
 
 <x-pulse-boosted::card :cols="$cols" :rows="$rows" :class="$class">
-    <x-pulse-boosted::card-header name="Issues" details="{{ number_format($total) }} {{ Str::plural('issue', $total) }}">
+    <x-pulse-boosted::card-header name="Issues" details="exceptions grouped by where they were thrown">
         <x-slot:icon>
             <x-pulse-boosted::icons.bug-ant />
         </x-slot:icon>
+        <x-slot:actions>
+            <div class="flex items-center rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+                @foreach (['' => 'All', 'exception' => 'Exceptions', 'error' => 'Errors'] as $value => $label)
+                    <button
+                        type="button"
+                        wire:click="$set('kind', '{{ $value }}')"
+                        title="{{ $value === 'error' ? 'PHP Errors: usually a bug in the code' : ($value === 'exception' ? 'Exceptions: usually something the application anticipated' : '') }}"
+                        @class([
+                            'px-2 py-1 text-xs font-medium whitespace-nowrap border-r last:border-r-0 border-gray-200 dark:border-gray-700',
+                            'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200' => $kind !== $value,
+                            'bg-accent-500 text-white' => $kind === $value,
+                        ])
+                    >{{ $label }}<span class="ml-1 tabular-nums opacity-70">{{ number_format($kindCounts[$value]) }}</span></button>
+                @endforeach
+            </div>
+
+            <x-pulse-boosted::select
+                wire:model.live="orderBy"
+                id="select-issues-order-by"
+                label="Sort by"
+                :options="[
+                    'latest' => 'latest',
+                    'count' => 'count',
+                ]"
+                @change="loading = true"
+            />
+        </x-slot:actions>
     </x-pulse-boosted::card-header>
 
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-gray-800 shrink-0">
@@ -54,7 +82,7 @@
                 <x-pulse-boosted::thead>
                     <tr>
                         <x-pulse-boosted::th>Issue</x-pulse-boosted::th>
-                        <x-pulse-boosted::th class="text-right">Times</x-pulse-boosted::th>
+                        <x-pulse-boosted::th class="text-right">Count</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">Last seen</x-pulse-boosted::th>
                     </tr>
                 </x-pulse-boosted::thead>
@@ -70,11 +98,17 @@
                                         'bg-green-500' => $issue->status === 'resolved',
                                         'bg-gray-400 dark:bg-gray-600' => $issue->status === 'ignored',
                                     ])></span>
-                                    <code class="block text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-accent-500">{{ class_basename($issue->class) }}</code>
+                                    <code class="block text-xs font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-accent-500" title="{{ $issue->class }}">{{ $issue->class }}</code>
+                                    @if (($issue->kind ?? 'exception') === 'error')
+                                        <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400">Error</span>
+                                    @endif
                                 </div>
-                                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate" title="{{ $issue->message }}">
+                                <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300 truncate" title="{{ $issue->message }}">
                                     {{ $issue->message ?: '—' }}
                                 </p>
+                                @if ($location = Location::relative($issue->file, $issue->line))
+                                    <p class="mt-0.5 font-mono text-[11px] text-gray-400 dark:text-gray-500 truncate" title="{{ $location }}">{{ $location }}</p>
+                                @endif
                             </x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 font-bold">
                                 {{ number_format($issue->occurrences) }}
@@ -121,7 +155,7 @@
                             ])>{{ $issue->status }}</span>
                         </div>
                         @if ($issue->file)
-                            <code class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400 truncate">{{ $issue->file }}:{{ $issue->line }}</code>
+                            <code class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400 truncate">{{ Location::relative($issue->file, $issue->line) }}</code>
                         @endif
                     </div>
                     <div class="flex items-center gap-2 shrink-0">

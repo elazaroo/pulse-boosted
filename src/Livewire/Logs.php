@@ -2,46 +2,67 @@
 
 namespace Elazaroo\PulseBoosted\Livewire;
 
-use Elazaroo\PulseBoosted\Traces\TraceEvent;
-use Elazaroo\PulseBoosted\Traces\TraceRepository;
+use Elazaroo\PulseBoosted\Logging\LogStream;
+use Illuminate\Contracts\Support\Renderable;
+use Illuminate\Support\Facades\View;
 use Livewire\Attributes\Lazy;
 use Livewire\Attributes\Url;
 
 /**
- * Log lines, searchable, and each one linked to what the application was
- * doing when it wrote them.
+ * Log lines and exceptions in one stream, each linked to what the application
+ * was doing when it happened.
+ *
+ * The grouped view of exceptions — which bugs, how often, dealt with or not —
+ * is the Issues card. This is the other half: the individual entries, in the
+ * order they happened.
  *
  * @internal
  */
 #[Lazy]
-class Logs extends TraceEventCard
+class Logs extends Card
 {
+    public const PER_PAGE = 20;
+
     /**
-     * Which level to show, or all of them.
+     * A log level, 'exception', or everything.
      */
     #[Url(as: 'log_level')]
     public string $logLevel = '';
 
-    protected function eventType(): string
-    {
-        return TraceEvent::LOG;
-    }
+    #[Url(as: 'log_q')]
+    public string $search = '';
 
-    protected function title(): string
-    {
-        return 'Logs';
-    }
+    public int $page = 1;
 
-    protected function level(): string
+    /**
+     * Reset paging when the view changes underneath it.
+     */
+    public function updated(string $property): void
     {
-        return $this->logLevel;
+        if ($property !== 'page') {
+            $this->page = 1;
+        }
     }
 
     /**
-     * @return array<string, int>
+     * Show the trace an entry came from.
      */
-    protected function levels(TraceRepository $traces): array
+    public function showTrace(string $traceId): void
     {
-        return $traces->countsByLevel();
+        $this->dispatch('open-trace', traceId: $traceId);
+    }
+
+    /**
+     * Render the component.
+     */
+    public function render(LogStream $stream): Renderable
+    {
+        $counts = $stream->counts();
+
+        return View::make('pulse-boosted::livewire.logs', [
+            'entries' => $stream->entries($this->logLevel, trim($this->search), self::PER_PAGE, ($this->page - 1) * self::PER_PAGE),
+            'counts' => $counts,
+            'total' => array_sum($counts),
+        ]);
     }
 }

@@ -5,7 +5,6 @@ namespace Elazaroo\PulseBoosted\Livewire;
 use Elazaroo\PulseBoosted\Traces\TraceRepository;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\View;
-use Livewire\Attributes\Url;
 
 /**
  * A list of one kind of thing that happened inside traces.
@@ -21,7 +20,8 @@ abstract class TraceEventCard extends Card
 {
     public const PER_PAGE = 20;
 
-    #[Url]
+    // Not in the URL: several of these cards share the dashboard, and they
+    // would all answer to the same ?search= parameter.
     public string $search = '';
 
     public int $page = 1;

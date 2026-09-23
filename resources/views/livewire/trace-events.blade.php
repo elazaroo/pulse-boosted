@@ -93,7 +93,7 @@
                                     </p>
                                 @endif
                             </x-pulse-boosted::td>
-                            <x-pulse-boosted::td class="text-gray-500 dark:text-gray-400 max-w-[1px]">
+                            <x-pulse-boosted::td class="text-gray-500 dark:text-gray-400 w-56 max-w-[14rem]">
                                 <code class="block text-xs truncate" title="{{ $event->execution }}">{{ $event->execution }}</code>
                             </x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric class="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">

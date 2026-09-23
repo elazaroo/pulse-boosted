@@ -226,13 +226,22 @@ for your process manager to bring back.
 **Traces** lists executions and draws the timeline of whichever one you open.
 
 **Issues** groups exceptions into the bugs behind them: one thing that went
-wrong four hundred times, rather than four hundred things that went wrong. An
-issue can be resolved or ignored, and a resolved one that happens again reopens
-itself, which is how a regression announces itself.
+wrong four hundred times, rather than four hundred things that went wrong. It
+tells PHP Errors — usually a bug in the code — apart from Exceptions the
+application anticipated, sorts by most recent or most frequent, and shows where
+each was thrown. An issue can be resolved or ignored, and a resolved one that
+happens again reopens itself, which is how a regression announces itself. It
+replaces Pulse's Exceptions card on the default dashboard; that card is still
+available as `<livewire:pulse-boosted.exceptions />`.
 
-**Logs**, **Mail** and **Notifications** list what was written or sent, with the
-execution it happened inside. These are trace events, so they follow the trace
-sample rate and cost nothing extra to collect.
+**Logging** is the other half: every log line and every exception, one entry at
+a time, newest first, filterable by level or to exceptions alone. Exceptions
+are never sampled. Log lines are trace events, so they follow the trace sample
+rate. Laravel logs each exception it reports, so that log line is left out — the
+exception is already there as itself, with its class and location.
+
+**Mail** and **Notifications** list what was sent, with the execution it
+happened inside. These are trace events too.
 
 **Commands** and **Scheduled Tasks** total executions by name: how often each
 ran, how long it took on average, its 95th percentile, and how often it failed.
