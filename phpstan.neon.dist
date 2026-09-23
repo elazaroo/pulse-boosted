@@ -8,7 +8,6 @@ parameters:
   level: 8
   ignoreErrors:
     - identifier: function.alreadyNarrowedType
-    - identifier: match.alwaysTrue
     - "#Class Laravel\\\\Telescope\\\\Contracts\\\\EntriesRepository not found#"
     - "#Call to static method store\\(\\) on an unknown class Laravel\\\\Telescope\\\\Telescope#"
   treatPhpDocTypesAsCertain: false

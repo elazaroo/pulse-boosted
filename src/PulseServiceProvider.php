@@ -309,6 +309,11 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.workers', Livewire\Workers::class);
             $livewire->component('pulse-boosted.traces', Livewire\Traces::class);
             $livewire->component('pulse-boosted.issues', Livewire\Issues::class);
+            $livewire->component('pulse-boosted.logs', Livewire\Logs::class);
+            $livewire->component('pulse-boosted.mail', Livewire\Mail::class);
+            $livewire->component('pulse-boosted.notifications', Livewire\Notifications::class);
+            $livewire->component('pulse-boosted.commands', Livewire\Commands::class);
+            $livewire->component('pulse-boosted.scheduled-tasks', Livewire\ScheduledTasks::class);
         });
     }
 

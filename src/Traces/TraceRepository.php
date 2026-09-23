@@ -153,6 +153,152 @@ class TraceRepository
     }
 
     /**
+     * Events of one kind across every trace — log lines, sent mail, and so on.
+     *
+     * These are already captured as part of a trace, so a list of them costs
+     * nothing extra to collect; it just asks the same rows a different way.
+     *
+     * @param  array<string, string|null>  $filters
+     * @return Collection<int, object>
+     */
+    public function eventsOfType(string $type, array $filters = [], int $limit = 20, int $offset = 0): Collection
+    {
+        return $this->pulse->ignore(fn () => $this->eventsQuery($type, $filters)
+            ->orderByDesc('pulse_boosted_trace_events.id')
+            ->offset($offset)
+            ->limit($limit)
+            ->get());
+    }
+
+    /**
+     * How many there are.
+     *
+     * @param  array<string, string|null>  $filters
+     */
+    public function countEventsOfType(string $type, array $filters = []): int
+    {
+        return $this->pulse->ignore(fn () => $this->eventsQuery($type, $filters)->count());
+    }
+
+    /**
+     * How many log lines sit at each level, for the level filter.
+     *
+     * @return array<string, int>
+     */
+    public function countsByLevel(): array
+    {
+        return $this->pulse->ignore(fn () => $this->connection()
+            ->table('pulse_boosted_trace_events')
+            ->where('type', 'log')
+            ->whereNotNull('level')
+            ->groupBy('level')
+            ->selectRaw('level, count(*) as aggregate')
+            ->pluck('aggregate', 'level')
+            ->map(fn ($count) => (int) $count)
+            ->all());
+    }
+
+    /**
+     * Per-name totals for a kind of execution: how often, how long, and how
+     * often it failed.
+     *
+     * The 95th percentile is worked out here rather than in SQL because the
+     * function for it differs across every database this supports, and the
+     * row counts involved are small — traces are sampled and kept a day.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function summaryByName(string $type, int $sample = 2000): Collection
+    {
+        $rows = $this->pulse->ignore(fn () => $this->table()
+            ->where('type', $type)
+            ->orderByDesc('id')
+            ->limit($sample)
+            ->get(['trace_id', 'name', 'duration_ms', 'status', 'started_at']));
+
+        return $rows
+            ->groupBy('name')
+            ->map(function (Collection $group, string $name) {
+                $durations = $group
+                    ->pluck('duration_ms')
+                    ->filter(fn ($value) => $value !== null)
+                    ->map(fn ($value) => (int) $value)
+                    ->sort()
+                    ->values();
+
+                $average = $durations->avg();
+
+                return [
+                    'name' => $name,
+                    // Rows come back newest first, so the head of the group is
+                    // the most recent run — the one worth opening.
+                    'traceId' => $group->first()?->trace_id,
+                    'count' => $group->count(),
+                    'failed' => $group->where('status', 'failed')->count(),
+                    'avg' => $average === null ? null : (int) round($average),
+                    'p95' => $this->percentile($durations, 95),
+                    'max' => $durations->max(),
+                    'lastAt' => $group->max('started_at'),
+                ];
+            })
+            ->sortByDesc('count')
+            ->values();
+    }
+
+    /**
+     * The value below which the given share of a sorted set falls.
+     *
+     * @param  Collection<int, int>  $sorted
+     */
+    protected function percentile(Collection $sorted, int $percentile): ?int
+    {
+        if ($sorted->isEmpty()) {
+            return null;
+        }
+
+        // Nearest-rank: with a handful of samples this is more honest than
+        // interpolating between two of them.
+        $index = (int) ceil($percentile / 100 * $sorted->count()) - 1;
+
+        return (int) $sorted->get(max(0, $index));
+    }
+
+    /**
+     * Events of one type, joined to the execution they belong to.
+     *
+     * @param  array<string, string|null>  $filters
+     */
+    protected function eventsQuery(string $type, array $filters): Builder
+    {
+        $query = $this->connection()
+            ->table('pulse_boosted_trace_events')
+            ->join('pulse_boosted_traces', 'pulse_boosted_traces.trace_id', '=', 'pulse_boosted_trace_events.trace_id')
+            ->where('pulse_boosted_trace_events.type', $type)
+            ->select([
+                'pulse_boosted_trace_events.id',
+                'pulse_boosted_trace_events.trace_id',
+                'pulse_boosted_trace_events.label',
+                'pulse_boosted_trace_events.level',
+                'pulse_boosted_trace_events.meta',
+                'pulse_boosted_traces.name as execution',
+                'pulse_boosted_traces.type as execution_type',
+                'pulse_boosted_traces.started_at',
+            ]);
+
+        if (($level = $filters['level'] ?? null) !== null && $level !== '') {
+            $query->where('pulse_boosted_trace_events.level', $level);
+        }
+
+        if (($search = $filters['search'] ?? null) !== null && $search !== '') {
+            $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
+
+            $query->where('pulse_boosted_trace_events.label', 'like', "%{$escaped}%");
+        }
+
+        return $query;
+    }
+
+    /**
      * Apply the list's filters.
      *
      * @param  array<string, string|null>  $filters
