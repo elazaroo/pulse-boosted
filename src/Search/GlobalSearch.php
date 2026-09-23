@@ -3,6 +3,7 @@
 namespace Elazaroo\PulseBoosted\Search;
 
 use Elazaroo\PulseBoosted\Pulse;
+use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Support\DashboardUrl;
 use Elazaroo\PulseBoosted\Support\People;
 use Illuminate\Contracts\Config\Repository;
@@ -115,15 +116,9 @@ class GlobalSearch
      */
     protected function jobs(string $query): array
     {
-        $byId = preg_match('/^[0-9a-f-]{8,36}$/i', $query) === 1;
-
-        return $this->connection()->table('pulse_boosted_jobs')
-            ->when($byId,
-                fn ($where) => $where->where('uuid', 'like', strtolower($query).'%'),
-                fn ($where) => $where->where('name', 'like', $this->like($query))->orWhere('exception_class', 'like', $this->like($query)))
-            ->orderByDesc('id')
-            ->limit(self::LIMIT)
-            ->get(['uuid', 'name', 'queue', 'status', 'attempts'])
+        // Wherever the job history is kept, database or Redis.
+        return app(JobRepository::class)
+            ->jobs(['search' => $query], self::LIMIT)
             ->map(fn (object $job) => [
                 'kind' => 'Job',
                 'title' => (string) $job->name,

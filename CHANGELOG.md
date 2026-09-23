@@ -32,6 +32,8 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 - Deployment tracking with `pulse-boosted:deploy`, and issues marked New in the latest deploy.
 - Performance thresholds that open issues, and auto-resolving quiet issues.
 - A user filter in the header, the Sample middleware, and the reject/redact API for trace events.
+- `php artisan pulse-boosted:install`: publishes the config, asks whether the queues run on Redis, and publishes only the migrations that answer needs.
+- The job history — completed and failed jobs and their attempts — can be kept in Redis instead of the database, with no tables, expiring after the same retention. `PULSE_BOOSTED_JOBS_STORAGE` is `redis`, `database`, or `auto` to follow the default queue connection.
 - A settings page at `/pulse-boosted/settings` for email recipients, webhooks, log levels, auto-resolving, performance thresholds, the slow card thresholds, sample rates, what traces are always kept, and alert rules. Saved values win over config and `.env` field by field and reach every server within a minute.
 - Issues can be assigned, taken on and commented on, with a history of who resolved, ignored, reopened or reassigned them, regressions, and issues resolved for being quiet. The list filters to issues assigned to you or to nobody, and the assignee is emailed when their issue comes back. `IssueAssigned` is fired for each change.
 - Missed scheduled tasks: each `schedule:run` writes the whole schedule down, and a task whose due time passed without it starting is shown as missed and announced once with `ScheduledTaskMissed`. A scheduler that has stopped is shown on the card.

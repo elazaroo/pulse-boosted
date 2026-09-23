@@ -29,6 +29,9 @@ use Illuminate\Support\Collection;
  *     worker: ?string
  * }
  * @phpstan-type JobFilters array<string, string|null>
+ *
+ * Filters: status, connection, queue, class, batch_id, search, and
+ * finished_after — a timestamp.
  */
 interface JobRepository
 {

@@ -6,6 +6,7 @@ use Elazaroo\PulseBoosted\Alerts\Metrics;
 use Elazaroo\PulseBoosted\Facades\Pulse;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Elazaroo\PulseBoosted\Traces\TraceRepository;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -78,13 +79,13 @@ it('keeps a slow execution', function () {
     $tracer = app(Tracer::class);
 
     $tracer->start('command', 'reports:build');
-    Illuminate\Support\Carbon::setTestNow(now()->addSeconds(3));
+    Carbon::setTestNow(now()->addSeconds(3));
     CarbonImmutable::setTestNow(CarbonImmutable::now()->addSeconds(3));
     $tracer->finish();
     $tracer->flush();
 
     CarbonImmutable::setTestNow();
-    Illuminate\Support\Carbon::setTestNow();
+    Carbon::setTestNow();
 
     expect(json_decode(traces()->first()->meta, true)['kept_because'])->toBe('slow');
 });

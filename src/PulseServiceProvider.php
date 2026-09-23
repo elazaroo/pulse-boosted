@@ -28,7 +28,9 @@ use Elazaroo\PulseBoosted\Notify\NotifyWebhooks;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\DatabaseJobRepository;
 use Elazaroo\PulseBoosted\Queues\InspectorManager;
+use Elazaroo\PulseBoosted\Queues\JobStorage;
 use Elazaroo\PulseBoosted\Queues\QueueActions;
+use Elazaroo\PulseBoosted\Queues\RedisJobRepository;
 use Elazaroo\PulseBoosted\Recorders\Traces as TracesRecorder;
 use Elazaroo\PulseBoosted\Schedule\WatchSchedule;
 use Elazaroo\PulseBoosted\Settings\Settings;
@@ -86,7 +88,11 @@ class PulseServiceProvider extends ServiceProvider
         $this->app->singletonIf(ResolvesUsers::class, Users::class);
 
         // Singleton because it buffers writes between flushes.
-        $this->app->singleton(JobRepository::class, DatabaseJobRepository::class);
+        // Kept where the queues are: Redis for an application whose queues
+        // run on it, the database otherwise.
+        $this->app->singleton(JobRepository::class, fn (Application $app) => JobStorage::usesRedis($app->make('config'))
+            ? $app->make(RedisJobRepository::class)
+            : $app->make(DatabaseJobRepository::class));
         $this->app->singleton(InspectorManager::class);
 
         // Singleton because it holds the execution context for this process.
@@ -496,6 +502,7 @@ class PulseServiceProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->commands([
+                Commands\InstallCommand::class,
                 Commands\WorkCommand::class,
                 Commands\CheckCommand::class,
                 Commands\RestartCommand::class,

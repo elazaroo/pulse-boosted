@@ -110,6 +110,23 @@ class RedisAdapter
     }
 
     /**
+     * Run a command on one key, adding the configured key prefix, which raw
+     * commands would otherwise go without.
+     */
+    public function command(string $command, string $key, string ...$args): mixed
+    {
+        return $this->handle([$command, $this->config->get('database.redis.options.prefix').$key, ...array_values($args)]);
+    }
+
+    /**
+     * Run a command exactly as given: keys, if any, are already prefixed.
+     */
+    public function raw(string ...$args): mixed
+    {
+        return $this->handle(array_values($args));
+    }
+
+    /**
      * Run the given command.
      *
      * @param  list<string>  $args

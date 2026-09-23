@@ -6,6 +6,7 @@ use Elazaroo\PulseBoosted\Events\AlertResolved;
 use Elazaroo\PulseBoosted\Events\AlertTriggered;
 use Elazaroo\PulseBoosted\Facades\Pulse;
 use Elazaroo\PulseBoosted\Livewire\Alerts;
+use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -264,11 +265,11 @@ it('can be narrowed to one kind of execution', function () {
 it('counts jobs that failed in the window', function () {
     $alerts = withRule(['metric' => 'failed_jobs', 'threshold' => 1]);
 
-    Pulse::ignore(fn () => DB::table('pulse_boosted_jobs')->insert([
-        ['uuid' => (string) Str::uuid(), 'connection' => 'database', 'queue' => 'default', 'name' => 'A', 'status' => 'failed', 'finished_at' => now()->getTimestamp()],
-        ['uuid' => (string) Str::uuid(), 'connection' => 'database', 'queue' => 'default', 'name' => 'B', 'status' => 'failed', 'finished_at' => now()->getTimestamp()],
-        ['uuid' => (string) Str::uuid(), 'connection' => 'database', 'queue' => 'default', 'name' => 'C', 'status' => 'completed', 'finished_at' => now()->getTimestamp()],
-    ]));
+    // Through the repository, so it holds wherever the job history is kept.
+    foreach (['A' => 'failed', 'B' => 'failed', 'C' => 'processed'] as $name => $status) {
+        app(JobRepository::class)->record((string) Str::uuid(), ['connection' => 'database', 'queue' => 'default', 'name' => $name, 'status' => $status, 'finished_at' => now()->getTimestamp()]);
+    }
+    app(JobRepository::class)->flush();
 
     $readings = $alerts->evaluate();
 

@@ -9,7 +9,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 beforeEach(function () {
@@ -146,19 +145,19 @@ it('trims records past the retention window', function () {
 });
 
 /**
- * Fetch a recorded job row by UUID.
+ * Fetch a recorded job by UUID, wherever the history is kept.
  */
 function job(string $uuid): object
 {
-    return Pulse::ignore(fn () => DB::table('pulse_boosted_jobs')->where('uuid', $uuid)->first());
+    return app(JobRepository::class)->find($uuid);
 }
 
 /**
- * Every recorded job row.
+ * Every recorded job.
  */
 function rows(): Collection
 {
-    return Pulse::ignore(fn () => DB::table('pulse_boosted_jobs')->get());
+    return app(JobRepository::class)->jobs([], 1000);
 }
 
 class RecordedJob implements ShouldQueue

@@ -26,16 +26,43 @@ Pausing queues from the dashboard needs **Laravel 13**, which is where `queue:pa
 
 ```sh
 composer require elazaroo/pulse-boosted
+php artisan pulse-boosted:install
 ```
 
-Publish and run the migrations:
+The installer publishes the config and asks one question — **do your queues
+run on Redis?** — suggesting the answer your queue config gives:
 
-```sh
-php artisan vendor:publish --tag=pulse-boosted-migrations
-php artisan migrate
-```
+- **Yes**: the job history — completed and failed jobs, and every attempt at
+  each — is kept in Redis, next to the queues, and its two tables
+  (`pulse_boosted_jobs`, `pulse_boosted_job_attempts`) are not created. It
+  asks which Redis connection when there is more than one.
+- **No** (the `database` or `sync` driver): the history is kept in those two
+  tables.
+
+It writes the answer to `.env` as `PULSE_BOOSTED_JOBS_STORAGE`, publishes only
+the migrations that answer needs, and offers to run them. Without anyone to
+ask — `--no-interaction`, or in a deploy script — it goes by the queue config;
+`--redis`, `--database`, `--connection=` and `--migrate` answer up front.
+Running it again after changing your mind publishes whatever is missing, and
+says which migrations are left over.
 
 The dashboard is then available at `/pulse-boosted`.
+
+### Where the job history lives
+
+| | Redis | Database |
+| --- | --- | --- |
+| Tables | none | `pulse_boosted_jobs`, `pulse_boosted_job_attempts` |
+| Kept for | `trim.keep` of the Jobs recorder, 7 days by default, as key expiry | the same, trimmed by `pulse-boosted:check` |
+| Status tabs and their counts | instant | instant |
+| Filters by queue, class or batch, and search | over the newest 20,000 jobs | over everything kept |
+
+`PULSE_BOOSTED_JOBS_STORAGE=auto`, the default when the installer has not been
+run, picks Redis when the default queue connection runs on it.
+`PULSE_BOOSTED_JOBS_REDIS_CONNECTION` names the Redis connection, `default`
+unless said otherwise. With Redis, keep the connection's `maxmemory-policy` at
+`noeviction` or a `volatile-*` policy: every key the history writes expires on
+its own, and an `allkeys-*` policy could drop history before its time.
 
 ## Configuration
 
@@ -620,7 +647,7 @@ the webhook's id, never its address.
 
 **Live tabs** — Waiting, Delayed and Running — come from the queue backend itself, so they show what is on the queue at this moment. They are only offered by drivers that can be listed.
 
-**Recorded tabs** — Completed and Failed — come from `pulse_boosted_jobs`. The backend deletes a job the moment it finishes, so this is the only place a completed job exists, and the only way to see anything at all on `sync`.
+**Recorded tabs** — Completed and Failed — come from the job history, in Redis or the database as installed. The backend deletes a job the moment it finishes, so this is the only place a completed job exists, and the only way to see anything at all on `sync`.
 
 Clicking a recorded job opens `/pulse-boosted/jobs/{uuid}`: its timeline, its arguments if you captured them, the exception with its stack trace, and how many attempts it had left.
 

@@ -283,6 +283,10 @@ class DatabaseJobRepository implements JobRepository
             }
         }
 
+        if (($after = $filters['finished_after'] ?? null) !== null && $after !== '') {
+            $query->where('finished_at', '>=', (int) $after);
+        }
+
         if (($search = $filters['search'] ?? null) !== null && $search !== '') {
             $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 

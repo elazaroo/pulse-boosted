@@ -2,6 +2,8 @@
 
 use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
+use Elazaroo\PulseBoosted\Queues\JobStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
@@ -37,6 +39,12 @@ uses(TestCase::class)
         Pulse::handleExceptionsUsing(fn (Throwable $e) => throw $e);
         Gate::define('viewPulseBoosted', fn ($user = null) => true);
         Config::set('pulse-boosted.ingest.trim.lottery', [1, 1]);
+
+        // The database starts every test empty; a job history kept in Redis
+        // has to be emptied by hand.
+        if (JobStorage::usesRedis(config())) {
+            app(JobRepository::class)->purge();
+        }
     })
     ->afterEach(function () {
         Str::createUuidsNormally();

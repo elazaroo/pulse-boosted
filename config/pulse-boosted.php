@@ -450,6 +450,20 @@ return [
     ],
 
     'queues' => [
+        /*
+         * Where the job history — completed and failed jobs, and every
+         * attempt at each — is kept. 'redis' needs no tables; 'database'
+         * uses pulse_boosted_jobs and pulse_boosted_job_attempts; 'auto'
+         * picks Redis when the default queue connection runs on it.
+         * pulse-boosted:install asks, and sets it.
+         */
+        'storage' => [
+            'driver' => env('PULSE_BOOSTED_JOBS_STORAGE', 'auto'),
+            'redis' => [
+                'connection' => env('PULSE_BOOSTED_JOBS_REDIS_CONNECTION', 'default'),
+            ],
+        ],
+
         'enabled' => env('PULSE_BOOSTED_QUEUE_INSPECTION_ENABLED', true),
 
         /*

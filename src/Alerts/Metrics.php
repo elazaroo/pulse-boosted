@@ -4,6 +4,7 @@ namespace Elazaroo\PulseBoosted\Alerts;
 
 use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Pulse;
+use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\InspectorManager;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Connection;
@@ -95,16 +96,11 @@ class Metrics
 
     protected function failedJobs(int $since, AlertRule $rule): float
     {
-        $query = $this->connection()
-            ->table('pulse_boosted_jobs')
-            ->where('status', 'failed')
-            ->where('finished_at', '>=', $since);
-
-        if (($queue = $rule->option('queue')) !== null) {
-            $query->where('queue', $queue);
-        }
-
-        return (float) $query->count();
+        return (float) app(JobRepository::class)->count(array_filter([
+            'status' => 'failed',
+            'finished_after' => (string) $since,
+            'queue' => ($queue = $rule->option('queue')) === null ? null : (string) $queue,
+        ], fn ($value) => $value !== null));
     }
 
     /**

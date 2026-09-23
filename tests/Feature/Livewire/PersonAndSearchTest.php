@@ -4,6 +4,7 @@ use Elazaroo\PulseBoosted\Facades\Pulse;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Elazaroo\PulseBoosted\Livewire\PersonViewer;
 use Elazaroo\PulseBoosted\Livewire\Search;
+use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Search\GlobalSearch;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -80,13 +81,13 @@ it('finds issues, traces, jobs, routes and users from one box', function () {
 
     $uuid = (string) Str::uuid();
 
-    Pulse::ignore(fn () => DB::table('pulse_boosted_jobs')->insert([
-        'uuid' => $uuid,
+    app(JobRepository::class)->record($uuid, [
         'connection' => 'database',
         'queue' => 'default',
         'name' => 'App\Jobs\PrintShippingLabel',
         'status' => 'failed',
-    ]));
+    ]);
+    app(JobRepository::class)->flush();
 
     $search = app(GlobalSearch::class);
 
