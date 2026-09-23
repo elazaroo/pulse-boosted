@@ -6,6 +6,7 @@ use Closure;
 use Elazaroo\PulseBoosted\Queues\Contracts\QueueInspector;
 use Elazaroo\PulseBoosted\Queues\Inspectors\CountingInspector;
 use Elazaroo\PulseBoosted\Queues\Inspectors\DatabaseInspector;
+use Elazaroo\PulseBoosted\Queues\Inspectors\FailoverInspector;
 use Elazaroo\PulseBoosted\Queues\Inspectors\NullInspector;
 use Elazaroo\PulseBoosted\Queues\Inspectors\RedisInspector;
 use Illuminate\Contracts\Config\Repository;
@@ -123,7 +124,10 @@ class InspectorManager
         return match ($driver) {
             'database' => new DatabaseInspector($queue, $connection),
             'redis' => new RedisInspector($queue, $connection),
-            'sync', 'null' => new NullInspector($queue, $connection),
+            // deferred and background run the job in this process, after the
+            // response or in a child process, so nothing waits on a queue.
+            'sync', 'null', 'deferred', 'background' => new NullInspector($queue, $connection),
+            'failover' => new FailoverInspector($queue, $connection),
             default => new CountingInspector($queue, $connection),
         };
     }

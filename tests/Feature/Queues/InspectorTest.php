@@ -140,3 +140,18 @@ class InspectedJob implements ShouldQueue
         //
     }
 }
+
+it('does not count connections that have no queue of their own', function () {
+    // deferred and background run the job in this process; failover hands it
+    // to other connections. Counting through any of them showed the same jobs
+    // twice, or a row of zeros that meant nothing.
+    Config::set('queue.connections.deferred', ['driver' => 'deferred']);
+    Config::set('queue.connections.background', ['driver' => 'background']);
+    Config::set('queue.connections.failover', ['driver' => 'failover', 'connections' => ['database', 'sync']]);
+
+    $manager = app(InspectorManager::class);
+
+    foreach (['deferred', 'background', 'failover'] as $connection) {
+        expect($manager->for($connection)->capabilities()->counts)->toBeFalse();
+    }
+});
