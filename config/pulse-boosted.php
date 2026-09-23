@@ -172,6 +172,24 @@ return [
          * and listen for IssueOpened / IssueRegressed to notify some other
          * way.
          */
+        /*
+         * Performance thresholds, in milliseconds. An execution slower than
+         * its threshold opens an issue — listed, counted, resolvable and
+         * notified like any exception — and its trace is kept. Keys are an
+         * exact name, a pattern, or '*' for everything of that kind:
+         *
+         *     'request' => ['GET /checkout' => 800, '#^GET /api/#' => 300, '*' => 2000],
+         *     'job' => ['App\Jobs\SendInvoice' => 5000],
+         *
+         * Empty by default: what counts as slow is yours to say.
+         */
+        'thresholds' => [
+            'request' => [],
+            'job' => [],
+            'command' => [],
+            'schedule' => [],
+        ],
+
         'notify' => [
             'mail' => env('PULSE_BOOSTED_ISSUES_MAIL', ''),
             'mailer' => env('PULSE_BOOSTED_ISSUES_MAILER'),

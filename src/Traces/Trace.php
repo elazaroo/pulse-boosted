@@ -197,6 +197,22 @@ class Trace
     }
 
     /**
+     * How long it took, once finished.
+     */
+    public function durationMs(): ?float
+    {
+        return $this->durationMs;
+    }
+
+    /**
+     * How it ended, once finished.
+     */
+    public function status(): string
+    {
+        return $this->status;
+    }
+
+    /**
      * Keep this execution whatever the sampling draw said.
      */
     public function keep(string $because): void

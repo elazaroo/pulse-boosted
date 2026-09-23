@@ -9,11 +9,11 @@
         </x-slot:icon>
         <x-slot:actions>
             <div class="flex items-center rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
-                @foreach (['' => 'All', 'exception' => 'Exceptions', 'error' => 'Errors'] as $value => $label)
+                @foreach (['' => 'All', 'exception' => 'Exceptions', 'error' => 'Errors', 'performance' => 'Performance'] as $value => $label)
                     <button
                         type="button"
                         wire:click="$set('kind', '{{ $value }}')"
-                        title="{{ $value === 'error' ? 'PHP Errors: usually a bug in the code' : ($value === 'exception' ? 'Exceptions: usually something the application anticipated' : '') }}"
+                        title="{{ ['error' => 'PHP Errors: usually a bug in the code', 'exception' => 'Exceptions: usually something the application anticipated', 'performance' => 'Executions slower than their threshold'][$value] ?? '' }}"
                         @class([
                             'px-2 py-1 text-xs font-medium whitespace-nowrap border-r last:border-r-0 border-gray-200 dark:border-gray-700',
                             'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200' => $kind !== $value,
@@ -117,7 +117,9 @@
                                     @if ($latestDeploy !== null && ($issue->first_seen_deploy ?? null) === $latestDeploy)
                                         <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-accent-500/15 text-accent-600 dark:text-accent-300" title="First seen in the latest deploy, {{ $latestDeploy }}">New</span>
                                     @endif
-                                    @if (! ($issue->handled ?? false))
+                                    @if (($issue->kind ?? '') === 'performance')
+                                        <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">Slow</span>
+                                    @elseif (! ($issue->handled ?? false))
                                         <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-red-500 text-white" title="Escaped to the exception handler">Unhandled</span>
                                     @else
                                         <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" title="Caught and passed to report()">Handled</span>
@@ -217,11 +219,15 @@
                     @endif
 
                     <div class="flex flex-wrap items-center gap-2">
-                        <span @class([
-                            'rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
-                            'bg-red-500 text-white' => ! $issue->handled,
-                            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' => $issue->handled,
-                        ])>{{ $issue->handled ? 'Handled' : 'Unhandled' }}</span>
+                        @if (($issue->kind ?? '') === 'performance')
+                            <span class="rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">Slow</span>
+                        @else
+                            <span @class([
+                                'rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
+                                'bg-red-500 text-white' => ! $issue->handled,
+                                'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' => $issue->handled,
+                            ])>{{ $issue->handled ? 'Handled' : 'Unhandled' }}</span>
+                        @endif
                         @if ($issue->laravel_version)
                             <span class="rounded border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 dark:text-gray-300">Laravel {{ $issue->laravel_version }}</span>
                         @endif

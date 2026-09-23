@@ -226,8 +226,11 @@ class Issues extends Card
             $lines[] = '';
         }
 
-        $lines[] = '- Location: `'.Location::relative($issue->file, $issue->line).'`';
-        $lines[] = '- '.($issue->handled ? 'Handled' : 'Unhandled').', '.number_format((int) $issue->occurrences).' occurrences';
+        if (($location = Location::relative($issue->file, $issue->line)) !== null) {
+            $lines[] = '- Location: `'.$location.'`';
+        }
+
+        $lines[] = '- '.($issue->kind === 'performance' ? 'Slow' : ($issue->handled ? 'Handled' : 'Unhandled')).', '.number_format((int) $issue->occurrences).' occurrences';
         $lines[] = '- First seen '.CarbonImmutable::createFromTimestamp($issue->first_seen_at)->toDateTimeString()
             .', last seen '.CarbonImmutable::createFromTimestamp($issue->last_seen_at)->toDateTimeString();
 

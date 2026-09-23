@@ -16,6 +16,7 @@ use Elazaroo\PulseBoosted\Ingests\NullIngest;
 use Elazaroo\PulseBoosted\Ingests\RedisIngest;
 use Elazaroo\PulseBoosted\Ingests\StorageIngest;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
+use Elazaroo\PulseBoosted\Issues\PerformanceThresholds;
 use Elazaroo\PulseBoosted\Issues\SendIssueMail;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\DatabaseJobRepository;
@@ -23,6 +24,7 @@ use Elazaroo\PulseBoosted\Queues\InspectorManager;
 use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Elazaroo\PulseBoosted\Recorders\Traces as TracesRecorder;
 use Elazaroo\PulseBoosted\Storage\DatabaseStorage;
+use Elazaroo\PulseBoosted\Traces\Trace;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Contracts\Auth\Access\Gate;
@@ -81,6 +83,10 @@ class PulseServiceProvider extends ServiceProvider
         $this->app->singleton(IssueRepository::class);
         $this->app->singleton(AlertManager::class);
         $this->app->singleton(Deployments::class);
+
+        $this->callAfterResolving(Tracer::class, function (Tracer $tracer, Application $app) {
+            $tracer->whenFinishing(fn (Trace $trace) => $app->make(PerformanceThresholds::class)($trace));
+        });
 
         $this->registerIngest();
     }

@@ -62,6 +62,13 @@ class Tracer
     protected ?string $lastId = null;
 
     /**
+     * Called with each execution as it finishes, before it is kept or dropped.
+     *
+     * @var list<callable(Trace): void>
+     */
+    protected array $finishing = [];
+
+    /**
      * Create a new tracer.
      */
     public function __construct(
@@ -176,6 +183,10 @@ class Tracer
         $this->current = null;
         $this->lastId = $trace->id;
 
+        foreach ($this->finishing as $callback) {
+            $this->pulse->rescue(fn () => $callback($trace));
+        }
+
         if ($trace->worthKeeping($this->keepRules())) {
             $this->buffer[] = $trace;
         }
@@ -234,6 +245,17 @@ class Tracer
     public function currentId(): ?string
     {
         return $this->current?->id;
+    }
+
+    /**
+     * Run something with each execution as it finishes, before the decision
+     * to keep or drop it — so the callback can still ask for it to be kept.
+     *
+     * @param  callable(Trace): void  $callback
+     */
+    public function whenFinishing(callable $callback): void
+    {
+        $this->finishing[] = $callback;
     }
 
     /**

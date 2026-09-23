@@ -113,6 +113,38 @@ class IssueRepository
     }
 
     /**
+     * Note an execution that ran over its threshold against its issue.
+     */
+    public function recordSlow(string $type, string $name, int $durationMs, int $thresholdMs, ?string $traceId, string|int|null $userId): void
+    {
+        if (! $this->enabled()) {
+            return;
+        }
+
+        $fingerprint = md5('performance|'.$type.'|'.$name);
+
+        $existing = $this->buffer[$fingerprint] ?? null;
+
+        $this->buffer[$fingerprint] = [
+            'class' => Str::limit('Slow '.$type.': '.$name, 250, ''),
+            'kind' => 'performance',
+            'message' => "{$name} took ".number_format($durationMs)."ms, over its {$thresholdMs}ms threshold",
+            'file' => null,
+            'line' => null,
+            // Not an exception at all, so neither handled nor not.
+            'handled' => true,
+            'trace' => null,
+            'at' => CarbonImmutable::now()->getTimestamp(),
+            'count' => ($existing['count'] ?? 0) + 1,
+            'occurrences' => array_merge($existing['occurrences'] ?? [], [[
+                'trace_id' => $traceId,
+                'user_id' => $userId === null ? null : (string) $userId,
+                'handled' => true,
+            ]]),
+        ];
+    }
+
+    /**
      * Write everything buffered.
      */
     public function flush(): void
@@ -282,8 +314,9 @@ class IssueRepository
 
         $exceptions = (int) ($counts['exception'] ?? 0);
         $errors = (int) ($counts['error'] ?? 0);
+        $performance = (int) ($counts['performance'] ?? 0);
 
-        return ['' => $exceptions + $errors, 'exception' => $exceptions, 'error' => $errors];
+        return ['' => $exceptions + $errors + $performance, 'exception' => $exceptions, 'error' => $errors, 'performance' => $performance];
     }
 
     /**
