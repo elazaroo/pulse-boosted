@@ -105,6 +105,10 @@ class Tracer
             memory_reset_peak_usage();
         }
 
+        if (is_scalar($deploy = $this->config->get('pulse-boosted.deployment')) && (string) $deploy !== '') {
+            $meta['deploy'] = (string) $deploy;
+        }
+
         $this->current = new Trace(
             id: (string) Str::uuid(),
             parentId: $this->inheritedParent,

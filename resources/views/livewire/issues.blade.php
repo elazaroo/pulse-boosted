@@ -114,6 +114,9 @@
                                     @if (($issue->kind ?? 'exception') === 'error')
                                         <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400">Error</span>
                                     @endif
+                                    @if ($latestDeploy !== null && ($issue->first_seen_deploy ?? null) === $latestDeploy)
+                                        <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-accent-500/15 text-accent-600 dark:text-accent-300" title="First seen in the latest deploy, {{ $latestDeploy }}">New</span>
+                                    @endif
                                     @if (! ($issue->handled ?? false))
                                         <span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide bg-red-500 text-white" title="Escaped to the exception handler">Unhandled</span>
                                     @else
@@ -224,6 +227,11 @@
                         @endif
                         @if ($issue->php_version)
                             <span class="rounded border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 dark:text-gray-300">PHP {{ $issue->php_version }}</span>
+                        @endif
+                        @if ($issue->first_seen_deploy ?? null)
+                            <span class="rounded border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 dark:text-gray-300" title="First seen in this deploy{{ $issue->last_seen_deploy && $issue->last_seen_deploy !== $issue->first_seen_deploy ? ', last seen in '.$issue->last_seen_deploy : '' }}">
+                                Since {{ \Illuminate\Support\Str::limit($issue->first_seen_deploy, 16) }}
+                            </span>
                         @endif
                         <button
                             type="button"

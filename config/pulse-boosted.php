@@ -127,6 +127,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Deployment
+    |--------------------------------------------------------------------------
+    |
+    | The version of the application that is running — a commit hash, a tag,
+    | a release number. Traces and issues are tagged with it, and the first
+    | time a version reports in is kept as when it was deployed, so an issue
+    | can say it is new since the last deploy. Laravel Cloud, Forge and Vapor
+    | already set one of these; anywhere else, set PULSE_BOOSTED_DEPLOY in
+    | your deploy script, or run `php artisan pulse-boosted:deploy <version>`.
+    |
+    */
+
+    'deployment' => env('PULSE_BOOSTED_DEPLOY', env('LARAVEL_CLOUD_DEPLOY_UUID', env('FORGE_DEPLOY_COMMIT', env('VAPOR_COMMIT_HASH')))),
+
+    /*
+    |--------------------------------------------------------------------------
     | Issues
     |--------------------------------------------------------------------------
     |

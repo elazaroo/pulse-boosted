@@ -3,7 +3,22 @@
     tinted when it crosses the line where it probably does, and each one
     links to the section that explains it.
 --}}
-<div class="col-span-full grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-px overflow-hidden rounded-lg border border-gray-200/80 dark:border-gray-800 bg-gray-200/80 dark:bg-gray-800" @if ($stats !== null) wire:poll.15s.visible="" @endif>
+<div class="col-span-full space-y-2" @if ($stats !== null) wire:poll.15s.visible="" @endif>
+@if ($deployment)
+    <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+        <span class="inline-flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-accent-500"></span>
+            Deployed <code class="font-mono text-gray-700 dark:text-gray-200">{{ \Illuminate\Support\Str::limit($deployment->version, 24) }}</code>
+            {{ \Carbon\CarbonImmutable::createFromTimestamp($deployment->deployed_at)->diffForHumans() }}
+        </span>
+        @if ($newSinceDeploy)
+            <a href="#errors" class="text-red-600 dark:text-red-400 font-medium hover:underline">{{ $newSinceDeploy }} new {{ \Illuminate\Support\Str::plural('issue', $newSinceDeploy) }} since</a>
+        @elseif ($newSinceDeploy === 0)
+            <span class="text-emerald-600 dark:text-emerald-400">no new issues since</span>
+        @endif
+    </p>
+@endif
+<div class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-px overflow-hidden rounded-lg border border-gray-200/80 dark:border-gray-800 bg-gray-200/80 dark:bg-gray-800">
     @if ($stats === null)
         @for ($i = 0; $i < 7; $i++)
             <div class="bg-white dark:bg-gray-900/60 px-4 py-3.5">
@@ -39,4 +54,5 @@
             </a>
         @endforeach
     @endif
+</div>
 </div>

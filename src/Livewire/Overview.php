@@ -5,6 +5,7 @@ namespace Elazaroo\PulseBoosted\Livewire;
 use Elazaroo\PulseBoosted\Alerts\AlertManager;
 use Elazaroo\PulseBoosted\Alerts\AlertRule;
 use Elazaroo\PulseBoosted\Alerts\Metrics;
+use Elazaroo\PulseBoosted\Deployments\Deployments;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Facades\View;
@@ -29,13 +30,13 @@ class Overview extends Card
      */
     public function placeholder(): Renderable
     {
-        return View::make('pulse-boosted::livewire.overview', ['stats' => null]);
+        return View::make('pulse-boosted::livewire.overview', ['stats' => null, 'deployment' => null, 'newSinceDeploy' => null]);
     }
 
     /**
      * Render the component.
      */
-    public function render(Metrics $metrics, IssueRepository $issues, AlertManager $alerts): Renderable
+    public function render(Metrics $metrics, IssueRepository $issues, AlertManager $alerts, Deployments $deployments): Renderable
     {
         $window = $this->periodAsInterval()->totalSeconds.' seconds';
 
@@ -55,7 +56,11 @@ class Overview extends Card
             }
         };
 
+        $deployment = $deployments->latest();
+
         return View::make('pulse-boosted::livewire.overview', [
+            'deployment' => $deployment,
+            'newSinceDeploy' => $deployment === null ? null : $this->newSince($issues, (int) $deployment->deployed_at),
             'stats' => [
                 [
                     'label' => 'Error rate',
@@ -115,6 +120,18 @@ class Overview extends Card
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Issues first seen since a moment — since the last deploy, here.
+     */
+    protected function newSince(IssueRepository $issues, int $since): ?int
+    {
+        try {
+            return $issues->countFirstSeenSince($since);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     protected function openIssues(IssueRepository $issues): ?float

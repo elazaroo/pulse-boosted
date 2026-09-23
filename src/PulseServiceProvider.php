@@ -8,6 +8,7 @@ use Elazaroo\PulseBoosted\Alerts\EvaluateAlerts;
 use Elazaroo\PulseBoosted\Contracts\Ingest;
 use Elazaroo\PulseBoosted\Contracts\ResolvesUsers;
 use Elazaroo\PulseBoosted\Contracts\Storage;
+use Elazaroo\PulseBoosted\Deployments\Deployments;
 use Elazaroo\PulseBoosted\Events\IsolatedBeat;
 use Elazaroo\PulseBoosted\Events\IssueOpened;
 use Elazaroo\PulseBoosted\Events\IssueRegressed;
@@ -79,6 +80,7 @@ class PulseServiceProvider extends ServiceProvider
         $this->app->booted(fn (Application $app) => $app->make(Tracer::class)->markBooted());
         $this->app->singleton(IssueRepository::class);
         $this->app->singleton(AlertManager::class);
+        $this->app->singleton(Deployments::class);
 
         $this->registerIngest();
     }
@@ -316,6 +318,10 @@ class PulseServiceProvider extends ServiceProvider
             $issues = $app->make(IssueRepository::class);
             $issues->flush();
 
+            // Once per process: the first to run a new version is, near
+            // enough, when it was deployed.
+            $app->make(Deployments::class)->note();
+
             $alerts = $app->make(AlertManager::class);
 
             $odds = $app->make('config')->get('pulse-boosted.ingest.trim.lottery') ?? [1, 1_000];
@@ -417,6 +423,7 @@ class PulseServiceProvider extends ServiceProvider
                 Commands\RestartCommand::class,
                 Commands\ClearCommand::class,
                 Commands\AlertsCommand::class,
+                Commands\DeployCommand::class,
             ]);
 
             AboutCommand::add('Pulse Boosted', fn () => [

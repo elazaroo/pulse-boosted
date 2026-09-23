@@ -3,6 +3,7 @@
 namespace Elazaroo\PulseBoosted\Commands;
 
 use Elazaroo\PulseBoosted\Alerts\AlertManager;
+use Elazaroo\PulseBoosted\Deployments\Deployments;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Elazaroo\PulseBoosted\Pulse;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
@@ -44,7 +45,7 @@ class ClearCommand extends Command
     /**
      * Handle the command.
      */
-    public function handle(Pulse $pulse, JobRepository $jobs, Tracer $tracer, IssueRepository $issues, AlertManager $alerts): int
+    public function handle(Pulse $pulse, JobRepository $jobs, Tracer $tracer, IssueRepository $issues, AlertManager $alerts, Deployments $deployments): int
     {
         if (! $this->confirmToProceed()) {
             return Command::FAILURE;
@@ -81,6 +82,11 @@ class ClearCommand extends Command
             $this->components->task(
                 'Purging alerts',
                 fn () => $alerts->purge(),
+            );
+
+            $this->components->task(
+                'Purging deployments',
+                fn () => $deployments->purge(),
             );
         }
 

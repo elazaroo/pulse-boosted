@@ -35,6 +35,8 @@ use Throwable;
  *     trace: ?string,
  *     php_version: ?string,
  *     laravel_version: ?string,
+ *     first_seen_deploy: ?string,
+ *     last_seen_deploy: ?string,
  *     file: ?string,
  *     line: ?int,
  *     status: string,
@@ -139,7 +141,11 @@ class IssueRepository
     {
         $existing = $this->table()->where('fingerprint', $fingerprint)->first();
 
+        $deploy = $this->config->get('pulse-boosted.deployment');
+        $deploy = is_scalar($deploy) && (string) $deploy !== '' ? Str::limit((string) $deploy, 191, '') : null;
+
         $latest = [
+            'last_seen_deploy' => $deploy,
             'message' => $issue['message'],
             'handled' => $issue['handled'],
             'trace' => $issue['trace'],
@@ -158,6 +164,7 @@ class IssueRepository
                 'first_seen_at' => $issue['at'],
                 'last_seen_at' => $issue['at'],
                 'occurrences' => $issue['count'],
+                'first_seen_deploy' => $deploy,
                 ...$latest,
             ]);
 
@@ -230,6 +237,14 @@ class IssueRepository
     public function count(array $filters = []): int
     {
         return $this->pulse->ignore(fn () => $this->filtered($filters)->count());
+    }
+
+    /**
+     * How many issues were first seen at or after a moment.
+     */
+    public function countFirstSeenSince(int $timestamp): int
+    {
+        return $this->pulse->ignore(fn () => $this->table()->where('first_seen_at', '>=', $timestamp)->count());
     }
 
     /**

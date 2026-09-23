@@ -53,6 +53,11 @@ return new class extends PulseMigration
             $table->string('php_version', 32)->nullable();
             $table->string('laravel_version', 32)->nullable();
 
+            // Which deploy it first appeared in, and the latest it was seen
+            // in — "new since the last deploy" is the question after one.
+            $table->string('first_seen_deploy')->nullable();
+            $table->string('last_seen_deploy')->nullable();
+
             // Set when somebody resolves it, so a reappearance afterwards can
             // be called a regression rather than just another occurrence.
             $table->unsignedInteger('resolved_at')->nullable();

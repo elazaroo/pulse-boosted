@@ -155,6 +155,9 @@
                         <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                             {{ Str::headline($trace->type) }} &middot; {{ number_format((int) $trace->duration_ms) }} ms &middot;
                             {{ CarbonImmutable::createFromTimestamp($trace->started_at)->toDateTimeString() }}
+                            @if ($detail['meta']['deploy'] ?? null)
+                                &middot; deploy <code class="font-mono">{{ Str::limit($detail['meta']['deploy'], 16) }}</code>
+                            @endif
                         </p>
                     </div>
                     <button type="button" wire:click="deselect" class="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shrink-0">&times;</button>

@@ -3,6 +3,7 @@
 namespace Elazaroo\PulseBoosted\Livewire;
 
 use Carbon\CarbonImmutable;
+use Elazaroo\PulseBoosted\Deployments\Deployments;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Elazaroo\PulseBoosted\Queues\QueueActions;
 use Elazaroo\PulseBoosted\Support\Location;
@@ -125,7 +126,7 @@ class Issues extends Card
     /**
      * Render the component.
      */
-    public function render(IssueRepository $issues, QueueActions $actions): Renderable
+    public function render(IssueRepository $issues, QueueActions $actions, Deployments $deployments): Renderable
     {
         $filters = array_filter([
             'status' => $this->status ?: null,
@@ -142,6 +143,9 @@ class Issues extends Card
             'kindCounts' => $issues->countsByKind($filters),
             'detail' => $this->detail($issues),
             'canManage' => $actions->allowed(),
+            // "New" only means something once there is an earlier deploy to
+            // be new since.
+            'latestDeploy' => ($recent = $deployments->recent(2))->count() > 1 ? $recent->first()?->version : null,
         ]);
     }
 
