@@ -121,6 +121,20 @@ worker picks it up in another process minutes later, the two are still joined.
 Opening a failed job's trace shows both the job and the request that asked for
 the work.
 
+A request's timeline is split into the stages of its lifecycle — Bootstrap,
+Middleware, Controller, Render, Middleware on the way out, Sending and
+Terminating — with each query, cache operation and job drawn inside the stage
+it happened in. Each query notes the line in the application that ran it. The
+panel leads with how many of each kind of event there were and the peak
+memory, and a request that ended in a 5xx keeps its headers and query string
+(credentials replaced) and, if `traces.request.capture_payload` is on, its
+body with passwords, tokens and card fields replaced by their length.
+
+Workers, schedulers and other commands that host executions are never traced
+themselves, so each job and scheduled task inside them gets its own trace.
+Commands that run constantly and say nothing, such as `horizon:snapshot`, are
+left out unless `traces.capture_vendor_commands` is set.
+
 ### The cost, and how it is kept down
 
 A trace is a row per event, which is far more than an aggregate. Three things
@@ -199,6 +213,45 @@ become their value, dates become ISO strings, arrays become JSON, objects
 become their class name, and anything long is truncated. An execution may carry
 25 attributes; past that, new keys are dropped while existing ones can still be
 updated, so a loop cannot write an unbounded row.
+
+### Choosing what is kept
+
+A route can be traced at its own rate:
+
+```php
+use Elazaroo\PulseBoosted\Http\Middleware\Sample;
+
+Route::post('/checkout', CheckoutController::class)->middleware(Sample::always());
+Route::get('/health', HealthController::class)->middleware(Sample::never());
+Route::get('/search', SearchController::class)->middleware(Sample::rate(0.01));
+```
+
+A failure on a route that is never sampled is still kept.
+
+Events can be left out, or rewritten before they are kept:
+
+```php
+PulseBoosted::rejectQueries(fn (string $sql) => str_contains($sql, 'telescope_'));
+PulseBoosted::rejectCacheKeys(['/^rate-limit:/']);
+PulseBoosted::rejectOutgoingRequests(fn (string $url) => str_contains($url, 'metrics.internal'));
+PulseBoosted::redactOutgoingRequests(fn (string $url) => preg_replace('/token=[^&]+/', 'token=***', $url));
+
+// Or any kind of event: query, cache, http, log, mail, notification, job.
+PulseBoosted::rejectTraceEvents('log', fn (string $message) => str_starts_with($message, 'Heartbeat'));
+PulseBoosted::redactTraceEvents('log', fn (string $message) => preg_replace('/\d{16}/', '****', $message));
+```
+
+A reject callback returns true to leave the event out. A redact callback
+returns the new label, a `[label, meta]` pair, or null to leave it alone.
+
+### Deployments
+
+Traces and issues are tagged with the version that was running, read from
+`PULSE_BOOSTED_DEPLOY` or from whatever Laravel Cloud, Forge or Vapor already
+sets. The first time a version reports in is kept as when it was deployed; a
+deploy script can mark the moment itself with `php artisan pulse-boosted:deploy
+<version>`. The Overview says what is deployed and how many issues are new
+since, and issues first seen in the latest deploy are marked *New*.
 
 ## On the dashboard
 
@@ -348,6 +401,48 @@ php artisan pulse-boosted:alerts --dry-run  # reads only, changes nothing
 It exits non-zero when anything is breaching, so it also works as a health
 check from outside.
 
+## Issues
+
+Exceptions are grouped by class, file and line into issues, and each issue
+says whether its latest occurrence was **handled** — caught and passed to
+`report()` or `rescue()` — or **unhandled**, having escaped to the handler. It
+keeps that occurrence's stack, with five lines of source either side of the
+first ten application frames, and the Laravel and PHP versions it happened on.
+Issues can be resolved or ignored; a resolved one that happens again reopens
+itself.
+
+### Being told about new issues
+
+```env
+PULSE_BOOSTED_ISSUES_MAIL=oncall@example.com,lead@example.com
+```
+
+Those addresses are emailed through the application's own mailer the first
+time an issue is seen, and again if one marked resolved comes back. For any
+other channel, listen for `IssueOpened` and `IssueRegressed`.
+
+### Slow executions are issues too
+
+```php
+// config/pulse-boosted.php
+'issues' => [
+    'thresholds' => [
+        'request' => ['GET /checkout' => 800, '#^GET /api/#' => 300, '*' => 2000],
+        'job' => ['App\Jobs\SendInvoice' => 5000],
+    ],
+],
+```
+
+An execution over its threshold opens an issue under *Performance* — listed,
+resolvable and notified like any exception — and its trace is kept whatever
+the sampling draw said.
+
+### Resolving quiet issues
+
+Set `issues.auto_resolve_after` to `'7 days'` or similar to resolve open issues
+that have stopped happening. One that was not really fixed reopens the next
+time it happens and is announced as a regression.
+
 ## The queue explorer
 
 `/pulse-boosted/queues` reads from two places and says which is which.
@@ -377,6 +472,7 @@ Listing never pops: the database inspector runs a `SELECT` and the Redis one use
 | `pulse-boosted:restart` | Signal workers to restart |
 | `pulse-boosted:clear` | Purge stored data |
 | `pulse-boosted:alerts` | Check the alert rules and show what each one reads |
+| `pulse-boosted:deploy` | Mark a deployment |
 
 ## Moving from Laravel Pulse
 

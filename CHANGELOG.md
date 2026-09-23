@@ -22,9 +22,20 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 - `PulseBoosted::context()` to attach the application's own attributes to a trace; the Traces search matches them.
 - Alert rules over seven metrics, with `AlertTriggered` and `AlertResolved` events and `pulse-boosted:alerts`.
 - A redesigned dashboard: sections with a following sidebar, an Overview row of headline figures, and cards that only refresh while visible.
+- Handled and unhandled exceptions told apart; each issue keeps its stack with source, the versions it happened on, and a Copy as Markdown button.
+- Email for new and regressed issues through the application's mailer, and `IssueOpened` / `IssueRegressed` events.
+- Retroactive sampling: executions that fail, throw or run slow are kept even when they lose the draw, and left out of rates and percentiles.
+- Request timelines split into lifecycle stages; per-execution counts and peak memory; the line each query was run from; headers and, optionally, the body of requests that ended in a 5xx.
+- Routes and Queries cards; Livewire requests named by their components.
+- Cache writes, deletes and failures per key.
+- Every attempt at a job, each linked to its own trace.
+- Deployment tracking with `pulse-boosted:deploy`, and issues marked New in the latest deploy.
+- Performance thresholds that open issues, and auto-resolving quiet issues.
+- A user filter in the header, the Sample middleware, and the reject/redact API for trace events.
 
 ### Changed
 
+- A worker's jobs and a scheduler's tasks are now traced. `queue:work` and `schedule:run` opened a trace of their own that never closed, so nothing inside them was recorded.
 - Exceptions thrown by the application now reach every recorder. Only the Exceptions card saw them before; issues and trace timelines only saw exceptions passed to `Pulse::report()` by hand.
 - Renamed throughout to `elazaroo/pulse-boosted` and the `Elazaroo\PulseBoosted\` namespace, so the package is independent of `laravel/pulse` rather than a replacement for it. See [Moving from Laravel Pulse](README.md#moving-from-laravel-pulse).
 - Line endings pinned to LF.
