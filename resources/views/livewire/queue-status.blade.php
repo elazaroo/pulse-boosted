@@ -8,7 +8,7 @@
         </x-slot:icon>
     </x-pulse-boosted::card-header>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s.visible="">
         @if (! $enabled)
             <div class="h-full flex items-center justify-center p-4">
                 <p class="text-sm text-gray-400 dark:text-gray-600 text-center">
@@ -44,7 +44,7 @@
                                 <button
                                     type="button"
                                     wire:click="focus('{{ $row['connection'] }}', '{{ $row['queue'] }}')"
-                                    class="block w-full text-left truncate text-sm text-gray-900 dark:text-gray-100 hover:text-[#7A5AF8]"
+                                    class="block w-full text-left truncate text-sm text-gray-900 dark:text-gray-100 hover:text-accent-500"
                                     title="Show {{ $key }} in the jobs table"
                                 >{{ $row['queue'] }}</button>
                                 <p class="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">

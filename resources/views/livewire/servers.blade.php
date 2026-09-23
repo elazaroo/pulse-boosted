@@ -14,7 +14,7 @@ $rows = ! empty($rows) ? $rows : 1;
 @endphp
 
 <section
-    wire:poll.5s
+    wire:poll.5s.visible
     x-data="{
         loading: false,
         init() {
@@ -117,6 +117,11 @@ $rows = ! empty($rows) ? $rows : 1;
                 </div>
             @endforeach
         </div>
+    @else
+        <div class="flex items-center gap-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400">
+            <x-pulse-boosted::icons.server class="w-4 h-4 shrink-0 stroke-gray-400" />
+            <span><span class="font-medium text-gray-700 dark:text-gray-300">No servers reporting.</span> Run <code class="font-mono text-xs">php artisan pulse-boosted:check</code> on each server to see its CPU, memory and storage here.</span>
+        </div>
     @endif
 </section>
 
@@ -133,7 +138,7 @@ Alpine.data('cpuChart', (config) => ({
                     datasets: [
                         {
                             label: 'CPU Percent',
-                            borderColor: '#9333ea',
+                            borderColor: '#6366f1',
                             borderWidth: 2,
                             borderCapStyle: 'round',
                             data: config.data,
@@ -213,7 +218,7 @@ Alpine.data('memoryChart', (config) => ({
                     datasets: [
                         {
                             label: 'Memory Used',
-                            borderColor: '#9333ea',
+                            borderColor: '#6366f1',
                             borderWidth: 2,
                             borderCapStyle: 'round',
                             data: config.data,
@@ -297,12 +302,12 @@ Alpine.data('storageChart', (config) => ({
                                 config.total - config.used,
                             ],
                             backgroundColor: [
-                                '#9333ea',
-                                '#c084fc30',
+                                '#6366f1',
+                                '#a5b4fc40',
                             ],
                             hoverBackgroundColor: [
-                                '#9333ea',
-                                '#c084fc30',
+                                '#6366f1',
+                                '#a5b4fc40',
                             ],
                         },
                     ],

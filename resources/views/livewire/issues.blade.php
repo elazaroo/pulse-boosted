@@ -17,7 +17,7 @@
                     @class([
                         'px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap',
                         'text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800' => $status !== $value,
-                        'bg-[#7A5AF8] text-white' => $status === $value,
+                        'bg-accent-500 text-white' => $status === $value,
                     ])
                 >
                     {{ $label }}
@@ -36,7 +36,7 @@
         >
     </div>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s.visible="">
         @if (! $enabled)
             <div class="h-full flex items-center justify-center p-4">
                 <p class="text-sm text-gray-400 dark:text-gray-600 text-center">Issue tracking is switched off in the configuration.</p>
@@ -70,7 +70,7 @@
                                         'bg-green-500' => $issue->status === 'resolved',
                                         'bg-gray-400 dark:bg-gray-600' => $issue->status === 'ignored',
                                     ])></span>
-                                    <code class="block text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-[#7A5AF8]">{{ class_basename($issue->class) }}</code>
+                                    <code class="block text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-accent-500">{{ class_basename($issue->class) }}</code>
                                 </div>
                                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate" title="{{ $issue->message }}">
                                     {{ $issue->message ?: '—' }}
@@ -177,7 +177,7 @@
                                             @endif
                                             @if ($occurrence->trace_id)
                                                 <button type="button" wire:click="$dispatch('open-trace', { traceId: '{{ $occurrence->trace_id }}' })"
-                                                    class="font-medium text-[#7A5AF8] hover:underline">Trace</button>
+                                                    class="font-medium text-accent-500 hover:underline">Trace</button>
                                             @endif
                                         </span>
                                     </li>

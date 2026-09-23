@@ -10,7 +10,7 @@
         </x-slot:icon>
         <x-slot:actions>
             @if (\Illuminate\Support\Facades\Route::has('pulse-boosted.queues'))
-                <a href="{{ route('pulse-boosted.queues') }}" class="text-xs font-medium text-[#7A5AF8] hover:underline whitespace-nowrap">Explore &rarr;</a>
+                <a href="{{ route('pulse-boosted.queues') }}" class="text-xs font-medium text-accent-500 hover:underline whitespace-nowrap">Explore &rarr;</a>
             @endif
             <div class="flex flex-wrap gap-4">
                 <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
@@ -22,7 +22,7 @@
                     Processing
                 </div>
                 <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
-                    <div class="h-0.5 w-3 rounded-full bg-[#9333ea]"></div>
+                    <div class="h-0.5 w-3 rounded-full bg-[#6366f1]"></div>
                     Processed
                 </div>
                 <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
@@ -37,7 +37,7 @@
         </x-slot:actions>
     </x-pulse-boosted::card-header>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.15s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.15s.visible="">
         @if ($queues->isEmpty())
             <x-pulse-boosted::no-results />
         @else
@@ -114,7 +114,7 @@ Alpine.data('queueChart', (config) => ({
                         },
                         {
                             label: 'Processed',
-                            borderColor: '#9333ea',
+                            borderColor: '#6366f1',
                             data: this.scale(config.readings.processed),
                             order: 1,
                         },

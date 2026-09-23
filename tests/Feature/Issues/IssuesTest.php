@@ -220,3 +220,19 @@ it('keeps open issues when trimming but drops settled ones', function () {
 
     Pulse::flush();
 });
+
+it('records exceptions the application throws, not only ones reported by hand', function () {
+    // Regression: issues only listened for ExceptionReported, which nothing
+    // dispatched for an exception that was simply thrown, so a real
+    // application recorded no issues at all.
+    Route::get('boom', fn () => throw new RuntimeException('Thrown, not reported'))->middleware('web');
+
+    $this->get('boom')->assertServerError();
+
+    $issues = app(IssueRepository::class)->issues([]);
+
+    expect($issues)->toHaveCount(1);
+    expect($issues[0]->message)->toBe('Thrown, not reported');
+
+    Pulse::flush();
+});

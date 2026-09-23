@@ -398,7 +398,7 @@ it('says so on the card when nothing is configured', function () {
     Config::set('pulse-boosted.alerts.rules', []);
 
     Livewire::test(Alerts::class, ['lazy' => false])
-        ->assertSee('Nothing is being watched');
+        ->assertSee('No alert rules');
 });
 
 it('shows settled episodes under history', function () {

@@ -194,6 +194,21 @@ updated, so a loop cannot write an unbounded row.
 
 ## On the dashboard
 
+The dashboard is one page in sections — Overview, Servers, Queues & jobs,
+Traces, Errors, Performance, Mail & notifications, Users — with a sidebar that
+follows you down it. The sidebar is built from the `<x-pulse-boosted::section>`
+headings on the page, so a published dashboard gets links to whatever sections
+it defines, and none if it defines none.
+
+Cards load as they scroll into view and only refresh while they are visible, so
+the length of the page costs nothing until you look at it.
+
+**Overview** opens the page with seven figures for the selected period: error
+rate, p95 request time, exceptions, open issues, failed jobs, queue backlog and
+alerts breaching now. Each is read exactly as an alert rule would read it, turns
+red past the point where it probably needs looking at, and links to the section
+that explains it.
+
 These cards come with the fork, alongside the ones Pulse already has.
 
 **Queue Status** lists every queue with its live counts, says which are paused,

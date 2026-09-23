@@ -20,7 +20,7 @@
         </x-slot:actions>
     </x-pulse-boosted::card-header>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s.visible="">
         @if ($workers->isEmpty())
             <div class="h-full flex flex-col items-center justify-center p-4 text-center">
                 <x-pulse-boosted::icons.no-pulse class="h-8 w-8 stroke-gray-300 dark:stroke-gray-700" />

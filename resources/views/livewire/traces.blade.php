@@ -5,7 +5,7 @@
     $eventColour = [
         'query' => 'bg-sky-500',
         'cache' => 'bg-teal-500',
-        'job' => 'bg-[#7A5AF8]',
+        'job' => 'bg-accent-500',
         'http' => 'bg-amber-500',
         'exception' => 'bg-red-500',
         'log' => 'bg-gray-400',
@@ -30,7 +30,7 @@
                     @class([
                         'px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap',
                         'text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800' => $type !== $value,
-                        'bg-[#7A5AF8] text-white' => $type === $value,
+                        'bg-accent-500 text-white' => $type === $value,
                     ])
                 >
                     {{ $label }}
@@ -61,7 +61,7 @@
         </div>
     </div>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.10s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.10s.visible="">
         @if (! $enabled)
             <div class="h-full flex items-center justify-center p-4">
                 <p class="text-sm text-gray-400 dark:text-gray-600 text-center">Tracing is switched off in the configuration.</p>
@@ -96,7 +96,7 @@
                                     @if ($row->status === 'failed')
                                         <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
                                     @endif
-                                    <code class="block text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-[#7A5AF8]" title="{{ $row->name }}">{{ $row->name }}</code>
+                                    <code class="block text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-accent-500" title="{{ $row->name }}">{{ $row->name }}</code>
                                 </div>
                             </x-pulse-boosted::td>
                             <x-pulse-boosted::td class="text-gray-500 dark:text-gray-400 text-xs capitalize">{{ $row->type }}</x-pulse-boosted::td>
@@ -173,7 +173,7 @@
                     @if ($detail['parent'])
                         <p class="text-xs text-gray-500 dark:text-gray-400">
                             Queued by
-                            <button type="button" wire:click="select('{{ $detail['parent']->trace_id }}')" class="font-medium text-[#7A5AF8] hover:underline">{{ $detail['parent']->name }}</button>
+                            <button type="button" wire:click="select('{{ $detail['parent']->trace_id }}')" class="font-medium text-accent-500 hover:underline">{{ $detail['parent']->name }}</button>
                         </p>
                     @endif
 
@@ -228,7 +228,7 @@
                             <ul class="space-y-1">
                                 @foreach ($detail['children'] as $child)
                                     <li>
-                                        <button type="button" wire:click="select('{{ $child->trace_id }}')" class="text-sm text-[#7A5AF8] hover:underline">{{ $child->name }}</button>
+                                        <button type="button" wire:click="select('{{ $child->trace_id }}')" class="text-sm text-accent-500 hover:underline">{{ $child->name }}</button>
                                         <span class="text-xs text-gray-500 dark:text-gray-400">{{ number_format((int) $child->duration_ms) }} ms &middot; {{ $child->status }}</span>
                                     </li>
                                 @endforeach

@@ -16,7 +16,7 @@
                         @class([
                             'px-2 py-1 text-xs font-medium whitespace-nowrap border-r last:border-r-0 border-gray-200 dark:border-gray-700',
                             'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200' => $kind !== $value,
-                            'bg-[#7A5AF8] text-white' => $kind === $value,
+                            'bg-accent-500 text-white' => $kind === $value,
                         ])
                     >{{ $label }}<span class="ml-1 tabular-nums opacity-70">{{ $kindCounts[$value] }}</span></button>
                 @endforeach
@@ -35,7 +35,7 @@
         </x-slot:actions>
     </x-pulse-boosted::card-header>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s.visible="">
         @if ($exceptions->isEmpty())
             <x-pulse-boosted::no-results />
         @else

@@ -12,7 +12,7 @@
         </x-slot:icon>
     </x-pulse-boosted::card-header>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s.visible="">
         @if ($summary->isEmpty())
             <div class="h-full flex flex-col items-center justify-center p-4 text-center">
                 <x-pulse-boosted::icons.no-pulse class="h-8 w-8 stroke-gray-300 dark:stroke-gray-700" />
@@ -50,7 +50,7 @@
                         <tr wire:key="{{ $row['name'] }}-spacer" class="h-2 first:h-0"></tr>
                         <tr wire:key="{{ $row['name'] }}-row" wire:click="showTrace('{{ $row['traceId'] }}')" class="cursor-pointer group">
                             <x-pulse-boosted::td class="max-w-[1px]">
-                                <code class="block text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-[#7A5AF8]" title="{{ $row['name'] }}">
+                                <code class="block text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-accent-500" title="{{ $row['name'] }}">
                                     {{ $row['name'] }}
                                 </code>
                             </x-pulse-boosted::td>

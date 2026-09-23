@@ -1,4 +1,5 @@
 const defaultTheme = require('tailwindcss/defaultTheme')
+const colors = require('tailwindcss/colors')
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -20,8 +21,15 @@ module.exports = {
     darkMode: 'class',
     theme: {
         extend: {
+            colors: {
+                // Zinc reads cooler and denser than Tailwind's default gray,
+                // which suits a screen that is mostly numbers.
+                gray: colors.zinc,
+                accent: colors.indigo,
+            },
             fontFamily: {
-                'sans': ['Figtree', ...defaultTheme.fontFamily.sans],
+                'sans': ['Inter', ...defaultTheme.fontFamily.sans],
+                'mono': ['"JetBrains Mono"', ...defaultTheme.fontFamily.mono],
             },
             height: {
                 '128': '32rem',

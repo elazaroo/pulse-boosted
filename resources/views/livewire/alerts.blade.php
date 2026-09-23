@@ -1,6 +1,17 @@
 @use('Carbon\CarbonImmutable')
 @use('Illuminate\Support\Str')
 
+@if (! $enabled || $configured === 0)
+    {{-- Nothing to watch is one line, not a card-sized hole at the top of the page. --}}
+    <div class="col-span-full flex items-center gap-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400">
+        <x-pulse-boosted::icons.signal-slash class="w-4 h-4 shrink-0 stroke-gray-400" />
+        @if (! $enabled)
+            <span>Alerting is switched off in the configuration.</span>
+        @else
+            <span><span class="font-medium text-gray-700 dark:text-gray-300">No alert rules.</span> Add them under <code class="font-mono text-xs">alerts.rules</code> to be told when something breaches a threshold.</span>
+        @endif
+    </div>
+@else
 <x-pulse-boosted::card :cols="$cols" :rows="$rows" :class="$class">
     <x-pulse-boosted::card-header name="Alerts" details="{{ $configured }} {{ Str::plural('rule', $configured) }}">
         <x-slot:icon>
@@ -16,7 +27,7 @@
                 @class([
                     'px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap',
                     'text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800' => $tab !== $value,
-                    'bg-[#7A5AF8] text-white' => $tab === $value,
+                    'bg-accent-500 text-white' => $tab === $value,
                 ])
             >
                 {{ $label }}
@@ -27,7 +38,7 @@
         @endforeach
     </div>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s.visible="">
         @if (! $enabled)
             <div class="h-full flex items-center justify-center p-4">
                 <p class="text-sm text-gray-400 dark:text-gray-600 text-center">Alerting is switched off in the configuration.</p>
@@ -125,3 +136,4 @@
         @endif
     </x-pulse-boosted::scroll>
 </x-pulse-boosted::card>
+@endif

@@ -23,6 +23,7 @@ use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
@@ -43,6 +44,7 @@ use Laravel\Octane\Events\TickReceived;
 use Laravel\Sentinel\Http\Middleware\SentinelMiddleware;
 use Livewire\LivewireManager;
 use RuntimeException;
+use Throwable;
 
 /**
  * @internal
@@ -211,6 +213,18 @@ class PulseServiceProvider extends ServiceProvider
             });
         });
 
+        // One route in for every exception, whether the handler reported it
+        // or the application called Pulse::report() itself. Recorders listen
+        // for ExceptionReported alone, so issues and traces see thrown
+        // exceptions too rather than only the ones reported by hand.
+        $this->callAfterResolving(ExceptionHandler::class, function (ExceptionHandler $handler, Application $app) {
+            if (method_exists($handler, 'reportable')) {
+                $handler->reportable(function (Throwable $e) use ($app) {
+                    $app->make(Pulse::class)->report($e);
+                });
+            }
+        });
+
         // Under a lock, so the rules are checked once across the fleet rather
         // than once per server. An alert is a thing that should fire once.
         $this->callAfterResolving(Dispatcher::class, function (Dispatcher $event, Application $app) {
@@ -328,6 +342,7 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.commands', Livewire\Commands::class);
             $livewire->component('pulse-boosted.scheduled-tasks', Livewire\ScheduledTasks::class);
             $livewire->component('pulse-boosted.alerts', Livewire\Alerts::class);
+            $livewire->component('pulse-boosted.overview', Livewire\Overview::class);
         });
     }
 

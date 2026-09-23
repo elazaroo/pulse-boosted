@@ -21,7 +21,7 @@
         </x-slot:actions>
     </x-pulse-boosted::card-header>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s.visible="">
         @if ($slowJobs->isEmpty())
             <x-pulse-boosted::no-results />
         @else

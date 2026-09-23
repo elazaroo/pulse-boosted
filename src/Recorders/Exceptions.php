@@ -7,7 +7,6 @@ use Elazaroo\PulseBoosted\Concerns\ConfiguresAfterResolving;
 use Elazaroo\PulseBoosted\Events\ExceptionReported;
 use Elazaroo\PulseBoosted\Pulse;
 use Illuminate\Contracts\Config\Repository;
-use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Str;
@@ -36,8 +35,8 @@ class Exceptions
      */
     public function register(callable $record, Application $app): void
     {
-        $this->afterResolving($app, ExceptionHandler::class, fn (ExceptionHandler $handler) => $handler->reportable(fn (Throwable $e) => $record($e))); // @phpstan-ignore method.notFound
-
+        // Thrown exceptions arrive here too: the service provider turns every
+        // one the handler reports into ExceptionReported.
         $this->afterResolving($app, Dispatcher::class, fn (Dispatcher $events) => $events->listen(fn (ExceptionReported $event) => $record($event->exception)));
     }
 

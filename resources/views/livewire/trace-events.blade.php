@@ -23,7 +23,7 @@
                     @class([
                         'px-2.5 py-1 text-xs font-medium rounded-md',
                         'text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800' => $level !== '',
-                        'bg-[#7A5AF8] text-white' => $level === '',
+                        'bg-accent-500 text-white' => $level === '',
                     ])
                 >All</button>
 
@@ -35,7 +35,7 @@
                             @class([
                                 'px-2.5 py-1 text-xs font-medium rounded-md capitalize',
                                 'text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800' => $level !== $name,
-                                'bg-[#7A5AF8] text-white' => $level === $name,
+                                'bg-accent-500 text-white' => $level === $name,
                             ])
                         >{{ $name }} <span class="tabular-nums opacity-70">{{ number_format($levels[$name]) }}</span></button>
                     @endif
@@ -51,7 +51,7 @@
         >
     </div>
 
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.30s.visible="">
         @if ($events->isEmpty())
             <div class="h-full flex flex-col items-center justify-center p-4 text-center">
                 <x-pulse-boosted::icons.no-pulse class="h-8 w-8 stroke-gray-300 dark:stroke-gray-700" />
@@ -76,7 +76,7 @@
                         <tr wire:key="{{ $event->id }}-spacer" class="h-2 first:h-0"></tr>
                         <tr wire:key="{{ $event->id }}-row" wire:click="showTrace('{{ $event->trace_id }}')" class="cursor-pointer group">
                             <x-pulse-boosted::td class="max-w-[1px]">
-                                <p class="text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-[#7A5AF8]" title="{{ $event->label }}">
+                                <p class="text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-accent-500" title="{{ $event->label }}">
                                     @if ($event->level)
                                         <span @class([
                                             'mr-1 font-medium',

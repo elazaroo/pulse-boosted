@@ -16,9 +16,15 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 - A Workers card, built from a heartbeat each worker writes as it loops, since Laravel does not track them. Distinguishes a worker that stopped cleanly from one that went quiet.
 - Traces: requests, commands, scheduled tasks and jobs become execution contexts, and the queries, cache reads, dispatched jobs, outgoing calls, exceptions, log lines, mail and notifications inside them are recorded against them with a timeline. A job carries its parent's trace id on the queue payload, so work is still joined to whatever asked for it across processes. Sampled at the entry point, capped per trace, and kept for a day.
 - A runnable demo application in `workbench/`, with `demo:seed-queue`.
+- Issues, grouping exceptions by class, file and line, with resolve, ignore and reopen.
+- Logs, Mail, Notifications, Commands and Scheduled Tasks cards, read from traces. Commands and Scheduled Tasks show the 95th percentile next to the average.
+- `PulseBoosted::context()` to attach the application's own attributes to a trace; the Traces search matches them.
+- Alert rules over seven metrics, with `AlertTriggered` and `AlertResolved` events and `pulse-boosted:alerts`.
+- A redesigned dashboard: sections with a following sidebar, an Overview row of headline figures, and cards that only refresh while visible.
 
 ### Changed
 
+- Exceptions thrown by the application now reach every recorder. Only the Exceptions card saw them before; issues and trace timelines only saw exceptions passed to `Pulse::report()` by hand.
 - Renamed throughout to `elazaroo/pulse-boosted` and the `Elazaroo\PulseBoosted\` namespace, so the package is independent of `laravel/pulse` rather than a replacement for it. See [Moving from Laravel Pulse](README.md#moving-from-laravel-pulse).
 - Line endings pinned to LF.
 - The test suite runs against an in-memory database, so it no longer shares one with the demo application.

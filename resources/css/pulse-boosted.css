@@ -18,3 +18,29 @@
         padding-right: var(--can-scroll) theme('spacing.3');
     }
 }
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 5rem;
+        font-feature-settings: "cv11", "ss01";
+    }
+
+    code, .font-mono {
+        font-feature-settings: normal;
+    }
+}
+
+@layer components {
+    /*
+     * Rows in every card table: a quiet hover, so it is obvious which rows
+     * open something when clicked.
+     */
+    tbody tr:hover > td {
+        @apply bg-gray-100 dark:bg-gray-800;
+    }
+
+    tbody tr > td {
+        @apply transition-colors duration-100;
+    }
+}

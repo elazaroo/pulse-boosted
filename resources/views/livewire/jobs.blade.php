@@ -18,7 +18,7 @@
                     @class([
                         'px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap',
                         'text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800' => $tab !== $value,
-                        'bg-[#7A5AF8] text-white' => $tab === $value,
+                        'bg-accent-500 text-white' => $tab === $value,
                     ])
                 >
                     {{ $label }}
@@ -63,7 +63,7 @@
             @endif
         </div>
     </div>
-    <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s="">
+    <x-pulse-boosted::scroll :expand="$expand" wire:poll.5s.visible="">
         @if ($jobs->isEmpty())
             <x-pulse-boosted::no-results />
         @else
@@ -98,7 +98,7 @@
                             @class(['cursor-pointer group' => (bool) $uuid])
                         >
                             <x-pulse-boosted::td class="max-w-[1px]">
-                                <code class="block text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-[#7A5AF8]" title="{{ $row->name }}">{{ $row->name }}</code>
+                                <code class="block text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-accent-500" title="{{ $row->name }}">{{ $row->name }}</code>
                                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate">
                                     @if (! $live && ($row->exception_class ?? null))
                                         <span class="text-red-600 dark:text-red-400">{{ class_basename($row->exception_class) }}</span>
@@ -204,7 +204,7 @@
                             <ol class="space-y-1">
                                 @foreach ($detail['timeline'] as $point)
                                     <li class="flex items-center gap-2 text-sm">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-[#7A5AF8] shrink-0"></span>
+                                        <span class="w-1.5 h-1.5 rounded-full bg-accent-500 shrink-0"></span>
                                         <span class="text-gray-700 dark:text-gray-300">{{ $point['label'] }}</span>
                                         <span class="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{{ CarbonImmutable::createFromTimestamp($point['at'])->toDateTimeString() }}</span>
                                     </li>
