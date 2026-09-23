@@ -126,10 +126,20 @@ class Traces extends Card
 
         $events = $traces->events($trace->trace_id);
 
+        $meta = $this->decode($trace->meta);
+
+        // What the application attached with PulseBoosted::context() is worth
+        // more than the rest of the metadata, so it is pulled out and shown as
+        // a list rather than buried in a blob of JSON.
+        $context = $meta['context'] ?? [];
+
+        unset($meta['context']);
+
         return [
             'missing' => false,
             'trace' => $trace,
-            'meta' => $this->decode($trace->meta),
+            'meta' => $meta,
+            'context' => is_array($context) ? $context : [],
             'events' => $this->withShares($events, (int) ($trace->duration_ms ?: 0)),
             'children' => $traces->children($trace->trace_id),
             'parent' => $trace->parent_trace_id === null ? null : $traces->find($trace->parent_trace_id),

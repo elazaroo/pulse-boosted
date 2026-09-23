@@ -2,7 +2,12 @@
 
 namespace Elazaroo\PulseBoosted\Traces;
 
+use BackedEnum;
 use Carbon\CarbonImmutable;
+use DateTimeInterface;
+use Illuminate\Support\Str;
+use Stringable;
+use UnitEnum;
 
 /**
  * One execution context, while it is still being recorded.
@@ -27,6 +32,19 @@ class Trace
     protected string $status = 'ok';
 
     protected ?string $userId = null;
+
+    /**
+     * Whatever the application chose to attach to this execution.
+     *
+     * @var array<string, scalar|null>
+     */
+    protected array $context = [];
+
+    /**
+     * The most keys one execution may attach. A loop calling context() with a
+     * new key each time would otherwise write an unbounded row.
+     */
+    public const MAX_CONTEXT = 25;
 
     /**
      * @param  array<string, mixed>  $meta
@@ -93,6 +111,57 @@ class Trace
     }
 
     /**
+     * Attach the application's own attributes to this execution.
+     *
+     * A trace says what the application did; this says what it was doing it
+     * about — which tenant, which order, which feature flag was on. Without it
+     * a slow request is one of a thousand slow requests.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function context(array $attributes): void
+    {
+        foreach ($attributes as $key => $value) {
+            $key = (string) $key;
+
+            if (count($this->context) >= self::MAX_CONTEXT && ! array_key_exists($key, $this->context)) {
+                continue;
+            }
+
+            $this->context[$key] = $this->scalar($value);
+        }
+    }
+
+    /**
+     * What has been attached so far.
+     *
+     * @return array<string, scalar|null>
+     */
+    public function currentContext(): array
+    {
+        return $this->context;
+    }
+
+    /**
+     * Reduce a value to something that survives a round trip through JSON and
+     * fits in a table cell.
+     */
+    protected function scalar(mixed $value): string|int|float|bool|null
+    {
+        return match (true) {
+            $value === null, is_bool($value), is_int($value), is_float($value) => $value,
+            is_string($value) => Str::limit($value, 500),
+            $value instanceof BackedEnum => $value->value,
+            $value instanceof UnitEnum => $value->name,
+            $value instanceof DateTimeInterface => $value->format(DATE_ATOM),
+            $value instanceof Stringable, is_object($value) && method_exists($value, '__toString') => Str::limit((string) $value, 500),
+            is_array($value) => Str::limit(json_encode($value, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR) ?: '', 500),
+            is_object($value) => $value::class,
+            default => null,
+        };
+    }
+
+    /**
      * @return list<TraceEvent>
      */
     public function events(): array
@@ -107,6 +176,12 @@ class Trace
      */
     public function attributes(): array
     {
+        $meta = $this->meta;
+
+        if ($this->context !== []) {
+            $meta['context'] = $this->context;
+        }
+
         return [
             'trace_id' => $this->id,
             'parent_trace_id' => $this->parentId,
@@ -116,7 +191,7 @@ class Trace
             'duration_ms' => $this->durationMs === null ? null : (int) round($this->durationMs),
             'status' => $this->status,
             'user_id' => $this->userId,
-            'meta' => $this->meta === [] ? null : json_encode($this->meta, JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR),
+            'meta' => $meta === [] ? null : json_encode($meta, JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR),
         ];
     }
 }

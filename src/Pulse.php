@@ -8,6 +8,7 @@ use Elazaroo\PulseBoosted\Contracts\Ingest;
 use Elazaroo\PulseBoosted\Contracts\ResolvesUsers;
 use Elazaroo\PulseBoosted\Contracts\Storage;
 use Elazaroo\PulseBoosted\Events\ExceptionReported;
+use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
@@ -217,6 +218,37 @@ class Pulse
         $this->rescue(fn () => $this->app->make('events')->dispatch(new ExceptionReported($e)));
 
         return $this;
+    }
+
+    /**
+     * Attach the application's own attributes to the execution being traced.
+     *
+     * A trace says what the application did; this says what it was doing it
+     * about — which tenant, which order, which feature flag was on. Slow
+     * requests all look alike until one of them is carrying an order id.
+     *
+     *     PulseBoosted::context(['tenant' => $tenant->id, 'plan' => 'pro']);
+     *
+     * Safe to call anywhere: when the execution was not sampled in, or tracing
+     * is off, it does nothing.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function context(array $attributes): self
+    {
+        $this->rescue(fn () => $this->app->make(Tracer::class)->context($attributes));
+
+        return $this;
+    }
+
+    /**
+     * What has been attached to the execution being traced.
+     *
+     * @return array<string, scalar|null>
+     */
+    public function currentContext(): array
+    {
+        return $this->rescue(fn () => $this->app->make(Tracer::class)->currentContext()) ?? [];
     }
 
     /**

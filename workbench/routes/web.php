@@ -1,5 +1,6 @@
 <?php
 
+use Elazaroo\PulseBoosted\Facades\Pulse as PulseBoosted;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +14,13 @@ use Workbench\App\Jobs\SendWelcomeEmail;
  * be followed into the worker that runs it.
  */
 Route::get('/demo/checkout', function () {
+    // What this request was about, so the trace is more than a URL.
+    PulseBoosted::context([
+        'tenant' => 'acme-corp',
+        'order' => 4711,
+        'plan' => 'pro',
+    ]);
+
     DB::table('users')->count();
     DB::table('jobs')->where('queue', 'default')->count();
 
@@ -36,6 +44,8 @@ Route::get('/demo/checkout', function () {
  * And one that fails, so there is a failed request trace to look at too.
  */
 Route::get('/demo/broken', function () {
+    PulseBoosted::context(['tenant' => 'acme-corp', 'order' => 4712]);
+
     DB::table('users')->count();
 
     Log::error('Could not reach the payment provider');

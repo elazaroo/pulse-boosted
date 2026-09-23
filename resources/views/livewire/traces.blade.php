@@ -236,9 +236,32 @@
                         </div>
                     @endif
 
-                    @if ($detail['meta'] !== [])
+                    {{-- What the application itself attached --}}
+                    @if ($detail['context'] !== [])
                         <div>
                             <h3 class="text-xs text-gray-500 uppercase mb-2">Context</h3>
+                            <dl class="rounded-md bg-gray-50 dark:bg-gray-800/50 divide-y divide-gray-200 dark:divide-gray-800">
+                                @foreach ($detail['context'] as $key => $value)
+                                    <div class="flex items-baseline gap-3 px-3 py-1.5">
+                                        <dt class="w-32 shrink-0 text-xs text-gray-500 dark:text-gray-400 truncate" title="{{ $key }}">{{ $key }}</dt>
+                                        <dd class="min-w-0 flex-1 text-xs text-gray-900 dark:text-gray-100 break-words">
+                                            @if (is_bool($value))
+                                                {{ $value ? 'true' : 'false' }}
+                                            @elseif ($value === null)
+                                                <span class="text-gray-400 dark:text-gray-600">null</span>
+                                            @else
+                                                {{ $value }}
+                                            @endif
+                                        </dd>
+                                    </div>
+                                @endforeach
+                            </dl>
+                        </div>
+                    @endif
+
+                    @if ($detail['meta'] !== [])
+                        <div>
+                            <h3 class="text-xs text-gray-500 uppercase mb-2">Metadata</h3>
                             <pre class="overflow-x-auto text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 rounded-md p-3">{{ json_encode($detail['meta'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                         </div>
                     @endif

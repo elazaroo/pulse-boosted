@@ -316,7 +316,12 @@ class TraceRepository
         if (($search = $filters['search'] ?? null) !== null && $search !== '') {
             $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
-            $query->where('name', 'like', "%{$escaped}%");
+            $query->where(fn (Builder $query) => $query
+                ->where('name', 'like', "%{$escaped}%")
+                // Attributes attached with PulseBoosted::context() live in the
+                // meta column, and finding the one request that carried a
+                // given order id is the whole point of having attached it.
+                ->orWhere('meta', 'like', "%{$escaped}%"));
         }
 
         if (($slowerThan = $filters['slower_than'] ?? null) !== null && $slowerThan !== '') {

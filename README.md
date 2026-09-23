@@ -164,9 +164,37 @@ app(Tracer::class)->ignore(function () {
 Log lines are picked up from Laravel's logger as they are written — there is no
 channel to add to `LOG_STACK`. Set `log_level` to `error` if you only want the
 ones that matter.
+
+### Attaching your own context
+
+A trace says what the application did. What it cannot know is what it was doing
+it *about* — which tenant, which order, which feature flag was on. Slow requests
+all look alike until one of them is carrying an order id:
+
+```php
+use Elazaroo\PulseBoosted\Facades\Pulse as PulseBoosted;
+
+PulseBoosted::context([
+    'tenant' => $tenant->id,
+    'order' => $order->id,
+    'plan' => $tenant->plan,
+]);
+```
+
+It is safe to call anywhere. When the execution was not sampled in, or tracing
+is off, it does nothing — your code does not have to ask first.
+
+What you attach is shown on the trace's timeline, and the search box on the
+Traces card matches it, so pasting an order id finds the request that handled
+it. Values are reduced to something a column can hold: scalars are kept, enums
+become their value, dates become ISO strings, arrays become JSON, objects
+become their class name, and anything long is truncated. An execution may carry
+25 attributes; past that, new keys are dropped while existing ones can still be
+updated, so a loop cannot write an unbounded row.
+
 ## On the dashboard
 
-Two cards come with the fork, alongside the ones Pulse already has.
+These cards come with the fork, alongside the ones Pulse already has.
 
 **Queue Status** lists every queue with its live counts, says which are paused,
 and lets you pause or resume one without leaving the page. Each queue name
@@ -179,6 +207,25 @@ A worker that shuts down cleanly reports itself as stopped; one that is killed
 outright cannot, so it is shown as stale once it goes quiet. There is also a
 button to restart them all, which tells each to finish its current job and exit
 for your process manager to bring back.
+
+**Traces** lists executions and draws the timeline of whichever one you open.
+
+**Issues** groups exceptions into the bugs behind them: one thing that went
+wrong four hundred times, rather than four hundred things that went wrong. An
+issue can be resolved or ignored, and a resolved one that happens again reopens
+itself, which is how a regression announces itself.
+
+**Logs**, **Mail** and **Notifications** list what was written or sent, with the
+execution it happened inside. These are trace events, so they follow the trace
+sample rate and cost nothing extra to collect.
+
+**Commands** and **Scheduled Tasks** total executions by name: how often each
+ran, how long it took on average, its 95th percentile, and how often it failed.
+The percentile is there because an average hides the slow tail — a command that
+usually takes 40ms and occasionally takes eight seconds averages out to
+something that looks fine.
+
+Every row on every card opens the trace behind it.
 ## The queue explorer
 
 `/pulse-boosted/queues` reads from two places and says which is which.

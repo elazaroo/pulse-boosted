@@ -171,6 +171,33 @@ class Tracer
     }
 
     /**
+     * Attach the application's own attributes to the current context.
+     *
+     * Does nothing when this execution was not sampled in, so application code
+     * can call it unconditionally without checking first.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function context(array $attributes): void
+    {
+        if ($this->paused) {
+            return;
+        }
+
+        $this->current?->context($attributes);
+    }
+
+    /**
+     * What has been attached to the current context so far.
+     *
+     * @return array<string, scalar|null>
+     */
+    public function currentContext(): array
+    {
+        return $this->current?->currentContext() ?? [];
+    }
+
+    /**
      * Run something without recording any of it.
      *
      * The equivalent of wrapping a block you do not want in the timeline —
