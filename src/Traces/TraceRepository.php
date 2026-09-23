@@ -2,7 +2,9 @@
 
 namespace Elazaroo\PulseBoosted\Traces;
 
+use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Pulse;
+use Elazaroo\PulseBoosted\Support\Location;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
@@ -294,6 +296,7 @@ class TraceRepository
                 arsort($group['locations']);
 
                 return [
+                    'key' => self::queryKey($group['connection'], $group['sql']),
                     'sql' => $group['sql'],
                     'connection' => $group['connection'],
                     'calls' => $durations->count(),
@@ -359,6 +362,187 @@ class TraceRepository
             ->when($search !== '', fn (Collection $groups) => $groups->filter(fn (array $group) => stripos($group['name'], $search) !== false))
             ->sortByDesc(fn (array $group) => $group[in_array($orderBy, ['calls', 'avg', 'p95', 'server'], true) ? $orderBy : 'calls'] ?? 0)
             ->values();
+    }
+
+    /**
+     * What identifies a group of queries: where it ran, and what it is with
+     * the values taken out.
+     */
+    public static function queryKey(string $connection, string $sql): string
+    {
+        return md5($connection.'|'.$sql);
+    }
+
+    /**
+     * Everything about one route: how it answered, how long it took, how
+     * that changed over the window, and the requests worth opening.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function routeDetail(string $name, int $since, int $buckets = 24, int $sample = 5000): ?array
+    {
+        $rows = $this->pulse->ignore(fn () => $this->table()
+            ->where('type', 'request')
+            ->where('name', $name)
+            ->where('started_at', '>=', $since)
+            ->orderByDesc('id')
+            ->limit($sample)
+            ->get(['trace_id', 'duration_ms', 'status', 'meta', 'started_at', 'user_id', 'sampled']));
+
+        if ($rows->isEmpty()) {
+            return null;
+        }
+
+        $rows = $rows->map(function (object $row) {
+            $meta = json_decode((string) ($row->meta ?? ''), true);
+            $row->code = (int) (is_array($meta) ? ($meta['status'] ?? 0) : 0);
+
+            return $row;
+        });
+
+        // Figures from the fair sample only, like the list; the requests kept
+        // for failing or being slow are still offered to open below.
+        $sampled = $rows->filter(fn (\stdClass $row) => (bool) $row->sampled);
+        $durations = $sampled->pluck('duration_ms')->filter(fn ($value) => $value !== null)->map(fn ($value) => (int) $value)->sort()->values();
+
+        [$method, $path] = array_pad(explode(' ', $name, 2), 2, '');
+
+        return [
+            'name' => $name,
+            'method' => $method,
+            'path' => $path,
+            'calls' => $sampled->count(),
+            'avg' => $durations->isEmpty() ? null : (int) round((float) $durations->avg()),
+            'p50' => $this->percentile($durations, 50),
+            'p95' => $this->percentile($durations, 95),
+            'p99' => $this->percentile($durations, 99),
+            'max' => $durations->max(),
+            'codes' => $sampled
+                ->groupBy(fn (\stdClass $row) => $row->code === 0 ? 'unknown' : (string) $row->code)
+                ->map(fn (Collection $group) => $group->count())
+                ->sortKeys()
+                ->all(),
+            'users' => $sampled->pluck('user_id')->filter()->unique()->count(),
+            'timeline' => $this->timeline($sampled, $since, $buckets, fn (\stdClass $row) => (int) $row->started_at, fn (Collection $group) => [
+                'count' => $group->count(),
+                'errors' => $group->filter(fn (\stdClass $row) => $row->code >= 500)->count(),
+                'p95' => $this->percentile($group->pluck('duration_ms')->filter(fn ($v) => $v !== null)->map(fn ($v) => (int) $v)->sort()->values(), 95),
+            ]),
+            'slowest' => $rows->sortByDesc(fn (\stdClass $row) => (int) ($row->duration_ms ?? 0))->take(10)->values(),
+            'failures' => $rows->filter(fn (\stdClass $row) => $row->code >= 500 || $row->status === 'failed')->take(10)->values(),
+        ];
+    }
+
+    /**
+     * Everything about one kind of query: how often and how long, where it is
+     * run from, the executions that ran it most — an N+1 shows up as one
+     * request running it forty times — and the slowest runs.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function queryDetail(string $key, int $since, int $buckets = 24, int $sample = 20000): ?array
+    {
+        $rows = $this->pulse->ignore(fn () => $this->connection()
+            ->table('pulse_boosted_trace_events as e')
+            ->join('pulse_boosted_traces as t', 't.trace_id', '=', 'e.trace_id')
+            ->where('e.type', 'query')
+            ->where('t.sampled', true)
+            ->where('t.started_at', '>=', $since)
+            ->orderByDesc('e.id')
+            ->limit($sample)
+            ->get(['e.label', 'e.duration_ms', 'e.meta', 'e.offset_ms', 'e.trace_id', 't.name as execution', 't.type as execution_type', 't.started_at']));
+
+        $matching = $rows
+            ->map(function (object $row) {
+                $meta = json_decode((string) ($row->meta ?? ''), true);
+                $row->meta = is_array($meta) ? $meta : [];
+                $row->sql = QueryOrigin::normalize((string) $row->label);
+                $row->connection = (string) ($row->meta['connection'] ?? '');
+
+                return $row;
+            })
+            ->filter(fn (\stdClass $row) => self::queryKey($row->connection, $row->sql) === $key)
+            ->values();
+
+        if ($matching->isEmpty()) {
+            return null;
+        }
+
+        $durations = $matching->pluck('duration_ms')->map(fn ($value) => (int) ($value ?? 0))->sort()->values();
+
+        return [
+            'key' => $key,
+            'sql' => $matching->first()->sql,
+            'connection' => $matching->first()->connection,
+            'calls' => $matching->count(),
+            'total' => (int) $durations->sum(),
+            'avg' => (int) round((float) $durations->avg()),
+            'p95' => $this->percentile($durations, 95),
+            'max' => (int) $durations->max(),
+            'executions' => $matching->pluck('trace_id')->unique()->count(),
+            'locations' => $matching
+                ->filter(fn (\stdClass $row) => isset($row->meta['file']))
+                ->groupBy(fn (\stdClass $row) => Location::relative($row->meta['file'], isset($row->meta['line']) ? (int) $row->meta['line'] : null) ?? $row->meta['file'])
+                ->map(fn (Collection $group, mixed $location) => ['location' => is_scalar($location) ? (string) $location : '', 'calls' => $group->count(), 'total' => (int) $group->sum('duration_ms')])
+                ->sortByDesc('calls')
+                ->values()
+                ->all(),
+            'timeline' => $this->timeline($matching, $since, $buckets, fn (\stdClass $row) => (int) $row->started_at + intdiv((int) $row->offset_ms, 1000), fn (Collection $group) => [
+                'count' => $group->count(),
+                'errors' => 0,
+                'p95' => $this->percentile($group->pluck('duration_ms')->map(fn ($v) => (int) ($v ?? 0))->sort()->values(), 95),
+            ]),
+            'perExecution' => $matching
+                ->groupBy('trace_id')
+                ->map(fn (Collection $group, string $traceId) => [
+                    'traceId' => $traceId,
+                    'execution' => $group->firstOrFail()->execution,
+                    'type' => $group->firstOrFail()->execution_type,
+                    'times' => $group->count(),
+                    'total' => (int) $group->sum('duration_ms'),
+                    'at' => (int) $group->firstOrFail()->started_at,
+                ])
+                ->sortByDesc('times')
+                ->take(10)
+                ->values()
+                ->all(),
+            'slowest' => $matching->sortByDesc(fn (\stdClass $row) => (int) ($row->duration_ms ?? 0))->take(10)->map(fn (\stdClass $row) => [
+                'traceId' => $row->trace_id,
+                'execution' => $row->execution,
+                'label' => (string) $row->label,
+                'durationMs' => (int) ($row->duration_ms ?? 0),
+                'at' => (int) $row->started_at,
+            ])->values()->all(),
+        ];
+    }
+
+    /**
+     * Rows split into equal slices of the window, oldest first.
+     *
+     * @param  Collection<int, \stdClass>  $rows
+     * @param  callable(\stdClass): int  $at
+     * @param  callable(Collection<int, \stdClass>): array<string, mixed>  $summarise
+     * @return list<array<string, mixed>>
+     */
+    protected function timeline(Collection $rows, int $since, int $buckets, callable $at, callable $summarise): array
+    {
+        $now = CarbonImmutable::now()->getTimestamp();
+        $width = max(1, (int) ceil(($now - $since) / $buckets));
+
+        $grouped = $rows->groupBy(fn (\stdClass $row) => min($buckets - 1, max(0, intdiv($at($row) - $since, $width))));
+
+        $timeline = [];
+
+        for ($i = 0; $i < $buckets; $i++) {
+            $group = $grouped->get($i, collect());
+
+            $timeline[] = [
+                'start' => $since + $i * $width,
+                ...$summarise($group),
+            ];
+        }
+
+        return $timeline;
     }
 
     /**

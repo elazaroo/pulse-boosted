@@ -62,8 +62,8 @@
                                             'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400' => $task->state === 'failed',
                                             'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400' => $task->state === 'running',
                                             'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' => $task->state === 'ok',
-                                            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' => $task->state === 'waiting',
-                                        ]) @if ($task->state === 'missed' && $task->previous_due) title="Due {{ CarbonImmutable::createFromTimestamp($task->previous_due)->toDateTimeString() }} and not started" @endif>{{ $task->state === 'waiting' ? 'Not run yet' : $task->state }}</span>
+                                            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' => in_array($task->state, ['waiting', 'skipped'], true),
+                                        ]) @if ($task->state === 'missed' && $task->previous_due) title="Due {{ CarbonImmutable::createFromTimestamp($task->previous_due)->toDateTimeString() }} and not started" @elseif ($task->state === 'skipped') title="Due, but held back by its own conditions" @endif>{{ $task->state === 'waiting' ? 'Not run yet' : $task->state }}</span>
                                     @endif
                                 </div>
                                 @if ($task)

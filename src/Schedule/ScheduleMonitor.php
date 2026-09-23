@@ -210,6 +210,7 @@ class ScheduleMonitor
             $started !== null && ($finished === null || $finished < $started) => 'running',
             $this->missed($task, $now, $started, $skipped) => 'missed',
             $task->last_status === 'failed' => 'failed',
+            $skipped !== null && ($started === null || $skipped > $started) => 'skipped',
             $started === null => 'waiting',
             default => 'ok',
         };

@@ -383,7 +383,7 @@
                                         </span>
                                         <span class="flex items-center gap-3">
                                             @if ($occurrence->user_id)
-                                                <span class="text-gray-500 dark:text-gray-400">user {{ $occurrence->user_id }}</span>
+                                                <button type="button" wire:click="$dispatch('open-person', { id: @js((string) $occurrence->user_id) })" class="text-gray-500 dark:text-gray-400 hover:text-accent-500 hover:underline">{{ $detail['people'][$occurrence->user_id]->name ?? 'User '.$occurrence->user_id }}</button>
                                             @endif
                                             @if ($occurrence->trace_id)
                                                 <button type="button" wire:click="$dispatch('open-trace', { traceId: '{{ $occurrence->trace_id }}' })"

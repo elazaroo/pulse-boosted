@@ -4,6 +4,8 @@ namespace Workbench\App\Console\Commands;
 
 use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Deployments\Deployments;
+use Elazaroo\PulseBoosted\Facades\Pulse as PulseBoosted;
+use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -24,7 +26,7 @@ class DemoTrafficCommand extends Command
 
     protected $description = 'Generate traffic that exercises every card on the dashboard';
 
-    public function handle(Deployments $deployments): int
+    public function handle(Deployments $deployments, IssueRepository $issues): int
     {
         $url = rtrim((string) $this->option('url'), '/');
         $rounds = max(1, (int) $this->option('rounds'));
@@ -42,7 +44,7 @@ class DemoTrafficCommand extends Command
             $http = Http::timeout(15)->withoutVerifying();
 
             for ($round = 1; $round <= $rounds; $round++) {
-                foreach (['checkout', 'checkout', 'broken', 'coupon', 'profile', 'report', 'cart', 'search', 'reindex'] as $path) {
+                foreach (['checkout', 'checkout', 'broken', 'coupon', 'profile', 'report', 'cart', 'search', 'reindex', 'invoices'] as $path) {
                     rescue(fn () => $http->get("{$url}/demo/{$path}", ['as' => $users[array_rand($users)]]), report: false);
                 }
 
@@ -87,10 +89,55 @@ class DemoTrafficCommand extends Command
             Process::timeout(60)->run([...$artisan, 'pulse-boosted:alerts']);
         });
 
+        $this->components->task('Making the nightly tasks overdue', function () {
+            // Known to the schedule since two days ago, and never run: that
+            // is what a task the scheduler missed looks like.
+            PulseBoosted::ignore(fn () => DB::table('pulse_boosted_scheduled_tasks')
+                ->whereIn('name', ['demo:nightly-report', 'demo:rotate-api-keys'])
+                ->update(['first_seen_at' => CarbonImmutable::now()->subDays(2)->getTimestamp()]));
+        });
+
+        $this->components->task('Assigning and discussing a few issues', fn () => $this->triage($issues, $users));
+
         $this->newLine();
         $this->components->info("Done. Open {$url}/pulse-boosted");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * What a team does with its issues: takes them on, writes down what it
+     * found, and resolves some.
+     *
+     * @param  list<int|string>  $users
+     */
+    protected function triage(IssueRepository $issues, array $users): void
+    {
+        [$ada, $grace, $alan] = array_map('strval', array_slice($users, 0, 3));
+
+        $open = collect($issues->issues(['status' => 'open'], 20))->keyBy('class');
+
+        $notes = [
+            'RuntimeException' => [$ada, $grace, 'The payment provider started timing out after the v2.4.0 deploy. Looking at the new retry settings.'],
+            'TypeError' => [$grace, $grace, 'profile.blade.php passes a null address to the formatter. Fix is in review.'],
+            'Order could not be created' => [$alan, $ada, 'Only happens for SKUs without stock rows. Alan is adding a guard.'],
+        ];
+
+        foreach ($notes as $class => [$assignee, $by, $comment]) {
+            $issue = $open->first(fn ($issue) => str_contains((string) $issue->class, $class));
+
+            if ($issue === null) {
+                continue;
+            }
+
+            $issues->assign($issue->fingerprint, $assignee, $by);
+            $issues->comment($issue->fingerprint, $comment, $by);
+        }
+
+        if (($slow = $open->first(fn ($issue) => $issue->kind === 'performance')) !== null) {
+            $issues->comment($slow->fingerprint, 'Expected while the index rebuilds. Resolving; it will reopen if it comes back.', $ada);
+            $issues->setStatus($slow->fingerprint, 'resolved', $ada);
+        }
     }
 
     /**

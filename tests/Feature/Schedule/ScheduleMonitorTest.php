@@ -92,7 +92,7 @@ it('counts a task held back by its own conditions as looked at', function () {
     $monitor->skipped($schedule->events()[0]);
 
     CarbonImmutable::setTestNow('2026-09-23 10:05:00');
-    expect(taskNamed('reports:send')->state)->not->toBe('missed');
+    expect(taskNamed('reports:send')->state)->toBe('skipped');
 });
 
 it('announces each missed due time once', function () {

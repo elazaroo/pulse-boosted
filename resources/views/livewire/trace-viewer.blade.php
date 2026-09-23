@@ -47,6 +47,9 @@
                             @if ($detail['meta']['deploy'] ?? null)
                                 &middot; deploy <code class="font-mono">{{ Str::limit($detail['meta']['deploy'], 16) }}</code>
                             @endif
+                            @if ($person)
+                                &middot; for <button type="button" wire:click="$dispatch('open-person', { id: @js($person->id) })" class="font-medium text-accent-500 hover:underline">{{ $person->name }}</button>
+                            @endif
                         </p>
                     </div>
                     <button type="button" wire:click="deselect" class="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shrink-0">&times;</button>

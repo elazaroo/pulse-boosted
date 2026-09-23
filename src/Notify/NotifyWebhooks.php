@@ -61,7 +61,7 @@ class NotifyWebhooks
 
         $this->webhooks->send(
             $name,
-            "{$label}: ".class_basename((string) $issue->class).($issue->message ? ' — '.Str::limit((string) $issue->message, 150) : ''),
+            "{$label}: ".self::title($issue).($issue->message ? ' — '.Str::limit((string) $issue->message, 150) : ''),
             $this->issueData($issue),
             DashboardUrl::to(['issue' => $issue->fingerprint], 'errors'),
         );
@@ -76,7 +76,7 @@ class NotifyWebhooks
 
         $this->webhooks->send(
             'issue.assigned',
-            ($to === null ? 'Unassigned' : "Assigned to {$to}").': '.class_basename((string) $event->issue->class).($by ? " (by {$by})" : ''),
+            ($to === null ? 'Unassigned' : "Assigned to {$to}").': '.self::title($event->issue).($by ? " (by {$by})" : ''),
             [
                 ...$this->issueData($event->issue),
                 'assignee' => $event->assignee === null ? null : ['id' => $event->assignee, 'name' => $to, 'email' => $people[$event->assignee]->email ?? null],
@@ -140,6 +140,17 @@ class NotifyWebhooks
             ],
             DashboardUrl::to([], 'traces'),
         );
+    }
+
+    /**
+     * What to call an issue in one line: the class for something thrown,
+     * the name itself for a logged line or a slow execution.
+     */
+    protected static function title(stdClass $issue): string
+    {
+        return in_array($issue->kind ?? 'exception', ['exception', 'error'], true)
+            ? class_basename((string) $issue->class)
+            : (string) $issue->class;
     }
 
     /**

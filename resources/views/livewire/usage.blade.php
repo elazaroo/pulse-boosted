@@ -57,7 +57,7 @@
                 @endphp
 
                 @foreach ($userRequestCounts as $userRequestCount)
-                    <x-pulse-boosted::user-card wire:key="{{ $userRequestCount->key }}" :user="$userRequestCount->user">
+                    <x-pulse-boosted::user-card wire:key="{{ $userRequestCount->key }}" :user="$userRequestCount->user" wire:click="$dispatch('open-person', { id: @js((string) $userRequestCount->key) })" class="cursor-pointer hover:ring-1 hover:ring-accent-500/40" title="Open this user">
                         <x-slot:stats>
                             @if ($sampleRate < 1)
                                 <span title="Sample rate: {{ $sampleRate }}, Raw value: {{ number_format($userRequestCount->count) }}">~{{ number_format($userRequestCount->count * (1 / $sampleRate)) }}</span>

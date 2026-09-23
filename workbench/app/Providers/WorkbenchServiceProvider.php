@@ -60,6 +60,14 @@ class WorkbenchServiceProvider extends ServiceProvider
             $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
                 $schedule->command('inspire')->everyMinute();
                 $schedule->call(fn () => DB::table('users')->count())->everyMinute()->name('demo:count-users');
+
+                // One that fails, one its own condition holds back, and two
+                // that are due at times the demo has already passed, so the
+                // card shows every state a task can be in.
+                $schedule->call(fn () => throw new \RuntimeException('Price feed timed out'))->everyMinute()->name('demo:sync-prices');
+                $schedule->call(fn () => null)->everyMinute()->name('demo:only-on-weekdays')->when(fn () => false);
+                $schedule->call(fn () => null)->dailyAt('03:00')->name('demo:nightly-report');
+                $schedule->call(fn () => null)->hourlyAt(5)->name('demo:rotate-api-keys');
             });
         }
 

@@ -32,6 +32,13 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 - Deployment tracking with `pulse-boosted:deploy`, and issues marked New in the latest deploy.
 - Performance thresholds that open issues, and auto-resolving quiet issues.
 - A user filter in the header, the Sample middleware, and the reject/redact API for trace events.
+- Issues can be assigned, taken on and commented on, with a history of who resolved, ignored, reopened or reassigned them, regressions, and issues resolved for being quiet. The list filters to issues assigned to you or to nobody, and the assignee is emailed when their issue comes back. `IssueAssigned` is fired for each change.
+- Missed scheduled tasks: each `schedule:run` writes the whole schedule down, and a task whose due time passed without it starting is shown as missed and announced once with `ScheduledTaskMissed`. A scheduler that has stopped is shown on the card.
+- Webhooks for Slack and any URL that takes signed JSON, for new, regressed and assigned issues, alerts triggering and resolving, and missed tasks. Sent straight away with a timeout, or from a queue when one is named.
+- Route and query panels: percentiles, responses, a timeline over the period, the slowest requests and failures for a route; every place a query runs from, and the executions that ran it most, for a query.
+- A panel for each user, opened from wherever their name appears: what they did, the issues they ran into, the routes they used and their latest executions.
+- Ctrl+K search across issues, traces, jobs, routes, scheduled tasks and users, each result a link.
+- Servers sits in the Overview section.
 - The dashboard shows one section at a time, chosen from the sidebar or, on narrow screens, a strip of tabs, and kept in the address. Cards in the other sections neither load nor refresh until opened, and a section's cards load together in one request.
 - The dashboard's scripts and stylesheet are served from a versioned `/assets` route with a year-long cache instead of being inlined in every page, and Livewire's script is the minified build: the page went from about 970 KB to about 80 KB.
 - The trace timeline is its own component on every dashboard, so opening a trace from Issues, Routes or any other card works whether or not the Traces card has loaded.

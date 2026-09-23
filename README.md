@@ -327,7 +327,25 @@ happened inside. These are trace events too.
 ran, how long it took on average, its 95th percentile, and how often it failed.
 The percentile is there because an average hides the slow tail — a command that
 usually takes 40ms and occasionally takes eight seconds averages out to
-something that looks fine.
+something that looks fine. Scheduled Tasks also lists every task on the
+schedule, with its expression and when it is next due, and says which were
+missed — see [Scheduled tasks](#scheduled-tasks).
+
+**Routes** and **Queries** open into a panel of their own. A route shows its
+p50, p95 and p99, how it answered, requests and p95 over the selected period,
+and its slowest requests and latest failures. A query shows every place it is
+run from and the executions that ran it most: the same query forty times in one
+request is an N+1, and this is where it shows.
+
+Every name opens the user behind it: the Usage card, an issue's occurrences, a
+route's slowest requests and a trace's header. A user's panel has what they
+did over the period, the issues they ran into, the routes they used, the
+warnings logged for them, and their latest executions, each opening its trace.
+
+**Ctrl+K** — or **Cmd+K**, or **/** — searches everything at once: issues by
+class or message, traces and jobs by name or by the first characters of their
+id, routes, scheduled tasks, and users by name or email. Every result is a
+link, so what it opens can also be bookmarked or sent to someone.
 
 Every row on every card opens the trace behind it.
 ## Alerts
@@ -430,6 +448,22 @@ first ten application frames, and the Laravel and PHP versions it happened on.
 Issues can be resolved or ignored; a resolved one that happens again reopens
 itself.
 
+### Who is on it
+
+An issue can be assigned to someone, or taken on with *Assign to me*, and
+anyone who can see the dashboard can write on it. Its history says who
+resolved, ignored, reopened or reassigned it and when, alongside the times it
+came back after being resolved and the times it was resolved for being quiet.
+The list filters to issues assigned to you, or to nobody.
+
+Assigning and changing an issue use the same `managePulseBoostedQueues` gate as
+the rest of the changes the dashboard can make. The people offered are whoever
+has assigned, commented on or changed an issue before, whoever is looking, and
+any listed in `PULSE_BOOSTED_ISSUES_ASSIGNEES`. Whoever an issue is assigned to
+is emailed when it comes back, as well as the usual addresses; turn that off
+with `PULSE_BOOSTED_ISSUES_NOTIFY_ASSIGNEE=false`. `IssueAssigned` is fired
+for anything else.
+
 ### Logged warnings and errors
 
 ```env
@@ -452,8 +486,9 @@ PULSE_BOOSTED_ISSUES_MAIL=oncall@example.com,lead@example.com
 ```
 
 Those addresses are emailed through the application's own mailer the first
-time an issue is seen, and again if one marked resolved comes back. For any
-other channel, listen for `IssueOpened` and `IssueRegressed`.
+time an issue is seen, and again if one marked resolved comes back. For Slack
+or anything that takes a webhook, see [Webhooks](#webhooks); for any other
+channel, listen for `IssueOpened` and `IssueRegressed`.
 
 ### Slow executions are issues too
 
@@ -476,6 +511,61 @@ the sampling draw said.
 Set `issues.auto_resolve_after` to `'7 days'` or similar to resolve open issues
 that have stopped happening. One that was not really fixed reopens the next
 time it happens and is announced as a regression.
+
+## Scheduled tasks
+
+A task that never started leaves nothing behind to count, so the dashboard
+cannot notice it from what happened. Instead, each time `schedule:run`
+finishes, the whole schedule is written down — every task, its expression and
+its timezone — with when each task last started, finished or was held back by
+its own conditions.
+
+A task whose due time has passed by a minute and a half without it starting is
+**missed**. It is shown on the Scheduled Tasks card and announced once for
+each due time it missed, with `ScheduledTaskMissed` and the `schedule.missed`
+webhook. A schedule nobody has written down for three minutes means the
+scheduler itself has stopped, and the card says so — there is then nothing
+left to announce anything, so an alert on it has to come from outside.
+
+It needs nothing set up beyond the scheduler you already run. A task limited
+to other environments is left out, and one added after its due time is not
+missed until it is next due. `PULSE_BOOSTED_SCHEDULE_MONITOR=false` turns it
+off.
+
+## Webhooks
+
+```env
+PULSE_BOOSTED_SLACK_WEBHOOK=https://hooks.slack.com/services/T000/B000/XXXX
+PULSE_BOOSTED_WEBHOOKS=https://ops.example.com/hooks/pulse
+PULSE_BOOSTED_WEBHOOK_SECRET=a-long-random-string
+```
+
+Slack's incoming webhooks get a message they can show, with a link back to the
+dashboard. Any other URL gets the event as JSON:
+
+```json
+{
+    "event": "issue.opened",
+    "summary": "New issue: RuntimeException — Payment provider unreachable",
+    "app": "Shop",
+    "environment": "production",
+    "url": "https://shop.example.com/pulse-boosted?issue=…#errors",
+    "sent_at": "2026-09-23T10:14:00+00:00",
+    "data": { "issue": { "class": "RuntimeException", "occurrences": 1, … } }
+}
+```
+
+signed in `X-Pulse-Boosted-Signature` as `sha256=` and the HMAC of the body
+with the secret. The events are `issue.opened`, `issue.regressed`,
+`issue.assigned`, `alert.triggered`, `alert.resolved` and `schedule.missed`;
+`webhooks.events` narrows them down. Issues follow the same rules as the email:
+regressions can be turned off, and issues made from log lines are only sent at
+`issues.notify.log_level` or above.
+
+Webhooks are sent straight away with a five second timeout, and a receiver that
+is down never fails the code that caused the event. Name a queue connection in
+`PULSE_BOOSTED_WEBHOOK_QUEUE` to send them from a worker instead, retried if the
+receiver is down.
 
 ## The queue explorer
 

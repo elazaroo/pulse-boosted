@@ -130,6 +130,17 @@ Route::middleware(ActAsDemoUser::class)->prefix('demo')->group(function () {
     /**
      * Cache writes, reads and deletes on one key.
      */
+    /**
+     * The customers on the latest orders, one query each: an N+1.
+     */
+    Route::get('/invoices', function () {
+        foreach (range(1, 25) as $id) {
+            DB::table('users')->where('id', ($id % 5) + 1)->first();
+        }
+
+        return 'invoices listed';
+    });
+
     Route::get('/cart', function () {
         Cache::put('demo:cart:'.Auth::id(), ['items' => random_int(1, 5)], 300);
         Cache::get('demo:cart:'.Auth::id());

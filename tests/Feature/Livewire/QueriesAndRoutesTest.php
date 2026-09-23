@@ -184,3 +184,66 @@ it('names a Livewire request by its components rather than the update route', fu
     // The dashboard's own polling is not the application's traffic.
     expect(collect($names)->filter(fn ($name) => str_contains($name, 'pulse-boosted')))->toBeEmpty();
 });
+
+it('opens a route with its percentiles, responses, timeline and slowest requests', function () {
+    requestWith('GET /orders/{order}', 200, 100);
+    requestWith('GET /orders/{order}', 200, 300);
+    $failed = requestWith('GET /orders/{order}', 500, 900);
+    // Kept for failing, so not part of the figures, but still worth opening.
+    $kept = requestWith('GET /orders/{order}', 500, 1500, sampled: false);
+
+    $detail = app(TraceRepository::class)->routeDetail('GET /orders/{order}', now()->subHour()->getTimestamp());
+
+    expect($detail)
+        ->calls->toBe(3)
+        ->p95->toBe(900)
+        ->codes->toBe(['200' => 2, '500' => 1]);
+    expect($detail['timeline'])->toHaveCount(24);
+    expect(array_sum(array_column($detail['timeline'], 'count')))->toBe(3);
+    expect(array_sum(array_column($detail['timeline'], 'errors')))->toBe(1);
+    expect($detail['slowest']->first()->trace_id)->toBe($kept);
+    expect($detail['failures']->pluck('trace_id')->all())->toContain($failed, $kept);
+
+    Livewire::test(Routes::class, ['lazy' => false])
+        ->call('select', 'GET /orders/{order}')
+        ->assertSet('selected', 'GET /orders/{order}')
+        ->assertSee('Slowest requests')
+        ->assertSee('Recent failures')
+        ->assertSee('900ms')
+        ->call('showTrace', $kept)
+        ->assertDispatched('open-trace', traceId: $kept)
+        ->call('deselect')
+        ->assertDontSee('Recent failures');
+});
+
+it('opens a query with where it runs from and the executions that ran it most', function () {
+    $loop = requestWith('GET /orders', queries: array_fill(0, 12, ['select * from users where id = ?', 2]));
+    requestWith('GET /orders/{order}', queries: [['select * from users where id = ?', 30]]);
+
+    $key = app(TraceRepository::class)->queryGroups()->first()['key'];
+    $detail = app(TraceRepository::class)->queryDetail($key, now()->subHour()->getTimestamp());
+
+    expect($detail)
+        ->sql->toBe('select * from users where id = ?')
+        ->calls->toBe(13)
+        ->executions->toBe(2)
+        ->max->toBe(30);
+    expect($detail['perExecution'][0])->traceId->toBe($loop)->times->toBe(12);
+    expect($detail['locations'][0])->location->toBe('app/Http/Controllers/OrderController.php:42')->calls->toBe(13);
+
+    Livewire::test(Queries::class, ['lazy' => false])
+        ->call('select', $key)
+        ->assertSee('Executions that ran it most')
+        ->assertSee('N+1')
+        ->assertSee('12 &times;', false);
+});
+
+it('says so when an opened route or query has nothing in the period', function () {
+    Livewire::test(Routes::class, ['lazy' => false])
+        ->call('select', 'GET /gone')
+        ->assertSee('No requests to this route in the selected period');
+
+    Livewire::test(Queries::class, ['lazy' => false])
+        ->call('select', md5('nothing'))
+        ->assertSee('Not run in the selected period');
+});

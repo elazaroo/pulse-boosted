@@ -2,6 +2,7 @@
 
 namespace Elazaroo\PulseBoosted\Livewire;
 
+use Elazaroo\PulseBoosted\Support\People;
 use Elazaroo\PulseBoosted\Traces\Stage;
 use Elazaroo\PulseBoosted\Traces\TraceRepository;
 use Illuminate\Contracts\Support\Renderable;
@@ -66,10 +67,13 @@ class TraceViewer extends Component
     /**
      * Render the component.
      */
-    public function render(TraceRepository $traces): Renderable
+    public function render(TraceRepository $traces, People $people): Renderable
     {
+        $detail = $this->detail($traces);
+
         return View::make('pulse-boosted::livewire.trace-viewer', [
-            'detail' => $this->detail($traces),
+            'detail' => $detail,
+            'person' => ($detail['missing'] ?? true) ? null : $people->one($detail['trace']->user_id ?? null),
         ]);
     }
 

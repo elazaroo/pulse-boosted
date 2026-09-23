@@ -56,9 +56,9 @@
                         <tr wire:key="{{ md5($route['name']) }}-spacer" class="h-2 first:h-0"></tr>
                         <tr
                             wire:key="{{ md5($route['name']) }}-row"
-                            @if ($route['traceId']) wire:click="showTrace('{{ $route['traceId'] }}')" @endif
+                            wire:click="select(@js($route['name']))"
                             class="cursor-pointer group"
-                            title="Open the slowest request to this route"
+                            title="Open this route"
                         >
                             <x-pulse-boosted::td>
                                 <x-pulse-boosted::http-method-badge :method="$route['method']" />
@@ -78,4 +78,81 @@
             </x-pulse-boosted::table>
         @endif
     </x-pulse-boosted::scroll>
+
+    @if ($detail !== null)
+        <x-pulse-boosted::panel>
+            <x-slot:header>
+                @if ($detail['missing'] ?? false)
+                    <h2 class="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{{ $detail['name'] }}</h2>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">No requests to this route in the selected period.</p>
+                @else
+                    <div class="flex items-center gap-2">
+                        <x-pulse-boosted::http-method-badge :method="$detail['method']" />
+                        <h2 class="font-mono text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{{ $detail['path'] }}</h2>
+                    </div>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ number_format($detail['calls']) }} sampled requests from {{ number_format($detail['users']) }} {{ \Illuminate\Support\Str::plural('user', $detail['users']) }}</p>
+                @endif
+            </x-slot:header>
+
+            @unless ($detail['missing'] ?? false)
+                <dl class="grid grid-cols-3 md:grid-cols-5 gap-4">
+                    @foreach (['Average' => $detail['avg'], 'p50' => $detail['p50'], 'p95' => $detail['p95'], 'p99' => $detail['p99'], 'Slowest' => $detail['max']] as $label => $value)
+                        <div>
+                            <dt class="text-xs text-gray-500 uppercase">{{ $label }}</dt>
+                            <dd class="mt-0.5 text-sm font-bold text-gray-900 dark:text-gray-100 tabular-nums">{{ $value === null ? '—' : number_format($value).'ms' }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+
+                <div class="grid md:grid-cols-2 gap-5">
+                    <x-pulse-boosted::bars :timeline="$detail['timeline']" value="count" failed="errors" label="Requests, and 5xx in red" />
+                    <x-pulse-boosted::bars :timeline="$detail['timeline']" value="p95" unit="ms" label="p95" />
+                </div>
+
+                <div>
+                    <h3 class="text-xs text-gray-500 uppercase mb-2">Responses</h3>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach ($detail['codes'] as $code => $count)
+                            <span @class([
+                                'rounded-md border px-2 py-1 text-xs tabular-nums',
+                                'border-emerald-200 text-emerald-700 dark:border-emerald-500/30 dark:text-emerald-300' => (int) $code > 0 && (int) $code < 400,
+                                'border-amber-200 text-amber-700 dark:border-amber-500/30 dark:text-amber-300' => (int) $code >= 400 && (int) $code < 500,
+                                'border-red-200 text-red-700 dark:border-red-500/30 dark:text-red-300' => (int) $code >= 500,
+                                'border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300' => (int) $code === 0,
+                            ])><span class="font-semibold">{{ $code }}</span> &times; {{ number_format($count) }}</span>
+                        @endforeach
+                    </div>
+                </div>
+
+                @foreach (['Slowest requests' => $detail['slowest'], 'Recent failures' => $detail['failures']] as $heading => $list)
+                    @if ($list->isNotEmpty())
+                        <div>
+                            <h3 class="text-xs text-gray-500 uppercase mb-2">{{ $heading }}</h3>
+                            <ul class="divide-y divide-gray-100 dark:divide-gray-800 rounded-md border border-gray-200 dark:border-gray-800">
+                                @foreach ($list as $request)
+                                    <li>
+                                        <button type="button" wire:click="showTrace('{{ $request->trace_id }}')" class="w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                            <span class="flex items-center gap-2 min-w-0">
+                                                <span @class([
+                                                    'rounded px-1.5 py-px font-semibold tabular-nums',
+                                                    'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400' => $request->code >= 500,
+                                                    'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400' => $request->code >= 400 && $request->code < 500,
+                                                    'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' => $request->code < 400,
+                                                ])>{{ $request->code ?: '—' }}</span>
+                                                <span class="text-gray-500 dark:text-gray-400 tabular-nums">{{ \Carbon\CarbonImmutable::createFromTimestamp($request->started_at)->diffForHumans() }}</span>
+                                                @if ($request->user_id)
+                                                    <span class="text-gray-500 dark:text-gray-400 truncate hover:text-accent-500 hover:underline" x-on:click.stop="Livewire.dispatch('open-person', { id: @js((string) $request->user_id) })">{{ $detail['people'][$request->user_id]->name ?? 'User '.$request->user_id }}</span>
+                                                @endif
+                                            </span>
+                                            <span class="font-medium text-gray-900 dark:text-gray-100 tabular-nums">{{ number_format((int) $request->duration_ms) }}ms</span>
+                                        </button>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+                @endforeach
+            @endunless
+        </x-pulse-boosted::panel>
+    @endif
 </x-pulse-boosted::card>

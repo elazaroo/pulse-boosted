@@ -76,7 +76,7 @@
                     }
 
                     const params = new URLSearchParams(window.location.search)
-                    const opens = { job: 'pulse-boosted.jobs', issue: 'pulse-boosted.issues' }
+                    const opens = { job: 'pulse-boosted.jobs', issue: 'pulse-boosted.issues', route: 'pulse-boosted.routes', query: 'pulse-boosted.queries' }
 
                     for (const [param, name] of Object.entries(opens)) {
                         const el = params.has(param) && this.$refs.grid.querySelector(`[wire\\:name='${name}']`)
@@ -127,6 +127,7 @@
                             </span>
                             Live
                         </span>
+                        <livewire:pulse-boosted.search />
                         <livewire:pulse-boosted.user-filter />
                         <livewire:pulse-boosted.period-selector />
                         <x-pulse-boosted::theme-switcher />
@@ -183,5 +184,6 @@
         </div>
 
         <livewire:pulse-boosted.trace-viewer />
+        <livewire:pulse-boosted.person-viewer />
     </body>
 </html>
