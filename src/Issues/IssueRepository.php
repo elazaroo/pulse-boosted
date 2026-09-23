@@ -1,0 +1,335 @@
+<?php
+
+namespace Elazaroo\PulseBoosted\Issues;
+
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterval;
+use Elazaroo\PulseBoosted\Pulse;
+use Illuminate\Contracts\Config\Repository;
+use Illuminate\Database\Connection;
+use Illuminate\Database\DatabaseManager;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use Throwable;
+
+/**
+ * Groups exceptions into issues.
+ *
+ * A count of exceptions says four hundred things went wrong. An issue says
+ * one thing went wrong four hundred times, when it started, whether it is
+ * still happening, how many people it reached, and whether anyone has marked
+ * it dealt with.
+ *
+ * @phpstan-type IssueRow object{
+ *     id: int,
+ *     fingerprint: string,
+ *     class: string,
+ *     message: ?string,
+ *     file: ?string,
+ *     line: ?int,
+ *     status: string,
+ *     first_seen_at: int,
+ *     last_seen_at: int,
+ *     occurrences: int,
+ *     resolved_at: ?int
+ * }
+ *
+ * @internal
+ */
+class IssueRepository
+{
+    /**
+     * Pending writes, keyed by fingerprint.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    protected array $buffer = [];
+
+    /**
+     * Create a new repository instance.
+     */
+    public function __construct(
+        protected Pulse $pulse,
+        protected DatabaseManager $db,
+        protected Repository $config,
+    ) {
+        //
+    }
+
+    /**
+     * Whether issue tracking is switched on.
+     */
+    public function enabled(): bool
+    {
+        return (bool) $this->config->get('pulse-boosted.issues.enabled', true);
+    }
+
+    /**
+     * Note an exception against its issue.
+     */
+    public function record(Throwable $exception, ?string $traceId, string|int|null $userId): void
+    {
+        if (! $this->enabled()) {
+            return;
+        }
+
+        $fingerprint = $this->fingerprint($exception);
+
+        $existing = $this->buffer[$fingerprint] ?? null;
+
+        $this->buffer[$fingerprint] = [
+            'class' => $exception::class,
+            'message' => Str::limit($exception->getMessage(), 500),
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine(),
+            'at' => CarbonImmutable::now()->getTimestamp(),
+            'count' => ($existing['count'] ?? 0) + 1,
+            'occurrences' => array_merge($existing['occurrences'] ?? [], [[
+                'trace_id' => $traceId,
+                'user_id' => $userId === null ? null : (string) $userId,
+            ]]),
+        ];
+    }
+
+    /**
+     * Write everything buffered.
+     */
+    public function flush(): void
+    {
+        if ($this->buffer === []) {
+            return;
+        }
+
+        $issues = $this->buffer;
+
+        $this->buffer = [];
+
+        $this->pulse->ignore(function () use ($issues) {
+            foreach ($issues as $fingerprint => $issue) {
+                $this->persist($fingerprint, $issue);
+            }
+        });
+    }
+
+    /**
+     * Upsert one issue and its occurrences.
+     *
+     * @param  array<string, mixed>  $issue
+     */
+    protected function persist(string $fingerprint, array $issue): void
+    {
+        $existing = $this->table()->where('fingerprint', $fingerprint)->first();
+
+        if ($existing === null) {
+            $this->table()->insert([
+                'fingerprint' => $fingerprint,
+                'class' => $issue['class'],
+                'message' => $issue['message'],
+                'file' => $issue['file'],
+                'line' => $issue['line'],
+                'status' => 'open',
+                'first_seen_at' => $issue['at'],
+                'last_seen_at' => $issue['at'],
+                'occurrences' => $issue['count'],
+            ]);
+        } else {
+            $this->table()->where('fingerprint', $fingerprint)->update([
+                // A resolved issue that happens again is a regression, and
+                // saying so is the point of having marked it resolved.
+                'status' => $existing->status === 'ignored' ? 'ignored' : 'open',
+                'message' => $issue['message'],
+                'last_seen_at' => $issue['at'],
+                'occurrences' => $existing->occurrences + $issue['count'],
+            ]);
+        }
+
+        $occurrences = is_array($issue['occurrences']) ? $issue['occurrences'] : [];
+
+        $rows = array_map(fn (array $occurrence) => [
+            'fingerprint' => $fingerprint,
+            'trace_id' => $occurrence['trace_id'],
+            'user_id' => $occurrence['user_id'],
+            'occurred_at' => $issue['at'],
+        ], $occurrences);
+
+        foreach (array_chunk($rows, 200) as $chunk) {
+            $this->occurrences()->insert($chunk);
+        }
+    }
+
+    /**
+     * What makes two exceptions the same problem.
+     */
+    public function fingerprint(Throwable $exception): string
+    {
+        return md5($exception::class.'|'.$exception->getFile().'|'.$exception->getLine());
+    }
+
+    /**
+     * Issues, newest activity first.
+     *
+     * @param  array<string, string|null>  $filters
+     * @return Collection<int, IssueRow>
+     */
+    public function issues(array $filters = [], int $limit = 20, int $offset = 0): Collection
+    {
+        return $this->pulse->ignore(fn () => $this->filtered($filters)
+            ->orderByDesc('last_seen_at')
+            ->offset($offset)
+            ->limit($limit)
+            ->get());
+    }
+
+    /**
+     * How many issues match.
+     *
+     * @param  array<string, string|null>  $filters
+     */
+    public function count(array $filters = []): int
+    {
+        return $this->pulse->ignore(fn () => $this->filtered($filters)->count());
+    }
+
+    /**
+     * How many issues sit in each state.
+     *
+     * @return array<string, int>
+     */
+    public function countsByStatus(): array
+    {
+        $counts = $this->pulse->ignore(fn () => $this->table()
+            ->groupBy('status')
+            ->selectRaw('status, count(*) as aggregate')
+            ->pluck('aggregate', 'status')
+            ->all());
+
+        return collect(['open', 'resolved', 'ignored'])
+            ->mapWithKeys(fn (string $status) => [$status => (int) ($counts[$status] ?? 0)])
+            ->all();
+    }
+
+    /**
+     * One issue.
+     *
+     * @return IssueRow|null
+     */
+    public function find(string $fingerprint): ?object
+    {
+        return $this->pulse->ignore(fn () => $this->table()->where('fingerprint', $fingerprint)->first());
+    }
+
+    /**
+     * How many distinct users an issue has reached, within whatever window of
+     * occurrences has not been trimmed away.
+     */
+    public function affectedUsers(string $fingerprint): int
+    {
+        return $this->pulse->ignore(fn () => $this->occurrences()
+            ->where('fingerprint', $fingerprint)
+            ->whereNotNull('user_id')
+            ->distinct()
+            ->count('user_id'));
+    }
+
+    /**
+     * The most recent occurrences of an issue.
+     *
+     * @return Collection<int, object>
+     */
+    public function recentOccurrences(string $fingerprint, int $limit = 10): Collection
+    {
+        return $this->pulse->ignore(fn () => $this->occurrences()
+            ->where('fingerprint', $fingerprint)
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get());
+    }
+
+    /**
+     * Move an issue to a state.
+     */
+    public function setStatus(string $fingerprint, string $status): void
+    {
+        $this->pulse->ignore(fn () => $this->table()
+            ->where('fingerprint', $fingerprint)
+            ->update([
+                'status' => $status,
+                'resolved_at' => $status === 'resolved' ? CarbonImmutable::now()->getTimestamp() : null,
+            ]));
+    }
+
+    /**
+     * Drop occurrences, and issues nothing has been heard from, past the
+     * configured retention.
+     */
+    public function trim(): void
+    {
+        $keep = $this->config->get('pulse-boosted.issues.trim.keep') ?? '30 days';
+
+        $before = CarbonImmutable::now()->sub(CarbonInterval::fromString($keep))->getTimestamp();
+
+        $this->pulse->ignore(function () use ($before) {
+            $this->occurrences()->where('occurred_at', '<=', $before)->delete();
+
+            // A resolved issue nobody has seen since is finished with; an open
+            // one is kept however old, because it is still a bug.
+            $this->table()
+                ->where('last_seen_at', '<=', $before)
+                ->whereIn('status', ['resolved', 'ignored'])
+                ->delete();
+        });
+    }
+
+    /**
+     * Drop everything.
+     */
+    public function purge(): void
+    {
+        $this->pulse->ignore(function () {
+            $this->occurrences()->delete();
+            $this->table()->delete();
+        });
+    }
+
+    /**
+     * Apply the list's filters.
+     *
+     * @param  array<string, string|null>  $filters
+     */
+    protected function filtered(array $filters): Builder
+    {
+        $query = $this->table();
+
+        if (($status = $filters['status'] ?? null) !== null && $status !== '') {
+            $query->where('status', $status);
+        }
+
+        if (($search = $filters['search'] ?? null) !== null && $search !== '') {
+            $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
+
+            $query->where(fn (Builder $query) => $query
+                ->where('class', 'like', "%{$escaped}%")
+                ->orWhere('message', 'like', "%{$escaped}%"));
+        }
+
+        return $query;
+    }
+
+    protected function table(): Builder
+    {
+        return $this->connection()->table('pulse_boosted_issues');
+    }
+
+    protected function occurrences(): Builder
+    {
+        return $this->connection()->table('pulse_boosted_issue_occurrences');
+    }
+
+    protected function connection(): Connection
+    {
+        return $this->db->connection(
+            $this->config->get('pulse-boosted.storage.database.connection')
+        );
+    }
+}

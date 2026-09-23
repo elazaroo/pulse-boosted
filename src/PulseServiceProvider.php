@@ -9,6 +9,7 @@ use Elazaroo\PulseBoosted\Contracts\Storage;
 use Elazaroo\PulseBoosted\Ingests\NullIngest;
 use Elazaroo\PulseBoosted\Ingests\RedisIngest;
 use Elazaroo\PulseBoosted\Ingests\StorageIngest;
+use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\DatabaseJobRepository;
 use Elazaroo\PulseBoosted\Queues\InspectorManager;
@@ -64,6 +65,7 @@ class PulseServiceProvider extends ServiceProvider
 
         // Singleton because it holds the execution context for this process.
         $this->app->singleton(Tracer::class);
+        $this->app->singleton(IssueRepository::class);
 
         $this->registerIngest();
     }
@@ -260,10 +262,16 @@ class PulseServiceProvider extends ServiceProvider
             $tracer->finish();
             $tracer->flush();
 
+            $issues = $app->make(IssueRepository::class);
+            $issues->flush();
+
             $odds = $app->make('config')->get('pulse-boosted.ingest.trim.lottery') ?? [1, 1_000];
 
             Lottery::odds(...$odds)
-                ->winner($tracer->trim(...))
+                ->winner(function () use ($tracer, $issues) {
+                    $tracer->trim();
+                    $issues->trim();
+                })
                 ->choose();
         });
     }
@@ -300,6 +308,7 @@ class PulseServiceProvider extends ServiceProvider
             $livewire->component('pulse-boosted.queue-status', Livewire\QueueStatus::class);
             $livewire->component('pulse-boosted.workers', Livewire\Workers::class);
             $livewire->component('pulse-boosted.traces', Livewire\Traces::class);
+            $livewire->component('pulse-boosted.issues', Livewire\Issues::class);
         });
     }
 

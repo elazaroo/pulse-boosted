@@ -12,8 +12,10 @@
 
     <livewire:pulse-boosted.traces cols="full" rows="2" />
 
-    <livewire:pulse-boosted.queues cols="6" />
+    <livewire:pulse-boosted.issues cols="6" />
     <livewire:pulse-boosted.exceptions cols="6" />
+
+    <livewire:pulse-boosted.queues cols="6" />
 
     <livewire:pulse-boosted.slow-queries cols="6" />
     <livewire:pulse-boosted.slow-requests cols="6" />

@@ -127,6 +127,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Issues
+    |--------------------------------------------------------------------------
+    |
+    | Exceptions grouped by what actually broke — class, file and line, with
+    | the message left out so that "User 41 not found" and "User 42 not found"
+    | are one issue rather than two. Unlike traces these are never sampled: an
+    | exception nobody recorded is a bug nobody knows about.
+    |
+    */
+
+    'issues' => [
+        'enabled' => env('PULSE_BOOSTED_ISSUES_ENABLED', true),
+
+        /*
+         * Resolved and ignored issues are dropped once nothing has been heard
+         * from them for this long. Open ones are kept however old, because
+         * they are still bugs.
+         */
+        'trim' => [
+            'keep' => env('PULSE_BOOSTED_ISSUES_KEEP', '30 days'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Traces
     |--------------------------------------------------------------------------
     |
@@ -248,6 +273,13 @@ return [
             'location' => env('PULSE_BOOSTED_EXCEPTIONS_LOCATION', true),
             'ignore' => [
                 // '/^Package\\\\Exceptions\\\\/',
+            ],
+        ],
+
+        Recorders\Issues::class => [
+            'enabled' => env('PULSE_BOOSTED_ISSUES_ENABLED', true),
+            'ignore' => [
+                // '/^Package\\Exceptions\\/',
             ],
         ],
 

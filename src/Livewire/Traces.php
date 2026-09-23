@@ -80,6 +80,15 @@ class Traces extends Card
     }
 
     /**
+     * Open a trace asked for from somewhere else on the page.
+     */
+    #[On('open-trace')]
+    public function openTrace(string $traceId): void
+    {
+        $this->selected = $traceId;
+    }
+
+    /**
      * Render the component.
      */
     public function render(TraceRepository $traces, Tracer $tracer): Renderable
