@@ -41,7 +41,7 @@
                         <x-pulse-boosted::th>Query</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">Calls</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">Total</x-pulse-boosted::th>
-                        <x-pulse-boosted::th class="text-right">Avg</x-pulse-boosted::th>
+                        <x-pulse-boosted::th class="hidden @lg:table-cell text-right">Avg</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">p95</x-pulse-boosted::th>
                     </tr>
                 </x-pulse-boosted::thead>
@@ -68,7 +68,7 @@
                             </x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 text-xs">{{ number_format($query['calls']) }}</x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric class="text-gray-900 dark:text-gray-100 text-xs font-medium">{{ number_format($query['total']) }}ms</x-pulse-boosted::td>
-                            <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 text-xs">{{ number_format($query['avg']) }}ms</x-pulse-boosted::td>
+                            <x-pulse-boosted::td numeric class="hidden @lg:table-cell text-gray-700 dark:text-gray-300 text-xs">{{ number_format($query['avg']) }}ms</x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 text-xs">{{ $query['p95'] === null ? '—' : number_format($query['p95']).'ms' }}</x-pulse-boosted::td>
                         </tr>
                     @endforeach

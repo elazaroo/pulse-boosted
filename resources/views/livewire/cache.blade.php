@@ -90,10 +90,10 @@
                             <tr>
                                 <x-pulse-boosted::th>Key</x-pulse-boosted::th>
                                 <x-pulse-boosted::th class="text-right">Hits</x-pulse-boosted::th>
-                                <x-pulse-boosted::th class="text-right">Misses</x-pulse-boosted::th>
-                                <x-pulse-boosted::th class="text-right">Writes</x-pulse-boosted::th>
-                                <x-pulse-boosted::th class="text-right">Deletes</x-pulse-boosted::th>
-                                <x-pulse-boosted::th class="text-right">Failures</x-pulse-boosted::th>
+                                <x-pulse-boosted::th class="hidden @md:table-cell text-right">Misses</x-pulse-boosted::th>
+                                <x-pulse-boosted::th class="hidden @xl:table-cell text-right">Writes</x-pulse-boosted::th>
+                                <x-pulse-boosted::th class="hidden @xl:table-cell text-right">Deletes</x-pulse-boosted::th>
+                                <x-pulse-boosted::th class="hidden @lg:table-cell text-right">Failures</x-pulse-boosted::th>
                                 <x-pulse-boosted::th class="text-right whitespace-nowrap">Hit Rate</x-pulse-boosted::th>
                             </tr>
                         </x-pulse-boosted::thead>
@@ -113,16 +113,16 @@
                                             {{ number_format($interaction->hits) }}
                                         @endif
                                     </x-pulse-boosted::td>
-                                    <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 font-bold">
+                                    <x-pulse-boosted::td numeric class="hidden @md:table-cell text-gray-700 dark:text-gray-300 font-bold">
                                         @if ($config['sample_rate'] < 1)
                                             <span title="Sample rate: {{ $config['sample_rate'] }}, Raw value: {{ number_format($interaction->misses) }}">~{{ number_format($interaction->misses * (1 / $config['sample_rate'])) }}</span>
                                         @else
                                             {{ number_format($interaction->misses) }}
                                         @endif
                                     </x-pulse-boosted::td>
-                                    <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300">{{ number_format($interaction->writes) }}</x-pulse-boosted::td>
-                                    <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300">{{ number_format($interaction->deletes) }}</x-pulse-boosted::td>
-                                    <x-pulse-boosted::td numeric @class(['text-red-600 dark:text-red-400 font-bold' => $interaction->failures > 0, 'text-gray-400 dark:text-gray-600' => $interaction->failures === 0])>{{ number_format($interaction->failures) }}</x-pulse-boosted::td>
+                                    <x-pulse-boosted::td numeric class="hidden @xl:table-cell text-gray-700 dark:text-gray-300">{{ number_format($interaction->writes) }}</x-pulse-boosted::td>
+                                    <x-pulse-boosted::td numeric class="hidden @xl:table-cell text-gray-700 dark:text-gray-300">{{ number_format($interaction->deletes) }}</x-pulse-boosted::td>
+                                    <x-pulse-boosted::td numeric @class([ 'hidden @lg:table-cell','text-red-600 dark:text-red-400 font-bold' => $interaction->failures > 0, 'text-gray-400 dark:text-gray-600' => $interaction->failures === 0])>{{ number_format($interaction->failures) }}</x-pulse-boosted::td>
                                     <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 font-bold">
                                         @if ($interaction->hits + $interaction->misses > 0)
                                             {{ ((int) ($interaction->hits / ($interaction->hits + $interaction->misses) * 10000)) / 100 }}%

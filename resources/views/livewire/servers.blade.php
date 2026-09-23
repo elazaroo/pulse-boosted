@@ -25,95 +25,97 @@ $rows = ! empty($rows) ? $rows : 1;
             })
         },
     }"
-    class="overflow-x-auto pb-px default:col-span-full default:lg:col-span-{{ $cols }} default:row-span-{{ $rows }} {{ $class }}"
+    class="pb-px default:col-span-full default:lg:col-span-{{ $cols }} default:row-span-{{ $rows }} {{ $class }}"
     :class="loading && 'opacity-25 animate-pulse'"
 >
     @if ($servers->isNotEmpty())
-        <div class="grid grid-cols-[max-content,minmax(max-content,1fr),max-content,minmax(min-content,2fr),max-content,minmax(min-content,2fr),minmax(max-content,1fr)]">
-            <div></div>
-            <div></div>
-            <div class="text-xs uppercase text-left text-gray-500 dark:text-gray-400 font-bold">CPU</div>
-            <div></div>
-            <div class="text-xs uppercase text-left text-gray-500 dark:text-gray-400 font-bold">Memory</div>
-            <div></div>
-            <div class="text-xs uppercase text-left text-gray-500 dark:text-gray-400 font-bold">Storage</div>
+        {{--
+            One row per server that folds as the page narrows: four columns on
+            a wide screen, two on a tablet, one on a phone. Each figure carries
+            its own label, so a folded row still says what it is.
+        --}}
+        <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach ($servers as $slug => $server)
-                <div wire:key="{{ $slug }}-indicator" class="flex items-center {{ $servers->count() > 1 ? 'py-2' : '' }}" title="{{ $server->updated_at->fromNow() }}">
-                    @if ($server->recently_reported)
-                        <div class="w-5 flex justify-center mr-1">
-                            <div class="h-1 w-1 bg-green-500 rounded-full animate-pulse"></div>
-                        </div>
-                    @else
-                        <x-pulse-boosted::icons.signal-slash class="w-5 h-5 stroke-red-500 mr-1" />
-                    @endif
-                </div>
-                <div wire:key="{{ $slug }}-name" class="flex items-center pr-8 xl:pr-12 {{ $servers->count() > 1 ? 'py-2' : '' }} {{ ! $server->recently_reported ? 'opacity-25 animate-pulse' : '' }}">
-                    <x-pulse-boosted::icons.server class="w-6 h-6 mr-2 stroke-gray-500 dark:stroke-gray-400" />
-                    <span class="text-base font-bold text-gray-600 dark:text-gray-300" x-bind:title="`Time: {{ number_format($time) }}ms; Run at: ${formatDate('{{ $runAt }}')};`">{{ $server->name }}</span>
-                </div>
-                <div wire:key="{{ $slug }}-cpu" class="flex items-center {{ $servers->count() > 1 ? 'py-2' : '' }} {{ ! $server->recently_reported ? 'opacity-25 animate-pulse' : '' }}">
-                    <div class="text-xl font-bold text-gray-700 dark:text-gray-200 w-14 whitespace-nowrap tabular-nums">
-                        {{ $server->cpu_current }}%
+                <div wire:key="{{ $slug }}-row" @class([
+                    'grid gap-x-8 gap-y-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(10rem,1fr)_minmax(0,2fr)_minmax(0,2fr)_auto] items-center',
+                    'py-3 first:pt-0 last:pb-0' => $servers->count() > 1,
+                    'opacity-40 animate-pulse' => ! $server->recently_reported,
+                ])>
+                    <div class="flex items-center gap-2 min-w-0 sm:col-span-2 xl:col-span-1" title="{{ $server->updated_at->fromNow() }}">
+                        @if ($server->recently_reported)
+                            <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500 animate-pulse"></span>
+                        @else
+                            <x-pulse-boosted::icons.signal-slash class="w-4 h-4 shrink-0 stroke-red-500" />
+                        @endif
+                        <x-pulse-boosted::icons.server class="w-5 h-5 shrink-0 stroke-gray-500 dark:stroke-gray-400" />
+                        <span class="text-base font-bold text-gray-600 dark:text-gray-300 truncate" x-bind:title="`Time: {{ number_format($time) }}ms; Run at: ${formatDate('{{ $runAt }}')};`">{{ $server->name }}</span>
                     </div>
-                </div>
-                <div wire:key="{{ $slug }}-cpu-graph" class="flex items-center pr-8 xl:pr-12 {{ $servers->count() > 1 ? 'py-2' : '' }} {{ ! $server->recently_reported ? 'opacity-25 animate-pulse' : '' }}">
-                    <div
-                        wire:ignore
-                        class="w-full min-w-[5rem] max-w-xs h-9 relative"
-                        x-data="cpuChart({
-                            slug: '{{ $slug }}',
-                            labels: @js($server->cpu->keys()),
-                            data: @js($server->cpu->values()),
-                        })"
-                    >
-                        <canvas x-ref="canvas" class="w-full ring-1 ring-gray-900/5 bg-white dark:bg-gray-900 rounded-md shadow-sm"></canvas>
-                    </div>
-                </div>
-                <div wire:key="{{ $slug }}-memory" class="flex items-center {{ $servers->count() > 1 ? 'py-2' : '' }} {{ ! $server->recently_reported ? 'opacity-25 animate-pulse' : '' }}">
-                    <div class="w-36 flex-shrink-0 whitespace-nowrap tabular-nums">
-                        <span class="text-xl font-bold text-gray-700 dark:text-gray-200">
-                            {{ $friendlySize($server->memory_current, 1) }}
-                        </span>
-                        <span class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            / {{ $friendlySize($server->memory_total, 1) }}
-                        </span>
-                    </div>
-                </div>
-                <div wire:key="{{ $slug }}-memory-graph" class="flex items-center pr-8 xl:pr-12 {{ $servers->count() > 1 ? 'py-2' : '' }} {{ ! $server->recently_reported ? 'opacity-25 animate-pulse' : '' }}">
-                    <div
-                        wire:ignore
-                        class="w-full min-w-[5rem] max-w-xs h-9 relative"
-                        x-data="memoryChart({
-                            slug: '{{ $slug }}',
-                            labels: @js($server->memory->keys()),
-                            data: @js($server->memory->values()),
-                            total: @js($server->memory_total),
-                        })"
-                    >
-                        <canvas x-ref="canvas" class="w-full ring-1 ring-gray-900/5 bg-white dark:bg-gray-900 rounded-md shadow-sm"></canvas>
-                    </div>
-                </div>
-                <div wire:key="{{ $slug }}-storage" class="flex items-center gap-8 {{ $servers->count() > 1 ? 'py-2' : '' }} {{ ! $server->recently_reported ? 'opacity-25 animate-pulse' : '' }}">
-                    @foreach ($server->storage as $storage)
-                        <div wire:key="{{ $slug.'-storage-'.$storage->directory }}" class="flex items-center gap-4" title="Directory: {{ $storage->directory }}">
-                            <div class="whitespace-nowrap tabular-nums">
-                                <span class="text-xl font-bold text-gray-700 dark:text-gray-200">{{ $friendlySize($storage->used) }}</span>
-                                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">/ {{ $friendlySize($storage->total) }}</span>
-                            </div>
 
-                            <div
-                                wire:ignore
-                                x-data="storageChart({
-                                    slug: '{{ $slug }}',
-                                    directory: '{{ $storage->directory }}',
-                                    used: {{ $storage->used }},
-                                    total: {{ $storage->total }},
-                                })"
-                            >
-                                <canvas x-ref="canvas" class="h-8 w-8"></canvas>
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="shrink-0 w-16">
+                            <div class="text-[11px] uppercase font-bold text-gray-500 dark:text-gray-400">CPU</div>
+                            <div class="text-xl font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap tabular-nums">{{ $server->cpu_current }}%</div>
+                        </div>
+                        <div
+                            wire:ignore
+                            class="flex-1 min-w-0 h-9 relative"
+                            x-data="cpuChart({
+                                slug: '{{ $slug }}',
+                                labels: @js($server->cpu->keys()),
+                                data: @js($server->cpu->values()),
+                            })"
+                        >
+                            <canvas x-ref="canvas" class="w-full ring-1 ring-gray-900/5 bg-white dark:bg-gray-900 rounded-md shadow-sm"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="shrink-0">
+                            <div class="text-[11px] uppercase font-bold text-gray-500 dark:text-gray-400">Memory</div>
+                            <div class="whitespace-nowrap tabular-nums">
+                                <span class="text-xl font-bold text-gray-700 dark:text-gray-200">{{ $friendlySize($server->memory_current, 1) }}</span>
+                                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">/ {{ $friendlySize($server->memory_total, 1) }}</span>
                             </div>
                         </div>
-                    @endforeach
+                        <div
+                            wire:ignore
+                            class="flex-1 min-w-0 h-9 relative"
+                            x-data="memoryChart({
+                                slug: '{{ $slug }}',
+                                labels: @js($server->memory->keys()),
+                                data: @js($server->memory->values()),
+                                total: @js($server->memory_total),
+                            })"
+                        >
+                            <canvas x-ref="canvas" class="w-full ring-1 ring-gray-900/5 bg-white dark:bg-gray-900 rounded-md shadow-sm"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="min-w-0">
+                        <div class="text-[11px] uppercase font-bold text-gray-500 dark:text-gray-400">Storage</div>
+                        <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+                            @foreach ($server->storage as $storage)
+                                <div wire:key="{{ $slug.'-storage-'.$storage->directory }}" class="flex items-center gap-3" title="Directory: {{ $storage->directory }}">
+                                    <div class="whitespace-nowrap tabular-nums">
+                                        <span class="text-xl font-bold text-gray-700 dark:text-gray-200">{{ $friendlySize($storage->used) }}</span>
+                                        <span class="text-sm font-medium text-gray-500 dark:text-gray-400">/ {{ $friendlySize($storage->total) }}</span>
+                                    </div>
+
+                                    <div
+                                        wire:ignore
+                                        x-data="storageChart({
+                                            slug: '{{ $slug }}',
+                                            directory: '{{ $storage->directory }}',
+                                            used: {{ $storage->used }},
+                                            total: {{ $storage->total }},
+                                        })"
+                                    >
+                                        <canvas x-ref="canvas" class="h-8 w-8"></canvas>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
                 </div>
             @endforeach
         </div>

@@ -40,9 +40,9 @@
                         <x-pulse-boosted::th>Name</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">Runs</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">Failed</x-pulse-boosted::th>
-                        <x-pulse-boosted::th class="text-right">Avg</x-pulse-boosted::th>
+                        <x-pulse-boosted::th class="hidden @xl:table-cell text-right">Avg</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right" title="95% of runs finished within this">p95</x-pulse-boosted::th>
-                        <x-pulse-boosted::th class="text-right">Last</x-pulse-boosted::th>
+                        <x-pulse-boosted::th class="hidden @lg:table-cell text-right">Last</x-pulse-boosted::th>
                     </tr>
                 </x-pulse-boosted::thead>
                 <tbody>
@@ -64,13 +64,13 @@
                             ])>
                                 {{ number_format($row['failed']) }}
                             </x-pulse-boosted::td>
-                            <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 text-xs whitespace-nowrap">
+                            <x-pulse-boosted::td numeric class="hidden @xl:table-cell text-gray-700 dark:text-gray-300 text-xs whitespace-nowrap">
                                 {{ $row['avg'] === null ? '—' : number_format($row['avg']).'ms' }}
                             </x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 text-xs whitespace-nowrap" title="Slowest {{ $row['max'] === null ? 'unknown' : number_format($row['max']).'ms' }}">
                                 {{ $row['p95'] === null ? '—' : number_format($row['p95']).'ms' }}
                             </x-pulse-boosted::td>
-                            <x-pulse-boosted::td numeric class="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+                            <x-pulse-boosted::td numeric class="hidden @lg:table-cell text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
                                 {{ $row['lastAt'] === null ? '—' : CarbonImmutable::createFromTimestamp($row['lastAt'])->diffForHumans(short: true) }}
                             </x-pulse-boosted::td>
                         </tr>

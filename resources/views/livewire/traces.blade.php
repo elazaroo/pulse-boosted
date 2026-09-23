@@ -68,7 +68,7 @@
                 <x-pulse-boosted::thead>
                     <tr>
                         <x-pulse-boosted::th>Execution</x-pulse-boosted::th>
-                        <x-pulse-boosted::th>Type</x-pulse-boosted::th>
+                        <x-pulse-boosted::th class="hidden @md:table-cell">Type</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">Duration</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">When</x-pulse-boosted::th>
                     </tr>
@@ -88,7 +88,7 @@
                                     @endif
                                 </div>
                             </x-pulse-boosted::td>
-                            <x-pulse-boosted::td class="text-gray-500 dark:text-gray-400 text-xs capitalize">{{ $row->type }}</x-pulse-boosted::td>
+                            <x-pulse-boosted::td class="hidden @md:table-cell text-gray-500 dark:text-gray-400 text-xs capitalize">{{ $row->type }}</x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 font-bold">
                                 {{ $row->duration_ms === null ? '—' : number_format($row->duration_ms).' ms' }}
                             </x-pulse-boosted::td>

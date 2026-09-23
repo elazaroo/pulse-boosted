@@ -173,8 +173,8 @@
                 </nav>
 
                 <main class="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-16">
-                    <div x-show="sections.length > 0" x-cloak class="lg:hidden -mx-4 sm:-mx-6 px-4 sm:px-6 mb-5 overflow-x-auto">
-                        <div class="flex gap-1 w-max">
+                    <div x-show="sections.length > 0" x-cloak class="lg:hidden mb-5">
+                        <div class="flex flex-wrap gap-1">
                             <template x-for="section in sections" :key="section.id">
                                 <a
                                     :href="'#' + section.id"

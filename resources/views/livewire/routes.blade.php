@@ -43,11 +43,11 @@
                     <tr>
                         <x-pulse-boosted::th>Method</x-pulse-boosted::th>
                         <x-pulse-boosted::th>Route</x-pulse-boosted::th>
-                        <x-pulse-boosted::th class="text-right">2xx/3xx</x-pulse-boosted::th>
-                        <x-pulse-boosted::th class="text-right">4xx</x-pulse-boosted::th>
+                        <x-pulse-boosted::th class="hidden @lg:table-cell text-right">2xx/3xx</x-pulse-boosted::th>
+                        <x-pulse-boosted::th class="hidden @lg:table-cell text-right">4xx</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">5xx</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">Total</x-pulse-boosted::th>
-                        <x-pulse-boosted::th class="text-right">Avg</x-pulse-boosted::th>
+                        <x-pulse-boosted::th class="hidden @xl:table-cell text-right">Avg</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">p95</x-pulse-boosted::th>
                     </tr>
                 </x-pulse-boosted::thead>
@@ -66,11 +66,11 @@
                             <x-pulse-boosted::td class="max-w-[1px]">
                                 <code class="block text-xs text-gray-900 dark:text-gray-100 truncate group-hover:text-accent-500" title="{{ $route['path'] }}">{{ $route['path'] }}</code>
                             </x-pulse-boosted::td>
-                            <x-pulse-boosted::td numeric class="text-xs text-gray-700 dark:text-gray-300">{{ number_format($route['ok']) }}</x-pulse-boosted::td>
-                            <x-pulse-boosted::td numeric @class(['text-xs', 'text-amber-600 dark:text-amber-400 font-medium' => $route['client'] > 0, 'text-gray-400 dark:text-gray-600' => $route['client'] === 0])>{{ number_format($route['client']) }}</x-pulse-boosted::td>
+                            <x-pulse-boosted::td numeric class="hidden @lg:table-cell text-xs text-gray-700 dark:text-gray-300">{{ number_format($route['ok']) }}</x-pulse-boosted::td>
+                            <x-pulse-boosted::td numeric @class([ 'hidden @lg:table-cell','text-xs', 'text-amber-600 dark:text-amber-400 font-medium' => $route['client'] > 0, 'text-gray-400 dark:text-gray-600' => $route['client'] === 0])>{{ number_format($route['client']) }}</x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric @class(['text-xs', 'text-red-600 dark:text-red-400 font-medium' => $route['server'] > 0, 'text-gray-400 dark:text-gray-600' => $route['server'] === 0])>{{ number_format($route['server']) }}</x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric class="text-xs text-gray-900 dark:text-gray-100 font-medium">{{ number_format($route['calls']) }}</x-pulse-boosted::td>
-                            <x-pulse-boosted::td numeric class="text-xs text-gray-700 dark:text-gray-300">{{ $route['avg'] === null ? '—' : number_format($route['avg']).'ms' }}</x-pulse-boosted::td>
+                            <x-pulse-boosted::td numeric class="hidden @xl:table-cell text-xs text-gray-700 dark:text-gray-300">{{ $route['avg'] === null ? '—' : number_format($route['avg']).'ms' }}</x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric class="text-xs text-gray-700 dark:text-gray-300">{{ $route['p95'] === null ? '—' : number_format($route['p95']).'ms' }}</x-pulse-boosted::td>
                         </tr>
                     @endforeach

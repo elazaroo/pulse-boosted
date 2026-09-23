@@ -34,11 +34,11 @@
                 <x-pulse-boosted::thead>
                     <tr>
                         <x-pulse-boosted::th>Task</x-pulse-boosted::th>
-                        <x-pulse-boosted::th class="text-right">Runs</x-pulse-boosted::th>
+                        <x-pulse-boosted::th class="hidden @lg:table-cell text-right">Runs</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">Failed</x-pulse-boosted::th>
-                        <x-pulse-boosted::th class="text-right" title="95% of runs finished within this">p95</x-pulse-boosted::th>
+                        <x-pulse-boosted::th class="hidden @xl:table-cell text-right" title="95% of runs finished within this">p95</x-pulse-boosted::th>
                         <x-pulse-boosted::th class="text-right">Last</x-pulse-boosted::th>
-                        <x-pulse-boosted::th class="text-right">Next</x-pulse-boosted::th>
+                        <x-pulse-boosted::th class="hidden @md:table-cell text-right">Next</x-pulse-boosted::th>
                     </tr>
                 </x-pulse-boosted::thead>
                 <tbody>
@@ -70,7 +70,7 @@
                                     <p class="mt-0.5 font-mono text-[11px] text-gray-400 dark:text-gray-500">{{ $task->expression }}{{ $task->timezone ? ' · '.$task->timezone : '' }}</p>
                                 @endif
                             </x-pulse-boosted::td>
-                            <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 text-xs">
+                            <x-pulse-boosted::td numeric class="hidden @lg:table-cell text-gray-700 dark:text-gray-300 text-xs">
                                 {{ $stats ? number_format($stats['count']) : '—' }}
                             </x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric @class([
@@ -80,13 +80,13 @@
                             ])>
                                 {{ $stats ? number_format($stats['failed']) : '—' }}
                             </x-pulse-boosted::td>
-                            <x-pulse-boosted::td numeric class="text-gray-700 dark:text-gray-300 text-xs whitespace-nowrap">
+                            <x-pulse-boosted::td numeric class="hidden @xl:table-cell text-gray-700 dark:text-gray-300 text-xs whitespace-nowrap">
                                 {{ ($stats['p95'] ?? null) === null ? '—' : number_format($stats['p95']).'ms' }}
                             </x-pulse-boosted::td>
                             <x-pulse-boosted::td numeric class="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
                                 {{ $lastAt === null ? 'never' : CarbonImmutable::createFromTimestamp((int) $lastAt)->diffForHumans(short: true) }}
                             </x-pulse-boosted::td>
-                            <x-pulse-boosted::td numeric class="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+                            <x-pulse-boosted::td numeric class="hidden @md:table-cell text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
                                 {{ ($task?->next_due ?? null) === null ? '—' : CarbonImmutable::createFromTimestamp($task->next_due)->diffForHumans(short: true) }}
                             </x-pulse-boosted::td>
                         </tr>
