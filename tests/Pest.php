@@ -1,6 +1,5 @@
 <?php
 
-use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Facades\Pulse;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Queues\JobStorage;
@@ -164,49 +163,56 @@ function prependListener(string $event, callable $listener): void
 
 function captureRedisCommands(callable $callback)
 {
-    $port = Config::get('database.redis.default.port');
+    $port = (string) Config::get('database.redis.default.port');
 
-    $process = Process::timeout(10)->start("redis-cli -p {$port} MONITOR");
+    // Without a shell in between, so stopping it stops redis-cli rather than
+    // leaving it behind, still connected and monitoring.
+    $process = Process::timeout(60)->start(['redis-cli', '-p', $port, 'MONITOR']);
 
-    Sleep::for(50)->milliseconds();
+    // Until the flag shows up in the monitor's output, pinging again every
+    // half second: redis-cli can take a moment to start listening, and a
+    // ping sent before it did is never seen. Timed with the real clock,
+    // because tests freeze Carbon's.
+    $await = function (string $flag) use ($process, $port) {
+        $deadline = microtime(true) + 15;
 
-    $beforeFlag = Str::random();
-    Process::timeout(1)->run("redis-cli -p {$port} ping {$beforeFlag}")->throw();
+        do {
+            Process::timeout(10)->run(['redis-cli', '-p', $port, 'ping', $flag])->throw();
 
-    $pingedAt = CarbonImmutable::now();
+            $retryAt = microtime(true) + 0.5;
 
-    while (! str_contains($process->output(), $beforeFlag) && $pingedAt->addSeconds(3)->isFuture()) {
-        Sleep::for(50)->milliseconds();
-    }
+            while (microtime(true) < $retryAt) {
+                if (str_contains($process->output(), $flag)) {
+                    return;
+                }
 
-    if (! str_contains($process->output(), $beforeFlag)) {
-        throw new Exception('Redis before PING was never recorded.');
-    }
+                usleep(25_000);
+            }
+        } while (microtime(true) < $deadline);
+
+        throw new Exception("Redis PING [{$flag}] was never recorded.");
+    };
 
     try {
+        $beforeFlag = Str::random();
+        $await($beforeFlag);
+
         $callback();
 
         $afterFlag = Str::random();
-        Process::timeout(1)->run("redis-cli -p {$port} ping {$afterFlag}")->throw();
+        $await($afterFlag);
 
-        $pingedAt = CarbonImmutable::now();
+        $process->signal(SIGINT);
 
-        while (! str_contains($process->output(), $afterFlag) && $pingedAt->addSeconds(3)->isFuture()) {
-            Sleep::for(50)->milliseconds();
-        }
-
-        if (! str_contains($process->output(), $afterFlag)) {
-            throw new Exception('Redis after PING was never recorded.');
-        }
-
-        return collect(explode("\n", $process->signal(SIGINT)->output()))
+        return collect(explode("\n", $process->output()))
             ->skipUntil(fn ($value) => str_contains($value, $beforeFlag))
-            ->skip(1)
-            ->filter(fn ($output) => $output && ! str_contains($output, $afterFlag))
+            ->filter(fn ($output) => $output && ! str_contains($output, $beforeFlag) && ! str_contains($output, $afterFlag))
             ->map(fn ($value) => Str::after($value, '] '))
             ->values();
     } finally {
-        $process->running() && $process->signal(SIGINT);
+        if ($process->running()) {
+            $process->signal(SIGINT);
+        }
     }
 }
 

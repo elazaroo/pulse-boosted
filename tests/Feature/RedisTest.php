@@ -38,7 +38,7 @@ function prepareForDriver($driver)
 
 beforeEach(function () {
     try {
-        Process::timeout(1)->run('redis-cli -p '.Config::get('database.redis.default.port').' FLUSHALL')->throw();
+        Process::timeout(10)->run('redis-cli -p '.Config::get('database.redis.default.port').' FLUSHALL')->throw();
     } catch (ProcessFailedException $e) {
         $this->markTestSkipped('Unable to run `redis-cli`');
     }
@@ -121,7 +121,7 @@ it('runs the same commands while storing', function ($driver) {
         new Entry(timestamp: 1700752211, type: 'foo', key: 'bar', value: 123),
         new Entry(timestamp: 1700752211, type: 'foo', key: 'baz', value: 456),
     ]));
-    $output = Process::timeout(1)
+    $output = Process::timeout(10)
         ->run('redis-cli -p '.Config::get('database.redis.default.port').' XINFO STREAM '.$prefix.'elazaroo:pulse-boosted:ingest')
         ->throw()
         ->output();

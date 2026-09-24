@@ -32,7 +32,7 @@ it('ingests cache interactions', function () {
         'key' => 'miss-key',
         'value' => null,
     ]);
-    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->orderBy('period')->get());
+    $aggregates = Pulse::ignore(fn () => DB::table('pulse_boosted_aggregates')->orderBy('period')->orderBy('type')->get());
     expect($aggregates)->toHaveCount(8);
     expect($aggregates[0])->toHaveProperties([
         'bucket' => (int) (floor(now()->timestamp / 60) * 60),
