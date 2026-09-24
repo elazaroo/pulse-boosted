@@ -6,7 +6,7 @@ It is a standalone package, not a drop-in replacement. Its namespace, config fil
 
 ## Why this fork exists
 
-Laravel Pulse is excellent at aggregated metrics, but two things were missing for our use:
+Laravel Pulse is excellent at aggregated metrics, but three things were missing for our use:
 
 **SQL Server.** Pulse supports MySQL, MariaDB, PostgreSQL and SQLite. Pulse Boosted adds `sqlsrv` to the storage driver and the migrations, so the dashboard runs against SQL Server without a bridging package.
 
@@ -66,13 +66,7 @@ its own, and an `allkeys-*` policy could drop history before its time.
 
 ## Configuration
 
-Publish the config file if you need to change anything:
-
-```sh
-php artisan vendor:publish --tag=pulse-boosted-config
-```
-
-Every option is also settable through the environment. The most common ones:
+The installer publishes the config file to `config/pulse-boosted.php`. Every option is also settable through the environment. The most common ones:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -407,6 +401,7 @@ id, routes, scheduled tasks, and users by name or email. Every result is a
 link, so what it opens can also be bookmarked or sent to someone.
 
 Every row on every card opens the trace behind it.
+
 ## Alerts
 
 A dashboard tells you something is wrong once you go and look at it. A rule is
@@ -665,6 +660,7 @@ Listing never pops: the database inspector runs a `SELECT` and the Redis one use
 
 | Command | Purpose |
 | --- | --- |
+| `pulse-boosted:install` | Publish the config and the migrations, and choose where the job history is kept |
 | `pulse-boosted:check` | Take a snapshot of the current server |
 | `pulse-boosted:work` | Process the ingest stream |
 | `pulse-boosted:restart` | Signal workers to restart |
@@ -701,7 +697,7 @@ them across; list the columns explicitly and leave out the generated `key_hash`.
 
 This fork keeps Laravel Pulse's architecture: recorders write entries, an ingest buffers them, a storage driver aggregates them into buckets, and Livewire cards read the aggregates. New functionality lives in its own directories rather than being woven into the upstream files.
 
-Upstream releases are ported by hand. The `1.x` branch in this repository tracks `laravel/pulse` unchanged and exists to generate those diffs.
+Upstream releases are reviewed and ported by hand rather than merged, since the two code bases have diverged too far for a merge to be meaningful.
 
 ## Credits
 

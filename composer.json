@@ -2,7 +2,14 @@
     "name": "elazaroo/pulse-boosted",
     "description": "Laravel Pulse with native SQL Server support and deep queue and job observability.",
     "keywords": [
-        "laravel"
+        "laravel",
+        "pulse",
+        "monitoring",
+        "observability",
+        "queues",
+        "jobs",
+        "tracing",
+        "sql-server"
     ],
     "homepage": "https://github.com/elazaroo/pulse-boosted",
     "license": "MIT",

@@ -8,4 +8,3 @@ composer.lock
 /phpunit.xml
 .phpunit.result.cache
 .env
-.idea

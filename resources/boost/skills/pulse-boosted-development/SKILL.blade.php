@@ -1,81 +1,83 @@
 ---
-name: pulse-development
-description: "Handles Laravel Pulse setup, configuration, and custom card development. Activates when installing Pulse; configuring the dashboard or authorization gate; setting up recorders and filtering; building custom Livewire cards; optimizing with Redis ingest or sampling; or when the user mentions /pulse, pulse-boosted:check, pulse-boosted:work, Pulse::record(), or application monitoring."
+name: pulse-boosted-development
+description: "Handles Pulse Boosted setup, configuration, and custom card development. Activates when installing Pulse Boosted; configuring the dashboard, its gates or the settings page; choosing where the job history is kept; setting up recorders, traces, issues, alerts or webhooks; building custom Livewire cards; or when the user mentions /pulse-boosted, pulse-boosted:install, pulse-boosted:check, pulse-boosted:work, PulseBoosted::record(), or application monitoring."
 license: MIT
 metadata:
-  author: laravel
+  author: elazaroo
 ---
 @php
 /** @var \Laravel\Boost\Install\GuidelineAssist $assist */
 @endphp
-# Laravel Pulse Development
+# Pulse Boosted Development
 
-## Documentation
-
-Use `search-docs` for detailed Laravel Pulse patterns and documentation, including card layout customization, user resolver configuration, all recorder options, sampling, dedicated database connections, Vite/CSS integration, Tailwind scoping, blade card components, and lazy loading.
+Pulse Boosted (`elazaroo/pulse-boosted`) is a fork of Laravel Pulse with SQL Server support, traces, issues, alerts, webhooks and per-job queue observability. Everything it owns is named after itself — the `Elazaroo\PulseBoosted\` namespace, `config/pulse-boosted.php`, `PULSE_BOOSTED_*` variables, `pulse_boosted_*` tables, `pulse-boosted:*` commands — so it can run next to `laravel/pulse` without colliding.
 
 ## Installation
 
-Pulse stores data in your application's database. The current package supports MySQL, MariaDB, PostgreSQL, and SQLite.
+Pulse Boosted stores data in the application's database: MySQL, MariaDB, PostgreSQL, SQLite or SQL Server.
 
 ```bash
-composer require laravel/pulse
-{{ $assist->artisanCommand('vendor:publish --provider="Elazaroo\PulseBoosted\PulseServiceProvider"') }}
-{{ $assist->artisanCommand('migrate') }}
+composer require elazaroo/pulse-boosted
+{{ $assist->artisanCommand('pulse-boosted:install') }}
 ```
 
-The dashboard is available at `/pulse`. 
+The installer publishes the config, asks whether the queues run on Redis, writes the answer to `.env` as `PULSE_BOOSTED_JOBS_STORAGE`, and publishes only the migrations that answer needs: with Redis, the job history lives there and `pulse_boosted_jobs` and `pulse_boosted_job_attempts` are not created. In scripts, answer up front:
 
-## Dashboard Authorization
+```bash
+{{ $assist->artisanCommand('pulse-boosted:install --redis --connection=default --migrate --no-interaction') }}
+{{ $assist->artisanCommand('pulse-boosted:install --database --migrate --no-interaction') }}
+```
 
-Define the `viewPulseBoosted` gate in `AppServiceProvider::boot()` to enable production access:
+Do not publish the migrations with `vendor:publish` instead: it would add the job history tables whatever the choice.
 
-@boostsnippet("Pulse Dashboard Authorization", "php")
+The dashboard is at `/pulse-boosted` (`PULSE_BOOSTED_PATH`), and most settings can be changed at `/pulse-boosted/settings`.
+
+## Authorization
+
+Two gates, defined in `AppServiceProvider::boot()`:
+
+@boostsnippet("Pulse Boosted Gates", "php")
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 
+// Reading the dashboard. Without it, only the local environment can.
 Gate::define('viewPulseBoosted', function (User $user) {
+    return $user->isAdmin();
+});
+
+// Changing things: queue actions, issues, the settings page. Denied unless defined.
+Gate::define('managePulseBoostedQueues', function (User $user) {
     return $user->isAdmin();
 });
 @endboostsnippet
 
-Without this gate, the dashboard is inaccessible in all non-local environments.
+## Processes to run
+
+- `pulse-boosted:check` on every server, under a process manager: server stats, worker heartbeats, alert rules, trimming.
+- `pulse-boosted:work` only with `PULSE_BOOSTED_INGEST_DRIVER=redis`, to drain the Redis stream into the database.
+- `pulse-boosted:restart` after deploying, to restart both (needs a working cache driver).
+- `pulse-boosted:deploy <version>` in the deploy script, optionally, to mark the deployment.
 
 ## Recorders
 
-All 10 built-in recorders are configurable in `config/pulse-boosted.php`:
-
-| Recorder | Key Config Options |
-|---|---|
-| `CacheInteractions` | `sample_rate`, `ignore`, `groups` (regex find/replace) |
-| `Exceptions` | `sample_rate`, `ignore`, `location` |
-| `Queues` | `sample_rate`, `ignore` |
-| `SlowJobs` | `threshold` (ms, per-job regex map), `sample_rate`, `ignore` |
-| `SlowOutgoingRequests` | `threshold` (ms, per-URL regex map), `sample_rate`, `ignore`, `groups` |
-| `SlowQueries` | `threshold` (ms, per-query regex map), `sample_rate`, `ignore`, `location` |
-| `SlowRequests` | `threshold` (ms, per-route regex map), `sample_rate`, `ignore` |
-| `Servers` | `PULSE_BOOSTED_SERVER_NAME` env var, monitored disk paths |
-| `UserJobs` | `sample_rate`, `ignore` |
-| `UserRequests` | `sample_rate`, `ignore` |
-
-Per-route and per-job threshold overrides use a regex-keyed map with a `default` fallback:
+Recorders are configured under `recorders` in `config/pulse-boosted.php`: `CacheInteractions`, `Exceptions`, `Issues`, `Jobs`, `Queues`, `Servers`, `SlowJobs`, `SlowOutgoingRequests`, `SlowQueries`, `SlowRequests`, `Traces`, `UserJobs`, `UserRequests` and `Workers`. Most take `sample_rate` and `ignore`; the slow ones take a `threshold` map keyed by regex with a `default`:
 
 @boostsnippet("Per-Route Threshold Override", "php")
 Recorders\SlowRequests::class => [
     'threshold' => [
         '#^/api/reports#' => 5000,
-        'default'         => env('PULSE_BOOSTED_SLOW_REQUESTS_THRESHOLD', 1000),
+        'default' => env('PULSE_BOOSTED_SLOW_REQUESTS_THRESHOLD', 1000),
     ],
 ],
 @endboostsnippet
 
-The `Servers` recorder requires `pulse-boosted:check` running as a persistent daemon (Supervisor recommended).
+Thresholds saved on the settings page win over the config file, field by field.
 
-### Filtering Entries
+Job arguments are only captured with `PULSE_BOOSTED_JOBS_CAPTURE_PAYLOAD=true`, and keys in the Jobs recorder's `redact` list are replaced before storage.
 
-Use `Pulse::filter()` in `AppServiceProvider::boot()` to exclude entries globally. Return `true` to record, `false` to skip:
+### Filtering entries
 
-@boostsnippet("Pulse Entry Filter", "php")
+@boostsnippet("Pulse Boosted Entry Filter", "php")
 use Elazaroo\PulseBoosted\Entry;
 use Elazaroo\PulseBoosted\Facades\Pulse;
 use Elazaroo\PulseBoosted\Value;
@@ -86,38 +88,37 @@ Pulse::filter(function (Entry|Value $entry) {
 });
 @endboostsnippet
 
-## Performance
+## Traces
 
-### Redis Ingest
+Requests, commands, scheduled tasks and jobs are traced with their queries, cache operations, jobs, HTTP calls, exceptions, logs, mail and notifications. Sampling is decided per execution (`traces.sample_rates`), but failures, exceptions and slow executions are kept anyway.
 
-Offload entry writes from the request cycle to a Redis stream (requires Redis 6.2+ and `phpredis` or `predis`):
+@boostsnippet("Trace Context and Sampling", "php")
+use Elazaroo\PulseBoosted\Facades\Pulse;
+use Elazaroo\PulseBoosted\Http\Middleware\Sample;
 
-```ini
-PULSE_BOOSTED_INGEST_DRIVER=redis
-PULSE_BOOSTED_REDIS_CONNECTION=pulse
-```
+// Searchable attributes on the current trace; a no-op when it is not sampled.
+Pulse::context(['tenant' => $tenant->id, 'order' => $order->id]);
 
-Run a worker to drain the Redis stream into the database:
+// Per-route sampling.
+Route::post('/checkout', CheckoutController::class)->middleware(Sample::always());
+Route::get('/health', HealthController::class)->middleware(Sample::never());
 
-```bash
-{{ $assist->artisanCommand('pulse-boosted:work') }}
-```
+// Leave noisy events out.
+Pulse::rejectQueries(fn (string $sql) => str_contains($sql, 'telescope_'));
+@endboostsnippet
 
-Signal a graceful restart during deployment (requires a working cache driver):
+## Issues, alerts and notifications
 
-```bash
-{{ $assist->artisanCommand('pulse-boosted:restart') }}
-```
+- Exceptions, logged warnings and errors, and executions over `issues.thresholds` become issues, which can be resolved, ignored and assigned; a resolved one that comes back reopens.
+- Alert rules live under `alerts.rules`, and each is a metric, a threshold and a window. They fire `AlertTriggered` and `AlertResolved`. `pulse-boosted:alerts --dry-run` shows what each rule reads.
+- Email recipients and webhooks (Slack, Discord, Microsoft Teams, Google Chat, Mattermost, Telegram, signed JSON) are managed on the settings page and stored in the database, encrypted — never in `.env`.
+- For any other channel, listen for `IssueOpened`, `IssueRegressed`, `IssueAssigned`, `AlertTriggered`, `AlertResolved` or `ScheduledTaskMissed` in `Elazaroo\PulseBoosted\Events`.
 
 ## Custom Cards
 
-Custom cards are Livewire components extending Pulse's base `Card` class.
+Record entries from a recorder, listener or observer, chaining the aggregations:
 
-### Recording Entries
-
-Call `Pulse::record()` from a recorder, listener, or observer. Chain aggregation methods (`avg`, `count`, `max`, `min`, `sum`) in a single call:
-
-@boostsnippet("Record Pulse Entry", "php")
+@boostsnippet("Record Pulse Boosted Entry", "php")
 use Elazaroo\PulseBoosted\Facades\Pulse;
 
 Pulse::record('user_sale', $user->id, $sale->amount)
@@ -125,11 +126,9 @@ Pulse::record('user_sale', $user->id, $sale->amount)
     ->count();
 @endboostsnippet
 
-When the entry is tied to the authenticated user, use `Pulse::resolveAuthenticatedUserId()` instead of `Auth::id()` to respect custom user resolvers.
+When the entry is tied to the signed-in user, use `Pulse::resolveAuthenticatedUserId()` rather than `Auth::id()`, so custom user resolvers are respected.
 
-### Card Component
-
-@boostsnippet("Custom Pulse Card", "php")
+@boostsnippet("Custom Pulse Boosted Card", "php")
 namespace App\Livewire\Pulse;
 
 use Elazaroo\PulseBoosted\Facades\Pulse;
@@ -146,8 +145,8 @@ class TopSellers extends Card
 
         return view('livewire.pulse.top-sellers', [
             'sellers' => $aggregates->map(fn ($row) => (object) [
-                'user'  => $users->find($row->key),
-                'sum'   => $row->sum,
+                'user' => $users->find($row->key),
+                'sum' => $row->sum,
                 'count' => $row->count,
             ]),
         ]);
@@ -155,46 +154,15 @@ class TopSellers extends Card
 }
 @endboostsnippet
 
-`$this->aggregate(type, aggregates)` returns a `Collection` of `stdClass` objects with `key` and one property per aggregation method. `$this->aggregateTotal(type, aggregate)` returns a single scalar.
+Wrap the view in `<x-pulse-boosted::card>`, and add the card to a published dashboard with `{{ $assist->artisanCommand('vendor:publish --tag=pulse-boosted-dashboard') }}`, which writes `resources/views/vendor/pulse-boosted/dashboard.blade.php`.
 
-### Custom Recorders
-
-A recorder is a plain class with a `$listen` array of Laravel events:
-
-@boostsnippet("Custom Pulse Recorder", "php")
-class SaleRecorder
-{
-    public array $listen = [
-        \App\Events\SaleCompleted::class,
-    ];
-
-    public function record(\App\Events\SaleCompleted $event): void
-    {
-        \Elazaroo\PulseBoosted\Facades\Pulse::record('user_sale', $event->user->id, $event->sale->amount)
-            ->sum()
-            ->count();
-    }
-}
-@endboostsnippet
-
-Register the recorder in the `recorders` array in `config/pulse-boosted.php`.
-
-## Verification
-
-1. Run migrations and confirm `/pulse` is accessible in local
-2. Define `viewPulseBoosted` gate and verify production access
-3. Confirm `pulse-boosted:check` is running for the Servers card
-4. If using Redis ingest, confirm `pulse-boosted:work` is running
+A recorder is a plain class with a `$listen` array of events and a `record()` method. Register it under `recorders` in `config/pulse-boosted.php`.
 
 ## Common Pitfalls
 
-- An empty dashboard or database errors usually mean the Pulse tables have not been published and migrated yet.
-- The dashboard is local-only by default. Define the `viewPulseBoosted` gate to enable production access.
-- The Servers card shows no data unless `pulse-boosted:check` runs as a persistent process. Supervisor is recommended.
-- Redis ingest silently queues data. The dashboard appears empty if `pulse-boosted:work` is not running.
-- `pulse-boosted:restart` requires a working cache driver. Without it, the signal is never received.
-- Pulse exceptions fail silently. Use `Pulse::handleExceptionsUsing()` to surface errors during development.
-- Multiple `Authenticatable` models can cause incorrect user tracking. Use `Pulse::resolveAuthenticatedUserId()` when recording user-keyed entries.
-- SQS queues may appear duplicated in the Queue card. Use `ignore` regex patterns to suppress them.
-- Sampled dashboard values are approximate and prefixed with `~`. They are not suitable for financial or audit reporting.
-- Always use `search-docs` for the latest Pulse documentation rather than relying on this skill alone.
+- An empty dashboard or database errors usually mean `pulse-boosted:install` was not run, or its migrations were not run.
+- Nothing on the Servers, Workers or Alerts cards means `pulse-boosted:check` is not running.
+- With `PULSE_BOOSTED_INGEST_DRIVER=redis`, nothing reaches the dashboard until `pulse-boosted:work` runs.
+- With the job history in Redis, keep the connection's `maxmemory-policy` at `noeviction` or a `volatile-*` policy, or history can be evicted early.
+- Pulse Boosted swallows its own exceptions. Use `Pulse::handleExceptionsUsing()` to surface them during development.
+- Trace-based figures are sampled: values are approximate and prefixed with `~`.
