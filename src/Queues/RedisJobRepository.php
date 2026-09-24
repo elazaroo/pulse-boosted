@@ -110,6 +110,13 @@ class RedisJobRepository implements JobRepository
                 }
             });
 
+            // A field that is not there comes back as null from predis and
+            // false from phpredis; null it is.
+            $known = array_map(
+                fn ($fields) => array_map(fn ($value) => $value === false ? null : $value, is_array($fields) ? $fields : [null, null]),
+                $known,
+            );
+
             $new = [];
 
             foreach ($uuids as $i => $uuid) {

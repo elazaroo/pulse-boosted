@@ -50,6 +50,7 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 ### Changed
 
 - A failed job's exception is counted once per attempt. In the console, Collision wraps the exception handler and the reporting hook ended up registered twice, so every job failure was two occurrences.
+- The job history in Redis works on phpredis, Laravel's default client, which answers a missing hash field with false where predis answers null; it recorded no jobs at all there.
 - Searches ignore case on PostgreSQL too, as they already did on MySQL, MariaDB, SQLite and SQL Server.
 - The deployment and scheduled task records no longer use `insertOrIgnore`, which SQL Server does not support.
 - On Laravel 10, an attempt released after an exception keeps that exception.

@@ -17,11 +17,25 @@ use Illuminate\Support\Facades\Redis;
  */
 function jobStore(string $driver): JobRepository
 {
+    // "redis" runs on predis, "phpredis" on the extension — Laravel's
+    // default client, whose raw commands reply in their own shapes.
+    [$driver, $client] = match ($driver) {
+        'redis' => ['redis', 'predis'],
+        'phpredis' => ['redis', 'phpredis'],
+        default => [$driver, null],
+    };
+
+    if ($client === 'phpredis' && ! extension_loaded('redis')) {
+        test()->markTestSkipped('PHP extension [redis] missing.');
+    }
+
     Config::set('pulse-boosted.queues.storage.driver', $driver);
     app()->forgetInstance(JobRepository::class);
 
-    if ($driver === 'redis') {
-        Config::set('database.redis.client', 'predis');
+    if ($client !== null) {
+        Config::set('database.redis.client', $client);
+        app()->forgetInstance('redis');
+        Redis::clearResolvedInstances();
 
         try {
             Redis::connection()->ping();
@@ -98,7 +112,7 @@ it('records a job through its lifecycle and reads it back', function (string $dr
 
     expect($store->countsByStatus())->toMatchArray(['queued' => 0, 'processing' => 0, 'failed' => 1]);
     expect($store->find('nothing'))->toBeNull();
-})->with(['database', 'redis']);
+})->with(['database', 'redis', 'phpredis']);
 
 it('lists newest first, by status, with paging and filters', function (string $driver) {
     $store = jobStore($driver);
@@ -124,7 +138,7 @@ it('lists newest first, by status, with paging and filters', function (string $d
     expect($store->count(['status' => 'failed', 'finished_after' => '2003']))->toBe(1);
     expect($store->countsByStatus(['queue' => 'default']))->toMatchArray(['processed' => 2, 'failed' => 2]);
     expect($store->recordedQueues()->map(fn ($row) => $row->connection.'/'.$row->queue)->all())->toBe(['redis/default', 'redis/invoices']);
-})->with(['database', 'redis']);
+})->with(['database', 'redis', 'phpredis']);
 
 it('keeps every attempt at a job', function (string $driver) {
     $store = jobStore($driver);
@@ -140,7 +154,7 @@ it('keeps every attempt at a job', function (string $driver) {
     expect($attempts->first())->status->toBe('failed')->exception_message->toBe('Timeout');
     expect(rtrim($attempts->first()->trace_id))->toBe('trace-a');
     expect($store->attempts('nothing'))->toBeEmpty();
-})->with(['database', 'redis']);
+})->with(['database', 'redis', 'phpredis']);
 
 it('drops what is past the retention, and everything when purged', function (string $driver) {
     Config::set('pulse-boosted.recorders.'.Jobs::class.'.trim.keep', '1 day');
@@ -159,7 +173,7 @@ it('drops what is past the retention, and everything when purged', function (str
 
     expect($store->jobs())->toBeEmpty();
     expect($store->recordedQueues())->toBeEmpty();
-})->with(['database', 'redis']);
+})->with(['database', 'redis', 'phpredis']);
 
 it('needs no tables for the history when it is kept in Redis', function () {
     jobStore('redis');
