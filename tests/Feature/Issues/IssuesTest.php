@@ -1,9 +1,12 @@
 <?php
 
+use Elazaroo\PulseBoosted\Events\ExceptionReported;
 use Elazaroo\PulseBoosted\Facades\Pulse;
 use Elazaroo\PulseBoosted\Issues\IssueRepository;
 use Elazaroo\PulseBoosted\Livewire\Issues;
+use Elazaroo\PulseBoosted\PulseServiceProvider;
 use Elazaroo\PulseBoosted\Queues\QueueActions;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
@@ -233,6 +236,24 @@ it('records exceptions the application throws, not only ones reported by hand', 
 
     expect($issues)->toHaveCount(1);
     expect($issues[0]->message)->toBe('Thrown, not reported');
+
+    Pulse::flush();
+});
+
+it('counts an exception the handler reports once, however many times the hook is registered', function () {
+    // Regression: in the console, Collision wraps the exception handler and
+    // the hook ended up registered twice on it, so every failed job was two
+    // occurrences. Booting the provider again registers it a second time.
+    app()->register(PulseServiceProvider::class, force: true);
+
+    $dispatched = 0;
+    Event::listen(ExceptionReported::class, function () use (&$dispatched) {
+        $dispatched++;
+    });
+
+    report(new RuntimeException('Warehouse refused the sync'));
+
+    expect($dispatched)->toBe(1);
 
     Pulse::flush();
 });

@@ -63,12 +63,20 @@ class Deployments
         $this->noted = true;
 
         try {
-            $this->pulse->ignore(fn () => $this->table()->insertOrIgnore([
-                'version' => $version,
-                'deployed_at' => $at ?? CarbonImmutable::now()->getTimestamp(),
-            ]));
+            // Checked, then inserted, rather than insertOrIgnore, which SQL
+            // Server does not have. Two servers noting the same version at
+            // once is the one way the insert fails, and caught below.
+            $this->pulse->ignore(function () use ($version, $at) {
+                if (! $this->table()->where('version', $version)->exists()) {
+                    $this->table()->insert([
+                        'version' => $version,
+                        'deployed_at' => $at ?? CarbonImmutable::now()->getTimestamp(),
+                    ]);
+                }
+            });
         } catch (Throwable) {
-            // The table may not exist yet, mid-deploy, before migrations run.
+            // The table may not exist yet, mid-deploy, before migrations run,
+            // or another server noted it first.
         }
     }
 

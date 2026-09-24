@@ -3,6 +3,7 @@
 namespace Elazaroo\PulseBoosted\Logging;
 
 use Elazaroo\PulseBoosted\Pulse;
+use Elazaroo\PulseBoosted\Support\Like;
 use Elazaroo\PulseBoosted\Support\Location;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Connection;
@@ -124,7 +125,7 @@ class LogStream
             ->join('pulse_boosted_traces as t', 't.trace_id', '=', 'e.trace_id')
             ->where('e.type', 'log')
             ->when($level !== '', fn (Builder $query) => $query->where('e.level', $level))
-            ->when($search !== '', fn (Builder $query) => $query->where('e.label', 'like', $this->like($search)))
+            ->when($search !== '', fn (Builder $query) => $query->where('e.label', Like::operator($query), $this->like($search)))
             ->when($user !== '', fn (Builder $query) => $query->where('t.user_id', $user))
             ->orderByDesc('e.id')
             ->limit($limit)
@@ -168,8 +169,8 @@ class LogStream
             // executions were never thrown.
             ->whereIn('i.kind', self::THROWN)
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
-                ->where('i.class', 'like', $this->like($search))
-                ->orWhere('i.message', 'like', $this->like($search))))
+                ->where('i.class', Like::operator($query), $this->like($search))
+                ->orWhere('i.message', Like::operator($query), $this->like($search))))
             ->when($user !== '', fn (Builder $query) => $query->where('o.user_id', $user))
             ->orderByDesc('o.id')
             ->limit($limit)

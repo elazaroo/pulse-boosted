@@ -48,7 +48,8 @@ function thrown(string $class, string $message, int $ago = 0, ?string $traceId =
     Pulse::ignore(function () use ($class, $message, $ago, $traceId) {
         $fingerprint = md5($class.$message);
 
-        DB::table('pulse_boosted_issues')->insertOrIgnore([
+        // Portable: SQL Server has no insertOrIgnore.
+        DB::table('pulse_boosted_issues')->where('fingerprint', $fingerprint)->exists() || DB::table('pulse_boosted_issues')->insert([
             'fingerprint' => $fingerprint,
             'class' => $class,
             'kind' => is_a($class, Error::class, true) ? 'error' : 'exception',

@@ -7,6 +7,7 @@ use Carbon\CarbonInterval;
 use Elazaroo\PulseBoosted\Pulse;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Recorders\Jobs;
+use Elazaroo\PulseBoosted\Support\Like;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
@@ -291,9 +292,9 @@ class DatabaseJobRepository implements JobRepository
             $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
             $query->where(fn (Builder $query) => $query
-                ->where('name', 'like', "%{$escaped}%")
-                ->orWhere('uuid', 'like', "%{$escaped}%")
-                ->orWhere('exception_class', 'like', "%{$escaped}%"));
+                ->where('name', Like::operator($query), "%{$escaped}%")
+                ->orWhere('uuid', Like::operator($query), "%{$escaped}%")
+                ->orWhere('exception_class', Like::operator($query), "%{$escaped}%"));
         }
 
         return $query;

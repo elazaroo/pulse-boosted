@@ -9,6 +9,7 @@ use Elazaroo\PulseBoosted\Queues\JobStatus;
 use Elazaroo\PulseBoosted\Queues\PayloadCapture;
 use Elazaroo\PulseBoosted\Traces\Tracer;
 use Illuminate\Contracts\Queue\Job as JobContract;
+use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
@@ -48,6 +49,17 @@ class Jobs
     protected array $startedAt = [];
 
     /**
+     * The exception each job being worked on last threw, by UUID.
+     *
+     * Laravel 10's JobReleasedAfterException does not carry the exception
+     * that caused the release, so it is taken from JobExceptionOccurred,
+     * which every version fires first.
+     *
+     * @var array<string, Throwable>
+     */
+    protected array $thrown = [];
+
+    /**
      * The events to listen for.
      *
      * @var list<class-string>
@@ -59,6 +71,7 @@ class Jobs
         JobReleasedAfterException::class,
         JobFailed::class,
         JobTimedOut::class,
+        JobExceptionOccurred::class,
     ];
 
     /**
@@ -75,9 +88,17 @@ class Jobs
     /**
      * Record the job.
      */
-    public function record(JobQueued|JobProcessing|JobProcessed|JobReleasedAfterException|JobFailed|JobTimedOut $event): void
+    public function record(JobQueued|JobProcessing|JobProcessed|JobReleasedAfterException|JobFailed|JobTimedOut|JobExceptionOccurred $event): void
     {
         $now = CarbonImmutable::now();
+
+        if ($event instanceof JobExceptionOccurred) {
+            if (is_string($uuid = $event->job->uuid())) {
+                $this->thrown[$uuid] = $event->exception;
+            }
+
+            return;
+        }
 
         if ($event instanceof JobQueued) {
             $this->recordQueued($event, $now);
@@ -177,9 +198,11 @@ class Jobs
         $startedMs = $this->startedAt[$uuid] ?? null;
 
         $exception = match (true) {
-            $event instanceof JobFailed, $event instanceof JobReleasedAfterException => $event->exception ?? null,
+            $event instanceof JobFailed, $event instanceof JobReleasedAfterException => $event->exception ?? $this->thrown[$uuid] ?? null,
             default => null,
         };
+
+        unset($this->thrown[$uuid]);
 
         $this->jobs->recordAttempt($uuid, [
             'attempt' => $job->attempts(),

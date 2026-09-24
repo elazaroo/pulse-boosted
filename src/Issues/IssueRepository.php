@@ -8,6 +8,7 @@ use Elazaroo\PulseBoosted\Events\IssueAssigned;
 use Elazaroo\PulseBoosted\Events\IssueOpened;
 use Elazaroo\PulseBoosted\Events\IssueRegressed;
 use Elazaroo\PulseBoosted\Pulse;
+use Elazaroo\PulseBoosted\Support\Like;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Connection;
@@ -321,6 +322,9 @@ class IssueRepository
         return $this->pulse->ignore(fn () => $this->filtered($filters)
             ->when($orderBy === 'count', fn (Builder $query) => $query->orderByDesc('occurrences'))
             ->orderByDesc('last_seen_at')
+            // Two issues seen in the same second come back in the same order
+            // on every database.
+            ->orderByDesc('id')
             ->offset($offset)
             ->limit($limit)
             ->get());
@@ -648,8 +652,8 @@ class IssueRepository
             $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
             $query->where(fn (Builder $query) => $query
-                ->where('class', 'like', "%{$escaped}%")
-                ->orWhere('message', 'like', "%{$escaped}%"));
+                ->where('class', Like::operator($query), "%{$escaped}%")
+                ->orWhere('message', Like::operator($query), "%{$escaped}%"));
         }
 
         return $query;

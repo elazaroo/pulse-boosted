@@ -65,15 +65,25 @@ use Laravel\Octane\Events\RequestReceived;
 use Laravel\Octane\Events\TaskReceived;
 use Laravel\Octane\Events\TickReceived;
 use Laravel\Sentinel\Http\Middleware\SentinelMiddleware;
+use Livewire\Features\SupportDisablingBackButtonCache\SupportDisablingBackButtonCache;
 use Livewire\LivewireManager;
 use RuntimeException;
 use Throwable;
+use WeakMap;
 
 /**
  * @internal
  */
 class PulseServiceProvider extends ServiceProvider
 {
+    /**
+     * The exceptions the handler has passed on, so each is recorded once
+     * however many times the hook ended up registered.
+     *
+     * @var WeakMap<Throwable, true>|null
+     */
+    protected static ?WeakMap $reportedByHandler = null;
+
     /**
      * Register any package services.
      */
@@ -215,6 +225,14 @@ class PulseServiceProvider extends ServiceProvider
                             abort(404);
                         }
 
+                        // Livewire 3 marks every response after the first
+                        // component in the process as uncacheable — in a
+                        // long-running server, that includes these. They are
+                        // files, never a component.
+                        if (class_exists(SupportDisablingBackButtonCache::class)) {
+                            SupportDisablingBackButtonCache::$disableBackButtonCache = false;
+                        }
+
                         return response()->file($path, [
                             'Content-Type' => str_ends_with($asset, '.css') ? 'text/css; charset=utf-8' : 'application/javascript; charset=utf-8',
                             'Cache-Control' => 'public, max-age=31536000, immutable',
@@ -282,9 +300,21 @@ class PulseServiceProvider extends ServiceProvider
         // or the application called Pulse::report() itself. Recorders listen
         // for ExceptionReported alone, so issues and traces see thrown
         // exceptions too rather than only the ones reported by hand.
+        //
+        // Once per exception: in the console, Collision wraps the handler and
+        // the handler is resolved twice, which registers this twice on the
+        // same handler — and every failed job counted double.
         $this->callAfterResolving(ExceptionHandler::class, function (ExceptionHandler $handler, Application $app) {
             if (method_exists($handler, 'reportable')) {
                 $handler->reportable(function (Throwable $e) use ($app) {
+                    $reported = self::$reportedByHandler ??= new WeakMap;
+
+                    if (isset($reported[$e])) {
+                        return;
+                    }
+
+                    $reported[$e] = true;
+
                     $app->make(Pulse::class)->report($e, handled: $this->wasReportedByHand());
                 });
             }

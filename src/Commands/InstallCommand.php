@@ -108,11 +108,10 @@ class InstallCommand extends Command
             return $detected;
         }
 
-        return confirm(
-            label: 'Do your queues run on Redis?',
-            default: $detected,
-            hint: 'If they do, the job history is kept in Redis too and its two tables are not created.',
-        );
+        // No hint: the oldest Prompts Laravel 10 allows has no such argument.
+        $this->components->info('If your queues run on Redis, the job history is kept there too and its two tables are not created.');
+
+        return confirm('Do your queues run on Redis?', default: $detected);
     }
 
     protected function redisConnection(): string

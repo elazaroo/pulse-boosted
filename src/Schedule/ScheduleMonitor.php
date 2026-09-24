@@ -14,6 +14,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use stdClass;
 use Throwable;
@@ -250,12 +251,22 @@ class ScheduleMonitor
         $this->pulse->rescue(fn () => $this->pulse->ignore(function () use ($event, $values) {
             $key = $this->key($event);
 
-            if ($this->table()->where('key', $key)->update($values) === 0) {
-                $now = CarbonImmutable::now()->getTimestamp();
+            // Whether it exists, rather than how many rows an update touched:
+            // MySQL counts a row whose values did not change as untouched.
+            if ($this->table()->where('key', $key)->exists()) {
+                $this->table()->where('key', $key)->update($values);
 
-                // Run before any schedule:run wrote the schedule down — by
-                // schedule:test, or the first time after installing.
-                $this->table()->insertOrIgnore([
+                return;
+            }
+
+            $now = CarbonImmutable::now()->getTimestamp();
+
+            // Run before any schedule:run wrote the schedule down — by
+            // schedule:test, or the first time after installing. Not
+            // insertOrIgnore, which SQL Server does not have; a scheduler on
+            // another server inserting it first is the only way this fails.
+            try {
+                $this->table()->insert([
                     'key' => $key,
                     'name' => self::name($event),
                     'expression' => $event->expression,
@@ -264,6 +275,8 @@ class ScheduleMonitor
                     'last_seen_at' => $now,
                     ...$values,
                 ]);
+            } catch (QueryException) {
+                $this->table()->where('key', $key)->update($values);
             }
         }));
     }

@@ -4,6 +4,7 @@ namespace Elazaroo\PulseBoosted\Traces;
 
 use Carbon\CarbonImmutable;
 use Elazaroo\PulseBoosted\Pulse;
+use Elazaroo\PulseBoosted\Support\Like;
 use Elazaroo\PulseBoosted\Support\Location;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Connection;
@@ -592,7 +593,7 @@ class TraceRepository
         if (($search = $filters['search'] ?? null) !== null && $search !== '') {
             $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
-            $query->where('pulse_boosted_trace_events.label', 'like', "%{$escaped}%");
+            $query->where('pulse_boosted_trace_events.label', Like::operator($query), "%{$escaped}%");
         }
 
         return $query;
@@ -619,11 +620,11 @@ class TraceRepository
             $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
             $query->where(fn (Builder $query) => $query
-                ->where('name', 'like', "%{$escaped}%")
+                ->where('name', Like::operator($query), "%{$escaped}%")
                 // Attributes attached with PulseBoosted::context() live in the
                 // meta column, and finding the one request that carried a
                 // given order id is the whole point of having attached it.
-                ->orWhere('meta', 'like', "%{$escaped}%"));
+                ->orWhere('meta', Like::operator($query), "%{$escaped}%"));
         }
 
         if (($slowerThan = $filters['slower_than'] ?? null) !== null && $slowerThan !== '') {

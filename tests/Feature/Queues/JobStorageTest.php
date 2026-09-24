@@ -36,9 +36,18 @@ function jobStore(string $driver): JobRepository
     return $store;
 }
 
+/**
+ * A job id as long as a real one: the column is char(36), which SQL Server
+ * pads anything shorter to fill.
+ */
+function jobId(string $name): string
+{
+    return str_pad($name, 36, '-');
+}
+
 function aJob(JobRepository $store, string $uuid, array $attributes): void
 {
-    $store->record($uuid, $attributes + ['connection' => 'redis', 'queue' => 'default', 'name' => 'App\Jobs\SendInvoice']);
+    $store->record(jobId($uuid), $attributes + ['connection' => 'redis', 'queue' => 'default', 'name' => 'App\Jobs\SendInvoice']);
 }
 
 afterEach(function () {
@@ -73,18 +82,19 @@ it('records a job through its lifecycle and reads it back', function (string $dr
     aJob($store, 'job-1', ['status' => 'failed', 'finished_at' => 1010, 'duration_ms' => 4800, 'exception_class' => 'RuntimeException', 'exception' => 'Card declined']);
     $store->flush();
 
-    $job = $store->find('job-1');
+    $job = $store->find(jobId('job-1'));
 
     expect($job)
-        ->uuid->toBe('job-1')
+        ->uuid->toBe(jobId('job-1'))
         ->status->toBe('failed')
         ->queue->toBe('default')
         ->queued_at->toBe(1000)
         ->started_at->toBe(1005)
-        ->duration_ms->toBe(4800)
+        // Compared as numbers: SQL Server hands bigints back as strings.
+        ->duration_ms->toEqual(4800)
         ->attempts->toBe(1)
         ->exception_class->toBe('RuntimeException');
-    expect($job->id)->toBeInt();
+    expect($job->id)->toBeNumeric();
 
     expect($store->countsByStatus())->toMatchArray(['queued' => 0, 'processing' => 0, 'failed' => 1]);
     expect($store->find('nothing'))->toBeNull();
@@ -105,12 +115,12 @@ it('lists newest first, by status, with paging and filters', function (string $d
         $store->flush();
     }
 
-    expect($store->jobs()->pluck('uuid')->all())->toBe(['job-5', 'job-4', 'job-3', 'job-2', 'job-1']);
-    expect($store->jobs([], 2, 1)->pluck('uuid')->all())->toBe(['job-4', 'job-3']);
-    expect($store->jobs(['status' => 'failed'])->pluck('uuid')->all())->toBe(['job-4', 'job-2']);
+    expect($store->jobs()->pluck('uuid')->map(fn ($id) => rtrim($id, '-'))->all())->toBe(['job-5', 'job-4', 'job-3', 'job-2', 'job-1']);
+    expect($store->jobs([], 2, 1)->pluck('uuid')->map(fn ($id) => rtrim($id, '-'))->all())->toBe(['job-4', 'job-3']);
+    expect($store->jobs(['status' => 'failed'])->pluck('uuid')->map(fn ($id) => rtrim($id, '-'))->all())->toBe(['job-4', 'job-2']);
     expect($store->count(['status' => 'processed']))->toBe(3);
-    expect($store->jobs(['queue' => 'invoices'])->pluck('uuid')->all())->toBe(['job-5']);
-    expect($store->jobs(['search' => 'carddeclined'])->pluck('uuid')->all())->toBe(['job-4', 'job-2']);
+    expect($store->jobs(['queue' => 'invoices'])->pluck('uuid')->map(fn ($id) => rtrim($id, '-'))->all())->toBe(['job-5']);
+    expect($store->jobs(['search' => 'carddeclined'])->pluck('uuid')->map(fn ($id) => rtrim($id, '-'))->all())->toBe(['job-4', 'job-2']);
     expect($store->count(['status' => 'failed', 'finished_after' => '2003']))->toBe(1);
     expect($store->countsByStatus(['queue' => 'default']))->toMatchArray(['processed' => 2, 'failed' => 2]);
     expect($store->recordedQueues()->map(fn ($row) => $row->connection.'/'.$row->queue)->all())->toBe(['redis/default', 'redis/invoices']);
@@ -120,14 +130,15 @@ it('keeps every attempt at a job', function (string $driver) {
     $store = jobStore($driver);
 
     aJob($store, 'job-1', ['status' => 'processed']);
-    $store->recordAttempt('job-1', ['attempt' => 1, 'status' => 'failed', 'started_at' => 10, 'finished_at' => 11, 'duration_ms' => 900, 'exception_class' => 'RuntimeException', 'exception_message' => 'Timeout', 'trace_id' => 'trace-a']);
-    $store->recordAttempt('job-1', ['attempt' => 2, 'status' => 'processed', 'started_at' => 20, 'finished_at' => 21, 'duration_ms' => 300, 'trace_id' => 'trace-b']);
+    $store->recordAttempt(jobId('job-1'), ['attempt' => 1, 'status' => 'failed', 'started_at' => 10, 'finished_at' => 11, 'duration_ms' => 900, 'exception_class' => 'RuntimeException', 'exception_message' => 'Timeout', 'trace_id' => 'trace-a']);
+    $store->recordAttempt(jobId('job-1'), ['attempt' => 2, 'status' => 'processed', 'started_at' => 20, 'finished_at' => 21, 'duration_ms' => 300, 'trace_id' => 'trace-b']);
     $store->flush();
 
-    $attempts = $store->attempts('job-1');
+    $attempts = $store->attempts(jobId('job-1'));
 
     expect($attempts->pluck('attempt')->map(fn ($a) => (int) $a)->all())->toBe([1, 2]);
-    expect($attempts->first())->status->toBe('failed')->exception_message->toBe('Timeout')->trace_id->toBe('trace-a');
+    expect($attempts->first())->status->toBe('failed')->exception_message->toBe('Timeout');
+    expect(rtrim($attempts->first()->trace_id))->toBe('trace-a');
     expect($store->attempts('nothing'))->toBeEmpty();
 })->with(['database', 'redis']);
 
@@ -141,7 +152,7 @@ it('drops what is past the retention, and everything when purged', function (str
 
     $store->trim();
 
-    expect($store->jobs()->pluck('uuid')->all())->toBe(['new']);
+    expect($store->jobs()->pluck('uuid')->map(fn ($id) => rtrim($id, '-'))->all())->toBe(['new']);
     expect($store->count(['status' => 'processed']))->toBe(1);
 
     $store->purge();

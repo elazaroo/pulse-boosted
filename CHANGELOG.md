@@ -49,6 +49,12 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 
 ### Changed
 
+- A failed job's exception is counted once per attempt. In the console, Collision wraps the exception handler and the reporting hook ended up registered twice, so every job failure was two occurrences.
+- Searches ignore case on PostgreSQL too, as they already did on MySQL, MariaDB, SQLite and SQL Server.
+- The deployment and scheduled task records no longer use `insertOrIgnore`, which SQL Server does not support.
+- On Laravel 10, an attempt released after an exception keeps that exception.
+- Issues seen in the same second come back in the same order on every database.
+- The dashboard's assets stay cacheable under Livewire 3 in a long-running server.
 - A worker's jobs and a scheduler's tasks are now traced. `queue:work` and `schedule:run` opened a trace of their own that never closed, so nothing inside them was recorded.
 - Exceptions thrown by the application now reach every recorder. Only the Exceptions card saw them before; issues and trace timelines only saw exceptions passed to `Pulse::report()` by hand.
 - Renamed throughout to `elazaroo/pulse-boosted` and the `Elazaroo\PulseBoosted\` namespace, so the package is independent of `laravel/pulse` rather than a replacement for it. See [Moving from Laravel Pulse](README.md#moving-from-laravel-pulse).

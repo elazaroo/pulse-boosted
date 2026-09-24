@@ -5,6 +5,7 @@ namespace Elazaroo\PulseBoosted\Search;
 use Elazaroo\PulseBoosted\Pulse;
 use Elazaroo\PulseBoosted\Queues\Contracts\JobRepository;
 use Elazaroo\PulseBoosted\Support\DashboardUrl;
+use Elazaroo\PulseBoosted\Support\Like;
 use Elazaroo\PulseBoosted\Support\People;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Connection;
@@ -67,8 +68,8 @@ class GlobalSearch
 
         return $this->connection()->table('pulse_boosted_issues')
             ->where(fn ($where) => $where
-                ->where('class', 'like', $like)
-                ->orWhere('message', 'like', $like)
+                ->where('class', Like::operator($where), $like)
+                ->orWhere('message', Like::operator($where), $like)
                 ->orWhere('fingerprint', $query))
             ->orderByRaw("case when status = 'open' then 0 else 1 end")
             ->orderByDesc('last_seen_at')
@@ -93,7 +94,7 @@ class GlobalSearch
         return $this->connection()->table('pulse_boosted_traces')
             ->when($byId,
                 fn ($where) => $where->where('trace_id', 'like', strtolower($query).'%'),
-                fn ($where) => $where->where('name', 'like', $this->like($query)))
+                fn ($where) => $where->where('name', Like::operator($where), $this->like($query)))
             ->orderByDesc('id')
             ->limit($byId ? self::LIMIT : 50)
             ->get(['trace_id', 'type', 'name', 'status', 'duration_ms'])
@@ -135,7 +136,7 @@ class GlobalSearch
     {
         return $this->connection()->table('pulse_boosted_traces')
             ->where('type', 'request')
-            ->where('name', 'like', $this->like($query))
+            ->where(fn ($where) => $where->where('name', Like::operator($where), $this->like($query)))
             ->groupBy('name')
             ->selectRaw('name, count(*) as aggregate')
             ->orderByDesc('aggregate')
@@ -156,7 +157,7 @@ class GlobalSearch
     protected function tasks(string $query): array
     {
         return $this->connection()->table('pulse_boosted_scheduled_tasks')
-            ->where('name', 'like', $this->like($query))
+            ->where(fn ($where) => $where->where('name', Like::operator($where), $this->like($query)))
             ->orderBy('name')
             ->limit(self::LIMIT)
             ->get(['name', 'expression'])
