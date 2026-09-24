@@ -16,8 +16,8 @@ Laravel Pulse is excellent at aggregated metrics, but three things were missing 
 
 ## Requirements
 
-- PHP 8.1+
-- Laravel 10.48.4+, 11.0.8+, 12.x or 13.x
+- PHP 8.2+ (8.3+ for Laravel 13)
+- Laravel 11.0.8+, 12.x or 13.x
 - Livewire 3.6.4+ or 4.x
 
 Pausing queues from the dashboard needs **Laravel 13**, which is where `queue:pause` and the API behind it landed; on older versions the buttons are not shown. Recorded job history works on every supported version. Live queue counters do too for the `database` and `redis` drivers, which are read directly. For `sqs` and `beanstalkd` the counters come from `pendingSize()`, `delayedSize()` and `reservedSize()`, which Laravel added to the queue contract in **13.0**; on older versions those two drivers show their counts as unknown rather than guessing.

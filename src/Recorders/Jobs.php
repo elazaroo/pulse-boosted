@@ -51,9 +51,9 @@ class Jobs
     /**
      * The exception each job being worked on last threw, by UUID.
      *
-     * Laravel 10's JobReleasedAfterException does not carry the exception
-     * that caused the release, so it is taken from JobExceptionOccurred,
-     * which every version fires first.
+     * JobReleasedAfterException does not carry the exception that caused
+     * the release on every supported version, so it is taken from
+     * JobExceptionOccurred, which every version fires first.
      *
      * @var array<string, Throwable>
      */

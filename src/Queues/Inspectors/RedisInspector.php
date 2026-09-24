@@ -66,7 +66,7 @@ class RedisInspector extends Inspector
      * How many jobs are waiting, by state.
      *
      * Worked out here rather than through the queue contract so the numbers
-     * are also available on Laravel 10 to 12.
+     * are also available on Laravel 11 and 12.
      */
     public function counts(string $queue): Counts
     {

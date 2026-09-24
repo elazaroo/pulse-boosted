@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## [v1.0.0](https://github.com/elazaroo/pulse-boosted/releases/tag/v1.0.0) - 2026-09-24
 
 Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 
@@ -49,18 +49,10 @@ Initial fork of [laravel/pulse](https://github.com/laravel/pulse) v1.8.1.
 
 ### Changed
 
-- A failed job's exception is counted once per attempt. In the console, Collision wraps the exception handler and the reporting hook ended up registered twice, so every job failure was two occurrences.
-- The job history in Redis works on phpredis, Laravel's default client, which answers a missing hash field with false where predis answers null; it recorded no jobs at all there.
-- Searches ignore case on PostgreSQL too, as they already did on MySQL, MariaDB, SQLite and SQL Server.
-- The deployment and scheduled task records no longer use `insertOrIgnore`, which SQL Server does not support.
-- On Laravel 10, an attempt released after an exception keeps that exception.
-- Issues seen in the same second come back in the same order on every database.
-- The dashboard's assets stay cacheable under Livewire 3 in a long-running server.
-- A worker's jobs and a scheduler's tasks are now traced. `queue:work` and `schedule:run` opened a trace of their own that never closed, so nothing inside them was recorded.
-- Exceptions thrown by the application now reach every recorder. Only the Exceptions card saw them before; issues and trace timelines only saw exceptions passed to `Pulse::report()` by hand.
 - Renamed throughout to `elazaroo/pulse-boosted` and the `Elazaroo\PulseBoosted\` namespace, so the package is independent of `laravel/pulse` rather than a replacement for it. See [Moving from Laravel Pulse](README.md#moving-from-laravel-pulse).
-- Line endings pinned to LF.
-- The test suite runs against an in-memory database, so it no longer shares one with the demo application.
+- Requires PHP 8.2 and Laravel 11 or later. Laravel 10 and PHP 8.1 are no longer supported.
+- Searches ignore case on PostgreSQL too, as they already did on MySQL, MariaDB, SQLite and SQL Server.
+- The dashboard's scripts and stylesheet are served from `/pulse-boosted/assets/…` and cached by the browser, rather than inlined in every page.
 
 ## Upstream history
 

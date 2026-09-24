@@ -16,7 +16,7 @@ use Throwable;
  *
  * This is the one driver where everything is visible, because the queue is
  * just rows. Counts are worked out here rather than deferred to the queue
- * contract so that they also work on Laravel 10 to 12.
+ * contract so that they also work on Laravel 11 and 12.
  *
  * @internal
  */

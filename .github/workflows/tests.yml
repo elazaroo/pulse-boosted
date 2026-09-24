@@ -69,8 +69,8 @@ jobs:
       # actually broke.
       fail-fast: false
       matrix:
-        php: [8.1, 8.2, 8.3, 8.4]
-        laravel: [10, 11, 12, 13]
+        php: [8.2, 8.3, 8.4]
+        laravel: [11, 12, 13]
         livewire: [3, 4]
         stability: [prefer-lowest, prefer-stable]
         include:
@@ -79,16 +79,8 @@ jobs:
             livewire: 4
             stability: prefer-stable
         exclude:
-          - php: 8.1
-            laravel: 11
-          - php: 8.1
-            laravel: 12
-          - php: 8.1
-            laravel: 13
           - php: 8.2
             laravel: 13
-          - php: 8.4
-            laravel: 10
 
     name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - Livewire ${{ matrix.livewire }} - Stability ${{ matrix.stability }} - MySQL 5.7
 
@@ -113,6 +105,10 @@ jobs:
       - name: Require cachewerk/relay
         run: |
           composer require cachewerk/relay --no-interaction --no-update
+
+      - name: Require Laravel ${{ matrix.laravel }}
+        run: |
+          composer require --dev "laravel/framework:^${{ matrix.laravel }}.0" "orchestra/testbench:${{ matrix.laravel == 11 && '^9.15' || matrix.laravel == 12 && '^10.8' || '^11.0' }}" --no-interaction --no-update
 
       - name: Require Livewire ${{ matrix.livewire }}
         run: |
@@ -157,8 +153,8 @@ jobs:
       # actually broke.
       fail-fast: false
       matrix:
-        php: [8.1, 8.2, 8.3, 8.4]
-        laravel: [10, 11, 12, 13]
+        php: [8.2, 8.3, 8.4]
+        laravel: [11, 12, 13]
         livewire: [3, 4]
         stability: [prefer-lowest, prefer-stable]
         include:
@@ -167,16 +163,8 @@ jobs:
             livewire: 4
             stability: prefer-stable
         exclude:
-          - php: 8.1
-            laravel: 11
-          - php: 8.1
-            laravel: 12
-          - php: 8.1
-            laravel: 13
           - php: 8.2
             laravel: 13
-          - php: 8.4
-            laravel: 10
 
     name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - Livewire ${{ matrix.livewire }} - Stability ${{ matrix.stability }} - MySQL 8
 
@@ -201,6 +189,10 @@ jobs:
       - name: Require cachewerk/relay
         run: |
           composer require cachewerk/relay --no-interaction --no-update
+
+      - name: Require Laravel ${{ matrix.laravel }}
+        run: |
+          composer require --dev "laravel/framework:^${{ matrix.laravel }}.0" "orchestra/testbench:${{ matrix.laravel == 11 && '^9.15' || matrix.laravel == 12 && '^10.8' || '^11.0' }}" --no-interaction --no-update
 
       - name: Require Livewire ${{ matrix.livewire }}
         run: |
@@ -274,6 +266,10 @@ jobs:
         run: |
           composer require cachewerk/relay --no-interaction --no-update
 
+      - name: Require Laravel ${{ matrix.laravel }}
+        run: |
+          composer require --dev "laravel/framework:^${{ matrix.laravel }}.0" "orchestra/testbench:${{ matrix.laravel == 11 && '^9.15' || matrix.laravel == 12 && '^10.8' || '^11.0' }}" --no-interaction --no-update
+
       - name: Require Livewire ${{ matrix.livewire }}
         run: |
           composer require "livewire/livewire:${{ matrix.livewire == 3 && '^3.6.4' || '^4.0' }}" --no-interaction --no-update
@@ -343,6 +339,10 @@ jobs:
       - name: Require cachewerk/relay
         run: |
           composer require cachewerk/relay --no-interaction --no-update
+
+      - name: Require Laravel ${{ matrix.laravel }}
+        run: |
+          composer require --dev "laravel/framework:^${{ matrix.laravel }}.0" "orchestra/testbench:${{ matrix.laravel == 11 && '^9.15' || matrix.laravel == 12 && '^10.8' || '^11.0' }}" --no-interaction --no-update
 
       - name: Require Livewire ${{ matrix.livewire }}
         run: |
@@ -429,6 +429,10 @@ jobs:
         run: |
           composer require cachewerk/relay --no-interaction --no-update
 
+      - name: Require Laravel ${{ matrix.laravel }}
+        run: |
+          composer require --dev "laravel/framework:^${{ matrix.laravel }}.0" "orchestra/testbench:${{ matrix.laravel == 11 && '^9.15' || matrix.laravel == 12 && '^10.8' || '^11.0' }}" --no-interaction --no-update
+
       - name: Require Livewire ${{ matrix.livewire }}
         run: |
           composer require "livewire/livewire:${{ matrix.livewire == 3 && '^3.6.4' || '^4.0' }}" --no-interaction --no-update
@@ -492,6 +496,10 @@ jobs:
         run: |
           composer require cachewerk/relay --no-interaction --no-update
 
+      - name: Require Laravel ${{ matrix.laravel }}
+        run: |
+          composer require --dev "laravel/framework:^${{ matrix.laravel }}.0" "orchestra/testbench:${{ matrix.laravel == 11 && '^9.15' || matrix.laravel == 12 && '^10.8' || '^11.0' }}" --no-interaction --no-update
+
       - name: Require Livewire ${{ matrix.livewire }}
         run: |
           composer require "livewire/livewire:${{ matrix.livewire == 3 && '^3.6.4' || '^4.0' }}" --no-interaction --no-update
@@ -504,3 +512,9 @@ jobs:
         run: vendor/bin/pest -vvv
         env:
           DB_CONNECTION: sqlite
+
+      - name: Execute tests with the job history in Redis
+        run: vendor/bin/pest -vvv
+        env:
+          DB_CONNECTION: sqlite
+          PULSE_BOOSTED_JOBS_STORAGE: redis
